@@ -1,0 +1,20 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+from mcp.Processor.models import QueueItem, BuildJob
+
+for item in QueueItem.objects.using( 'mcp' ).all().order_by( 'priority' ): # start with the biggest number first
+  tmp = item.getResources()
+  if tmp:
+    print 'Item "%s" is ready to start' % item
+    job = BuildJob()
+    job.build = item.build
+    job.resources = tmp
+    job.save()
+
+  item.delete()
+
+for job in BuildJob.objects.using( 'mcp' ).all():
+  pass
