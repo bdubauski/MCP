@@ -1,7 +1,4 @@
-from django.utils import simplejson
-
 from django.db import models
-from django.core.exceptions import ValidationError
 
 from mcp.Resources.models import Resource
 
@@ -55,7 +52,7 @@ This is a type of Build that can be done
   _dependancies = models.ManyToManyField( Package )
   _states = models.CharField( max_length=255 )
   _resources = models.ManyToManyField( Resource )
-  _quanities = models.CharField( max_lgnth=255 )
+  _quanities = models.CharField( max_length=255 )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -65,17 +62,15 @@ This is a type of Build that can be done
     return zip( self._dependancies, tmp )
 
   @property
-  def reqources( self ):
+  def resources( self ):
     tmp = [ int( i ) for i in self._quanities.split( ',' ) ]
-    return zip( self._resources, tmp )
+    return zip( self._resources.all(), tmp )
 
-  def save( self, *args, **kwargs ):
-    try:
-      simplejson.loads( self.resources )
-    except ValueError:
-      raise ValidationError( 'resources must be valid JSON' )
-
-    super( Build, self ).save( *args, **kwargs )
+  @resources.setter
+  def resources( self, value ):
+    tmp = zip( *value )
+    self._resources = tmp[0]
+    self._quanities = ','.join( tmp[1] )
 
   def __unicode__( self ):
     return "Build '%s' of '%s'" % ( self.name, self.project.name )

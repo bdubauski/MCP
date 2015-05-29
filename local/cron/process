@@ -5,8 +5,9 @@ os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
 
 from mcp.Processor.models import QueueItem, BuildJob
 
-for item in QueueItem.objects.using( 'mcp' ).all().order_by( 'priority' ): # start with the biggest number first
+for item in QueueItem.objects.all().order_by( 'priority' ): # start with the biggest number first
   tmp = item.getResources()
+  print "got resources %s" % tmp
   if tmp:
     print 'Item "%s" is ready to start' % item
     job = BuildJob()
@@ -16,5 +17,5 @@ for item in QueueItem.objects.using( 'mcp' ).all().order_by( 'priority' ): # sta
 
   item.delete()
 
-for job in BuildJob.objects.using( 'mcp' ).all():
+for job in BuildJob.objects.all():
   pass

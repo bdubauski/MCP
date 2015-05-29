@@ -10,7 +10,7 @@ class QueueItem( models.Model ):
 Processing Queue
   """
   build = models.ForeignKey( Build )
-  priority = models.IntegerField( devault=50 ) # higher the value, higer the priority
+  priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # ie. does it auto cleanup
   resource_status = models.TextField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
