@@ -8,6 +8,8 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
+MCP_HOST_NAME = 'mcp.mcp.test'
+MCP_PROXY = None
 
 # Application definition
 
@@ -16,9 +18,17 @@ INSTALLED_APPS = (
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
+    'cinp',
     'mcp.Processor',
     'mcp.Projects',
     'mcp.Resources',
+    'plato.Base',
+    'plato.Pod',
+    'plato.DataCenter',
+    'plato.Asset',
+    'plato.Config',
+    'plato.Device',
+    'plato.Network',
 )
 
 MIDDLEWARE_CLASSES = (
@@ -30,6 +40,7 @@ MIDDLEWARE_CLASSES = (
 
 ROOT_URLCONF = 'mcp.urls'
 
+from plato.settings import PROVISIONING_PROFILES
 
 # Database
 # https://docs.djangoproject.com/en/1.7/ref/settings/#databases

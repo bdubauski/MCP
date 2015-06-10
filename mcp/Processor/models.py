@@ -7,24 +7,50 @@ from mcp.Projects.models import Build
 
 class QueueItem( models.Model ):
   """
-Processing Queue
+QueueItem
   """
   build = models.ForeignKey( Build )
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
-  manual = models.BooleanField() # ie. does it auto cleanup
-  resource_status = models.TextField()
+  manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
+  resource_status = models.TextField( default='{}' )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def getResources( self ):
-    resources = self.build.resources
+  def checkResources( self ):
+    result = {}
+    resource_map = self.build.resources
+    for name in resource_map:
+      resource = resource_map[ name ][0].native
+      quanitity = resource_map[ name ][1]
+      tmp = resource.available( quanitity )
+      if not tmp:
+        result[ resource.name ] = 'Not Available'
 
-    print resources
+    return result
 
-    return [ 1, 2, 3 ]
+  def allocateResources( self, id ): # warning, dosen't check first, make sure you are sure there are resources aviable before calling
+    result = {}
+    resource_map = self.build.resources
+    for name in resource_map:
+      resource = resource_map[ name ][0].native
+      quanitity = resource_map[ name ][1]
+      config_list = resource.allocate( self.build, id, name, quanitity )
+      result[ name ] = []
+      for config in config_list:
+        result[ name ].append( { 'status': 'Allocated', 'config': config } )
+
+    return result
+
+  def save( self, *args, **kwargs ):
+    try:
+      simplejson.loads( self.resource_status )
+    except ValueError:
+      raise ValidationError( 'resource_status must be valid JSON' )
+
+    super( QueueItem, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
-    return "QueueItem for '%s' of priority '%s'" % ( self.build.name, self.priority )
+    return 'QueueItem for "%s" of priority "%s"' % ( self.build.name, self.priority )
 
 
 class BuildJob( models.Model ):
@@ -32,36 +58,57 @@ class BuildJob( models.Model ):
 BuildJob
   """
   build = models.ForeignKey( Build )
-  _resources = models.CharField( max_length=200 )
-  status = models.TextField( default='{}' )
+  _resources = models.TextField( default='{}' )
+  built_at = models.DateTimeField( editable=False, blank=True, null=True )
+  ran_at = models.DateTimeField( editable=False, blank=True, null=True )
+  released_at = models.DateTimeField( editable=False, blank=True, null=True )
+  manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
   def resources( self ):
-    return [ int( i ) for i in self._resources.split( ',' ) ]
+    return simplejson.loads( self._resources )
 
-  @resources.setter
-  def resources( self, value ):
-    for i in value:
-      if not isinstance( i, int ):
-        raise ValidationError( 'Resources Must be a an Itertable of ints. Got "%s"' % value )
+  @property
+  def state( self ):
+    if self.released_at and self.ran_at and self.built_at:
+      return 'released'
 
-    self._resources = ','.join( value )
+    if self.ran_at and self.built_at:
+      return 'ran'
 
-  def setStatus( self, resource, status ):
-    status = simplejson.loads( self.status )
-    status[ resource ] = status
-    self.status = simplejson.dumps( status )
+    if self.built_at:
+      return 'built'
+
+    return 'new'
+
+  @property
+  def resource_status( self ):
+    return simplejson.loads( self._resources )
+
+  def updateResourceState( self, name, index, status ):
+    tmp = simplejson.loads( self._resources )
+    try:
+      tmp[ name ][ index ][ 'status' ] = status
+    except ( IndexError, KeyError ):
+      return
+    self._resources = simplejson.dumps( tmp )
     self.save()
 
   def save( self, *args, **kwargs ):
     try:
-      simplejson.loads( self.status )
+      simplejson.loads( self._resources )
     except ValueError:
       raise ValidationError( 'status must be valid JSON' )
 
     super( BuildJob, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
-    return "BuildJob '%s' for build '%s'" % ( self.pk, self.build.name )
+    return 'BuildJob "%s" for build "%s"' % ( self.pk, self.build.name )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE' )
+    actions = {
+                 'updateResourceState': [ { 'type': 'Integer' }, { 'type': 'String' }, { 'type': 'String' } ]
+              }

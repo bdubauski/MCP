@@ -1,21 +1,94 @@
 #!/usr/bin/python -u
 import os
 
+# TODO: rename sark
+
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
 
+import logging
+import json
+from datetime import datetime, timedelta
+
+from django.utils.timezone import utc
+
 from mcp.Processor.models import QueueItem, BuildJob
+from mcp.Resources.models import Resource
+
+logging.basicConfig()
+logging.getLogger().setLevel( logging.INFO )
+logging.info( 'sark: Starting...' )
 
 for item in QueueItem.objects.all().order_by( 'priority' ): # start with the biggest number first
-  tmp = item.getResources()
-  print "got resources %s" % tmp
-  if tmp:
-    print 'Item "%s" is ready to start' % item
-    job = BuildJob()
-    job.build = item.build
-    job.resources = tmp
-    job.save()
+  status = item.checkResources()
+  if status:
+    logging.info( 'sark: Queue Item "%s" waiting for "%s"' % ( item, status ))
+    item.resource_status = json.dumps( status )
+    item.save()
+    continue
+
+  resources = item.allocateResources( item.pk )
+  logging.info( 'sark: Starting Queue Item "%s" with Resources "%s"' % ( item, resources ) )
+  job = BuildJob()
+  job.manual = item.manual
+  job.build = item.build
+  job._resources = json.dumps( resources )
+  job.save()
 
   item.delete()
 
-for job in BuildJob.objects.all():
-  pass
+for job in BuildJob.objects.filter( built_at__isnull=True ):
+  ready = True
+  resource_map = job.resources
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      tmp = Resource.built( resource_map[ name ][ index ][ 'config' ] )
+      ready &= tmp
+      job.updateResourceState( name, index, 'Built' if tmp else 'Building' )
+
+  if ready:
+    logging.info( 'sark: Setting job "%s" to Built.' % job.id )
+    job.built_at = datetime.utcnow().replace( tzinfo=utc )
+    job.save()
+
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True ):
+  resource_status = job.resource_status
+  ready = True
+  for resource in resource_status:
+    ready &= resource_status[ resource ] == 'Ran'
+
+  if ready:
+    logging.info( 'sark: Setting job "%s" to Ran.' % job.id )
+    job.ran_at = datetime.utcnow().replace( tzinfo=utc )
+    job.save()
+
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, released_at__isnull=True, manual=False ):
+  resource_status = job.resource_status
+  for resource in resource_status:
+    if resource_status[ resource ] not in ( 'Releasing', 'Released' ):
+      logging.info( 'sark: Releasing resource "%s" of job "%s".' % ( resource, job.id ) )
+      Resource.release( resource )
+      job.updateResourceState( resource, 'Releasing' )
+
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, released_at__isnull=True ):
+  resource_status = job.resource_status
+  for resource in resource_status:
+    if resource_status[ resource ] == 'Releasing':
+      if Resource.released( resource[ 'config' ] ):
+        job.updateResourceState( resource, 'Released' )
+
+    resource_status = job.resource_status
+    ready = True
+    for resource in resource_status:
+      ready &= resource_status[ resource ] == 'Released'
+
+    if ready:
+      logging.info( 'sark: Setting job "%s" to Released.' % job.id )
+      job.released_at = datetime.utcnow().replace( tzinfo=utc )
+      job.save()
+
+for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=2 ) ) ):
+  logging.info( 'sark: Cleaning up job "%s".' % job.id )
+  job.delete()
+
+logging.info( 'sark: Done!' )
+logging.shutdown()
