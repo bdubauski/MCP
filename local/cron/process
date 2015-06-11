@@ -14,6 +14,8 @@ from django.utils.timezone import utc
 from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resources.models import Resource
 
+CLEANUP_DELAY = 24
+
 logging.basicConfig()
 logging.getLogger().setLevel( logging.INFO )
 logging.info( 'sark: Starting...' )
@@ -26,11 +28,13 @@ for item in QueueItem.objects.all().order_by( 'priority' ): # start with the big
     item.save()
     continue
 
-  resources = item.allocateResources( item.pk )
-  logging.info( 'sark: Starting Queue Item "%s" with Resources "%s"' % ( item, resources ) )
   job = BuildJob()
   job.manual = item.manual
   job.build = item.build
+  job.save()
+
+  resources = item.allocateResources( job )
+  logging.info( 'sark: Starting Queue Item "%s" with Resources "%s" as job "%s"' % ( item, resources, job.id ) )
   job._resources = json.dumps( resources )
   job.save()
 
@@ -51,42 +55,51 @@ for job in BuildJob.objects.filter( built_at__isnull=True ):
     job.save()
 
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True ):
-  resource_status = job.resource_status
+  resource_map = job.resources
   ready = True
-  for resource in resource_status:
-    ready &= resource_status[ resource ] == 'Ran'
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      ready &= resource_map[ name ][ index ][ 'status' ] == 'Ran'
 
   if ready:
     logging.info( 'sark: Setting job "%s" to Ran.' % job.id )
     job.ran_at = datetime.utcnow().replace( tzinfo=utc )
     job.save()
 
-for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, released_at__isnull=True, manual=False ):
-  resource_status = job.resource_status
-  for resource in resource_status:
-    if resource_status[ resource ] not in ( 'Releasing', 'Released' ):
-      logging.info( 'sark: Releasing resource "%s" of job "%s".' % ( resource, job.id ) )
-      Resource.release( resource )
-      job.updateResourceState( resource, 'Releasing' )
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True ):
+  logging.info( 'sark: Setting job "%s" to Reported.' % job.id )
+  job.reported_at = datetime.utcnow().replace( tzinfo=utc )
+  job.save()
 
-for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, released_at__isnull=True ):
-  resource_status = job.resource_status
-  for resource in resource_status:
-    if resource_status[ resource ] == 'Releasing':
-      if Resource.released( resource[ 'config' ] ):
-        job.updateResourceState( resource, 'Released' )
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True, manual=False ):
+  resource_map = job.resources
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      if resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
+        logging.info( 'sark: Releasing resource "%s" "%s" of job "%s".' % ( name, index, job.id ) )
+        Resource.release( resource_map[ name ][ index ][ 'config' ]  )
+        job.updateResourceState( name, index, 'Releasing' )
 
-    resource_status = job.resource_status
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True ):
+  resource_map = job.resources
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      if resource_map[ name ][ index ][ 'status' ] == 'Releasing':
+        if Resource.released( resource_map[ name ][ index ][ 'config' ] ):
+          job.updateResourceState( name, index, 'Released' )
+
+    resource_map = job.resources
     ready = True
-    for resource in resource_status:
-      ready &= resource_status[ resource ] == 'Released'
+    for name in resource_map:
+      for index in range( 0, len( resource_map[ name ] ) ):
+        ready &= resource_map[ name ][ index ][ 'status' ] == 'Released'
 
     if ready:
       logging.info( 'sark: Setting job "%s" to Released.' % job.id )
       job.released_at = datetime.utcnow().replace( tzinfo=utc )
       job.save()
 
-for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=2 ) ) ):
+for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
   logging.info( 'sark: Cleaning up job "%s".' % job.id )
   job.delete()
 

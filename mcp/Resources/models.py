@@ -49,7 +49,7 @@ Resource
   def available( self, quantity ): # called first to see if resources are aviable
     return False
 
-  def allocate( self, build, id, name, quaninity ): # called second to allocate the resources to the project
+  def allocate( self, job, name, quaninity ): # called second to allocate the resources to the project
     return None # the id of the allocated resource
 
   @staticmethod
@@ -58,6 +58,9 @@ Resource
     if config.target.type == 'VM':
       return submitDeconfigureJob( config, True, True )
     else:
+      config.hostname = 'mcp-unused-%s' % ( config.pk )
+      config.description = '%s.%s' % ( config.hostname, config.pod.domain )
+      config.save()
       return submitDeconfigureJob( config, True, False )
 
   @staticmethod
@@ -74,8 +77,18 @@ Resource
 
     return config.target.type != 'VM' and config.status == 'Provisioned'
 
-  def _config( self, build, name, index ):
-    return simplejson.dumps( { 'mcp_host': settings.MCP_HOST_NAME, 'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ), 'mcp_build': build.name, 'mcp_resource_name': name, 'mcp_resource_index': index } )
+  def _config( self, job, name, index ):
+    return simplejson.dumps( {
+                               'mcp_host': settings.MCP_HOST_NAME,
+                               'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
+                               'mcp_job_id': job.pk,
+                               'mcp_resource_name': name,
+                               'mcp_resource_index': index,
+                               'mcp_git_url': 'http://git.mcp.test/mcp/test.git',
+                               'mcp_git_branch': 'master',
+                               'mcp_make_depends': 'test-depends',
+                               'mcp_make_target': 'test'
+                              } )
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
@@ -93,13 +106,13 @@ class VMResource( Resource ):
   def available( self, quantity ):
     return True # for now there is allways vm space aviable
 
-  def allocate( self, build, id, name, quaninity ):
+  def allocate( self, job, name, quaninity ):
     results = []
     for index in range( 0, quaninity ):
       address_list = []
       address_list.append( { 'interface': 'eth0', 'subnet': SubNet.objects.get( pk=TARGET_SUBNET ) } )
-      config = createConfig( 'mcp-auto--%s-%s--%s-%s' % ( build.name, id, name, index ), Pod.objects.get( pk=TARGET_POD ), Profile.objects.get( pk=self.config_profile ), address_list )
-      config.config_values = self._config( build, name, index )
+      config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), Pod.objects.get( pk=TARGET_POD ), Profile.objects.get( pk=self.config_profile ), address_list )
+      config.config_values = self._config( job, name, index )
       config.save()
       createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=VMHOST ), vmtemplate=VMTemplate.objects.get( pk=self.vm_template ) )
       results.append( config.pk )
@@ -116,14 +129,14 @@ class HardwareResource( Resource ):
   def available( self, quantity ):
     return Config.objects.filter( profile='mcp-resource', hardware_profile=self.hardware_template, configured__isnull=True, configjob=None ).count() > quantity
 
-  def allocate( self, build, id, name, quaninity ):
+  def allocate( self, job, name, quaninity ):
     results = []
     config_list = Config.objects.filter( profile='mcp-resource', hardware_profile=self.hardware_template, configured__isnull=True, configjob=None )
     for index in range( 0, quaninity ):
       config = config_list.pop()
-      config.config_values = self._config( build, name, index )
+      config.config_values = self._config( job, name, index )
       config.profile = Profile.objects.get( pk=self.config_profile )
-      config.hostname = 'mcp-auto--%s-%s--%s-%s' % ( build.name, id, name, index )
+      config.hostname = 'mcp-auto--%s-%s-%s' % ( job.pk, name, index )
       config.description = '%s.%s' % ( config.hostname, config.pod.domain )
       config.save()
       results.append( config.pk )

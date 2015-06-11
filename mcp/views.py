@@ -26,9 +26,9 @@ def status( request ):
 <body>
 <b>Build Jobs</b>
 <table border="1">
-<tr><th>Job Id</th><th>State</th><th>Status</th><th>Auto Clean</th><th>Last Updated</th><th>Created</th></tr>
+<tr><th>Job Id</th><th>State</th><th>Status</th><th>Manual</th><th>Last Updated</th><th>Created</th></tr>
 {% for item in job_list %}
-<tr><td>{{ item.pk }}</td><td>{{ item.state }}</td><td>{{ item.resource_status }}</td><td>{{ item.auto_clean }}<td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
+<tr><td>{{ item.pk }}</td><td>{{ item.state }}</td><td>{{ item.resources }}</td><td>{{ item.manual }}<td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
 <b>Queued Jobs</b>

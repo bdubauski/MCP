@@ -8,7 +8,7 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-MCP_HOST_NAME = 'mcp.mcp.test'
+MCP_HOST_NAME = 'http://mcp.mcp.test'
 MCP_PROXY = None
 
 # Application definition

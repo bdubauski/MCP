@@ -52,6 +52,16 @@ This is a GitHub Project
   def __unicode__( self ):
     return "GitHub Project '%s'" % self.name
 
+  def setup( self ):
+    pass
+    # git --bare clone %uri
+    # git --bare update-server-info
+    # mv hooks/post-update.sample hooks/post-update
+
+  def refresh( self ):
+    pass
+    # git fetch
+
 
 class Package( models.Model ):
   """

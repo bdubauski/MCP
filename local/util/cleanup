@@ -1,0 +1,22 @@
+#!/usr/bin/python -u
+import os
+
+# TODO: rename sark
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+import sys
+from datetime import datetime
+
+from django.utils.timezone import utc
+from mcp.Processor.models import BuildJob
+
+
+job_id = sys.argv[1]
+
+job = BuildJob.objects.get( pk=job_id )
+
+job.manual = False
+job.ran_at = datetime.utcnow().replace( tzinfo=utc )
+job.reported_at = datetime.utcnow().replace( tzinfo=utc )
+job.save()
