@@ -86,10 +86,11 @@ class Build( models.Model ):
   """
 This is a type of Build that can be done
   """
-  name = models.CharField( max_length=100 )
+  name = models.CharField( max_length=100, primary_key=True )
   project = models.ForeignKey( Project )
-  _dependancies = models.ManyToManyField( Package, through='BuildDependancies' )
+  _dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
   _resources = models.ManyToManyField( Resource, through='BuildResource' )
+  manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -137,13 +138,25 @@ This is a type of Build that can be done
       tmp.quanity = quanity
       tmp.save()
 
+  def save( self, *args, **kwargs ):
+    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
+      raise ValidationError( 'Invalid name' )
+
+    super( Build, self ).save( *args, **kwargs )
+
   def __unicode__( self ):
     return 'Build "%s" of "%s"' % ( self.name, self.project.name )
 
 class BuildDependancy( models.Model ):
+  key = models.CharField( max_length=200, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   build = models.ForeignKey( Build )
   dependancy = models.ForeignKey( Package )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
+
+  def save( self, *args, **kwargs ):
+    self.key = '%s:%s' % ( self.build.name, self.dependancy.name )
+
+    super( BuildDependancy, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
     return 'BuildDependancies from "%s" to "%s" at "%s"' % ( self.build.name, self.dependancy.name, self.state )
@@ -152,10 +165,16 @@ class BuildDependancy( models.Model ):
       unique_together = ( 'build', 'dependancy' )
 
 class BuildResource( models.Model ):
+  key = models.CharField( max_length=200, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   build = models.ForeignKey( Build )
   resource = models.ForeignKey( Resource )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
+
+  def save( self, *args, **kwargs ):
+    self.key = '%s:%s' % ( self.build.name, self.resource.name )
+
+    super( BuildResource, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
     return 'BuildResource from "%s" for "%s" named "%s"' % ( self.build.name, self.resource.name, self.name )

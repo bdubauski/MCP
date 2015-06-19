@@ -84,10 +84,10 @@ Resource
                                'mcp_job_id': job.pk,
                                'mcp_resource_name': name,
                                'mcp_resource_index': index,
-                               'mcp_git_url': 'http://git.mcp.test/mcp/test.git',
-                               'mcp_git_branch': 'master',
-                               'mcp_make_depends': 'test-depends',
-                               'mcp_make_target': 'test'
+                               'mcp_git_url': job.git_url,
+                               'mcp_git_branch': job.branch,
+                               'mcp_make_requires': job.requires,
+                               'mcp_make_target': job.target
                               } )
 
   def save( self, *args, **kwargs ):

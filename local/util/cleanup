@@ -1,8 +1,6 @@
 #!/usr/bin/python -u
 import os
 
-# TODO: rename sark
-
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
 
 import sys

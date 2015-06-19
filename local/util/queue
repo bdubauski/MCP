@@ -1,0 +1,49 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+import sys
+import optparse
+
+from mcp.Processor.models import QueueItem
+from mcp.Projects.models import Build
+
+oparser = optparse.OptionParser( description='Queue Job', usage='%prog [options]\n-b/--build and -t/--target are mutually exclusive, only one of the will process.' )
+
+oparser.add_option( '-b', '--build', help='Pre-defined Build Name', dest='build' )
+oparser.add_option( '-t', '--target', help='Target Name', dest='target' )
+
+oparser.add_option( '-p', '--priority', help='Queue Item Priority (default: 50)', dest='priority', default=50 )
+oparser.add_option( '-r', '--branch', help='git branch to check out (default: master)', dest='branch', default='master' )
+
+oparser.add_option( '-m', '--manual', help='Flag as Manual Build (-b only), ie: manual -> no auto cleanup (default: True)', dest='manual', default=True, action='store_true' )
+
+oparser.add_option( '-d', '--distro', help='Submit Task on Sepecified Distro (-t only)', dest='distro' )
+oparser.add_option( '-g', '--git', help='Git URL (URL to the local copy) (-t only)', dest='git' )
+
+( options, args ) = oparser.parse_args()
+
+if options.build:
+  try:
+    build = Build.objects.get( pk=options.build )
+  except Build.DoesNotExist:
+    print 'Build "%s" not Found' % options.build
+    sys.exit( 1 )
+
+  item = QueueItem.inQueueBuild( build, options.branch, options.manual, options.priority )
+  print 'Item "%s" Queued' % item
+  sys.exit( 0 )
+
+elif options.target:
+  if not options.distro or not options.git:
+    print 'distro and git are required for target'
+    sys.exit( 1 )
+
+  item = QueueItem.inQueueTarget( options.distro, options.branch, options.target, options.git, options.priority )
+  print 'Item "%s" Queued' % item
+  sys.exit( 0 )
+
+
+oparser.print_help()
+sys.exit( 1 )

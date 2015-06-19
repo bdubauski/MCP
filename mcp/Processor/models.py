@@ -10,6 +10,10 @@ class QueueItem( models.Model ):
 QueueItem
   """
   build = models.ForeignKey( Build )
+  git_url = models.CharField( max_length=100 )
+  branch = models.CharField( max_length=50 )
+  target = models.CharField( max_length=50 )
+  requires = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   resource_status = models.TextField( default='{}' )
@@ -28,7 +32,7 @@ QueueItem
 
     return result
 
-  def allocateResources( self, job ): # warning, dosen't check first, make sure you are sure there are resources aviable before calling
+  def allocateResources( self, job ): # warning, dosen't check first, make sure you are sure there are resources available before calling
     result = {}
     resource_map = self.build.resources
     for name in resource_map:
@@ -40,6 +44,39 @@ QueueItem
         result[ name ].append( { 'status': 'Allocated', 'config': config } )
 
     return result
+
+  @staticmethod
+  def inQueueBuild( build, branch, manual, priority ):
+    item = QueueItem()
+    item.build = build
+    item.manual = manual
+    item.git_url = 'http://git.mcp.test/%s' % build.project.local_path
+    item.branch = branch
+    item.target = build.name
+    item.requires = '%s-requires' % build.name
+    item.priority = priority
+    item.save()
+
+    return item
+
+  @staticmethod
+  def inQueueTarget( distro, branch, target, git_url, priority ):
+    try:
+      build = Build.objects.get( name='builtin-%s' % distro )
+    except Build.DoesNotExist:
+      raise Exception( 'distro "%s" not set up' % distro )
+
+    item = QueueItem()
+    item.build = build
+    item.manual = False
+    item.git_url = git_url
+    item.branch = branch
+    item.target = target
+    item.requires = '%s-requires' % target
+    item.priority = priority
+    item.save()
+
+    return item
 
   def save( self, *args, **kwargs ):
     try:
@@ -57,7 +94,11 @@ class BuildJob( models.Model ):
   """
 BuildJob
   """
-  build = models.ForeignKey( Build )
+  build = models.ForeignKey( Build, editable=False)
+  git_url = models.CharField( max_length=100 )
+  branch = models.CharField( max_length=50 )
+  target = models.CharField( max_length=50 )
+  requires = models.CharField( max_length=50 )
   _resources = models.TextField( default='{}' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )

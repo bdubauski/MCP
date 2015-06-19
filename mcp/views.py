@@ -26,16 +26,16 @@ def status( request ):
 <body>
 <b>Build Jobs</b>
 <table border="1">
-<tr><th>Job Id</th><th>State</th><th>Status</th><th>Manual</th><th>Last Updated</th><th>Created</th></tr>
+<tr><th>Job Id</th><th>Build</th><th>State</th><th>Status</th><th>Manual</th><th>Last Updated</th><th>Target</th><th>Git URL</th><th>Created</th></tr>
 {% for item in job_list %}
-<tr><td>{{ item.pk }}</td><td>{{ item.state }}</td><td>{{ item.resources }}</td><td>{{ item.manual }}<td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
+<tr><td>{{ item.pk }}</td><td>{{ item.build.name }}</td><td>{{ item.state }}</td><td>{{ item.resources }}</td><td>{{ item.manual }}</td><td>{{ item.updated }}</td><td>{{ item.target }}</td><td>{{ item.git_url }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
 <b>Queued Jobs</b>
 <table border="1">
-<tr><th>Queue Id</th><th>Priority</th><th>Manual</th><th>Status</th><th>Last Updated</th><th>Created</th></tr>
+<tr><th>Queue Id</th><th>Priority</th><th>Manual</th><th>Build</th><th>Status</th><th>Last Updated</th><th>Target</th><th>Git URL</th><th>Created</th></tr>
 {% for item in queue_list %}
-<tr><td>{{ item.pk }}</td><td>{{ item.priority }}</td><td>{{ item.manual }}</td><td>{{ item.resource_status }}</td><td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
+<tr><td>{{ item.pk }}</td><td>{{ item.priority }}</td><td>{{ item.manual }}</td><td>{{ item.build.name }}</td><td>{{ item.resource_status }}</td><td>{{ item.updated }}</td><td>{{ item.target }}</td><td>{{ item.git_url }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
 Generated at {% now "jS F Y H:i" %}
