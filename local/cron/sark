@@ -1,0 +1,184 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+import sys
+import logging
+import json
+from logging.handlers import SysLogHandler
+from datetime import datetime, timedelta
+
+from django.utils.timezone import utc
+from mcp.Projects.models import Commit
+from mcp.Processor.models import QueueItem, BuildJob
+from mcp.Resources.models import Resource
+
+CLEANUP_DELAY = 4
+PID_FILE = '/var/run/sark.pid'
+
+logging.basicConfig()
+logger = logging.getLogger()
+handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
+handler.setFormatter( logging.Formatter( fmt='sark[%(process)d]: %(message)s' ) )
+logger.addHandler( handler )
+logger.setLevel( logging.INFO )
+logging.info( 'Starting...' )
+
+if os.path.exists( PID_FILE ):
+  logging.error( 'pid file exists, bailing...' )
+  sys.exit( 0 )
+
+tmp = open( PID_FILE, 'w' )
+tmp.write( '%s\n' % os.getpid() )
+tmp.close()
+
+# Iterate over the Queued Items
+for item in QueueItem.objects.all().order_by( '-priority' ): # start with the biggest number first
+  try:
+    # Check to see if resources are aviable
+    status = item.checkResources()
+    if status:
+      logging.info( 'Queue Item "%s" waiting for "%s"' % ( item, status ))
+      item.resource_status = json.dumps( status )
+      item.save()
+      continue
+  except Exception as e:
+    logging.exception( 'Exception "%s" checking resources for item "%s", skiping...' % ( e, item.pk ) )
+    item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )
+    item.save()
+    continue
+
+  job = None
+  try:
+    # Build a job
+    job = BuildJob()
+    job.manual = item.manual
+    job.build = item.build
+    job.project = item.project
+    job.branch = item.branch
+    job.target = item.target
+    job.requires = item.requires
+    job.save()
+
+    # allocate the Resources
+    resources = item.allocateResources( job )
+    logging.info( 'Starting Queue Item "%s" with Resources "%s" as job "%s"' % ( item, resources, job.id ) )
+    job._resources = json.dumps( resources )
+    job.save()
+  except Exception as e:
+    logging.exception( 'Exception "%s" creating job for queue item "%s", skiping...' % ( e, item.pk ) )
+    if job and job.pk:
+      job.delete()
+    item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )
+    item.save()
+    continue
+
+  # remove the queue Item
+  item.delete()
+
+# Iterate over the build new jobs
+for job in BuildJob.objects.filter( built_at__isnull=True ):
+  ready = True
+  resource_map = job.resources
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      if resource_map[ name ][ index ][ 'status' ] not in ( 'Allocated', 'Building' ):
+        continue # don't want to overwrite any new status that might of been put in by something else, hopfully that something else waited till it was built, b/c we are going to assume it is, really should keep track of feedback status and building status seperately
+
+      tmp = Resource.built( resource_map[ name ][ index ][ 'config' ] )
+      ready &= tmp
+      job.updateResourceState( name, index, 'Built' if tmp else 'Building' )
+
+  # all done, set to built
+  if ready:
+    logging.info( 'Setting job "%s" to Built.' % job.id )
+    job.built_at = datetime.utcnow().replace( tzinfo=utc )
+    job.save()
+
+# the Job will flag it's self as Ran
+
+# Iterate over the Ran jobs, and for now fake report them
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True ):
+  if job.target in ( 'lint', 'test', 'rpm', 'dpkg', 'resource' ):
+    commit = None
+    try:
+      commit = Commit.objects.get( branch=job.branch, project=job.project, done_at__isnull=True )
+    except Commit.DoesNotExist:
+      logging.warning( 'Unable to find commit to save results to, ignored...' )
+    except Commit.MultipleObjectsReturned:
+      logging.error( 'To many commits match, fix and re-try' )
+      continue
+
+    if commit:
+      if job.target == 'lint':
+        status = json.loads( commit.lint_results )
+        distro = job.build.name.split( '-' )[1]
+        status[ distro ][ 'status' ] = 'done'
+        status[ distro ][ 'success' ] = job.resources[ 'target' ][0].get( 'success', False )
+        status[ distro ][ 'results' ] = job.resources[ 'target' ][0].get( 'results', '<not specified>' )
+        commit.lint_results = json.dumps( status )
+        commit.save()
+
+      elif job.target == 'test':
+        status = json.loads( commit.test_results )
+        distro = job.build.name.split( '-' )[1]
+        status[ distro ][ 'status' ] = 'done'
+        status[ distro ][ 'success' ] = job.resources[ 'target' ][0].get( 'success', False )
+        status[ distro ][ 'results' ] = job.resources[ 'target' ][0].get( 'results', '<not specified>' )
+        commit.test_results = json.dumps( status )
+        commit.save()
+
+      else:
+        status = json.loads( commit.build_results )
+        distro = job.build.name.split( '-' )[1]
+        status[ job.target ][ distro ][ 'status' ] = 'done'
+        status[ job.target ][ distro ][ 'success' ] = job.resources[ 'target' ][0].get( 'success', False )
+        status[ job.target ][ distro ][ 'results' ] = job.resources[ 'target' ][0].get( 'results', '<not specified>' )
+        commit.build_results = json.dumps( status )
+        commit.save()
+
+  logging.info( 'Setting job "%s" to Reported.' % job.id )
+  job.reported_at = datetime.utcnow().replace( tzinfo=utc )
+  job.save()
+
+# iterate over the Reported jobs that are not manual, and release the resources
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True, manual=False ):
+  resource_map = job.resources
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      if resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
+        logging.info( 'Releasing resource "%s" "%s" of job "%s".' % ( name, index, job.id ) )
+        Resource.release( resource_map[ name ][ index ][ 'config' ]  )
+        job.updateResourceState( name, index, 'Releasing' )
+
+# iterate over the Reported jobs and look to see if the resources are all released
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True ):
+  resource_map = job.resources
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      if resource_map[ name ][ index ][ 'status' ] == 'Releasing':
+        if Resource.released( resource_map[ name ][ index ][ 'config' ] ):
+          job.updateResourceState( name, index, 'Released' )
+
+  resource_map = job.resources
+  ready = True
+  for name in resource_map:
+    for index in range( 0, len( resource_map[ name ] ) ):
+      ready &= resource_map[ name ][ index ][ 'status' ] == 'Released'
+
+  # resources all released, set job to released
+  if ready:
+    logging.info( 'Setting job "%s" to Released.' % job.id )
+    job.released_at = datetime.utcnow().replace( tzinfo=utc )
+    job.save()
+
+# Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
+for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
+  logging.info( 'Cleaning up job "%s".' % job.id )
+  job.delete()
+
+os.unlink( PID_FILE )
+logging.info( 'Done!' )
+logging.shutdown()
+sys.exit( 0 )

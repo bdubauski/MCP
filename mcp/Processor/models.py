@@ -1,27 +1,39 @@
-from django.utils import simplejson
+from datetime import datetime
 
+from django.utils.timezone import utc
+from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from mcp.Projects.models import Build
+from mcp.Projects.models import Build, Project
+from mcp.Resources.models import Resource, ResourceGroup
+from plato.Config.lib import getSystemConfigValues
 
 class QueueItem( models.Model ):
   """
 QueueItem
   """
   build = models.ForeignKey( Build )
-  git_url = models.CharField( max_length=100 )
+  project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   requires = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   resource_status = models.TextField( default='{}' )
+  resource_groups = models.ManyToManyField( ResourceGroup )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   def checkResources( self ):
     result = {}
+    for group in self.resource_groups.all():
+      if not group.available():
+        result[ group.name ] = 'Not Available'
+
+    if result:
+      return result
+
     resource_map = self.build.resources
     for name in resource_map:
       resource = resource_map[ name ][0].native
@@ -34,11 +46,16 @@ QueueItem
 
   def allocateResources( self, job ): # warning, dosen't check first, make sure you are sure there are resources available before calling
     result = {}
+    group_config_list = []
+    for group in self.resource_groups.all():
+      group_config_list += group.config_list
+
     resource_map = self.build.resources
     for name in resource_map:
       resource = resource_map[ name ][0].native
       quanitity = resource_map[ name ][1]
-      config_list = resource.allocate( job, name, quanitity )
+      config_list = resource.allocate( job, name, quanitity, config_id_list=group_config_list ) # first try to allocated from resource groups
+      config_list += resource.allocate( job, name, quanitity - len( config_list ) ) # now allocated from general pool
       result[ name ] = []
       for config in config_list:
         result[ name ].append( { 'status': 'Allocated', 'config': config } )
@@ -50,7 +67,7 @@ QueueItem
     item = QueueItem()
     item.build = build
     item.manual = manual
-    item.git_url = 'http://git.mcp.test/%s' % build.project.local_path
+    item.project = build.project
     item.branch = branch
     item.target = build.name
     item.requires = '%s-requires' % build.name
@@ -60,7 +77,7 @@ QueueItem
     return item
 
   @staticmethod
-  def inQueueTarget( distro, branch, target, git_url, priority ):
+  def inQueueTarget( project, branch, distro, target, priority ):
     try:
       build = Build.objects.get( name='builtin-%s' % distro )
     except Build.DoesNotExist:
@@ -69,7 +86,7 @@ QueueItem
     item = QueueItem()
     item.build = build
     item.manual = False
-    item.git_url = git_url
+    item.project = project
     item.branch = branch
     item.target = target
     item.requires = '%s-requires' % target
@@ -94,8 +111,8 @@ class BuildJob( models.Model ):
   """
 BuildJob
   """
-  build = models.ForeignKey( Build, editable=False)
-  git_url = models.CharField( max_length=100 )
+  build = models.ForeignKey( Build, editable=False )
+  project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   requires = models.CharField( max_length=50 )
@@ -128,6 +145,10 @@ BuildJob
 
     return 'new'
 
+  def jobRan( self ):
+    self.ran_at = datetime.utcnow().replace( tzinfo=utc )
+    self.save()
+
   def updateResourceState( self, name, index, status ):
     tmp = simplejson.loads( self._resources )
     try:
@@ -155,6 +176,50 @@ BuildJob
     self._resources = simplejson.dumps( tmp )
     self.save()
 
+  def getConfigStatus( self, name, index=None, count=None ):
+    tmp = simplejson.loads( self._resources )
+    config_list = tmp[ name ]
+    if index:
+      if count:
+        config_list = tmp[ index : index + count ]
+
+      else:
+        config_list = tmp[ index : ]
+
+    if index is None:
+      index = 0
+
+    results = {}
+    for pos in range( 0, len( config_list ) ):
+      results[ index + pos ] = Resource.config( config_list[ pos ][ 'config' ] ).status
+
+    return results
+
+  def getProvisioningInfo( self, name, index=None, count=None ):
+    tmp = simplejson.loads( self._resources )
+    config_list = tmp[ name ]
+    if index:
+      if count:
+        config_list = tmp[ index : index + count ]
+
+      else:
+        config_list = tmp[ index : ]
+
+    if index is None:
+      index = 0
+
+    results = {}
+    for pos in range( 0, len( config_list ) ):
+      config = Resource.config( config_list[ pos ][ 'config' ] )
+      values = getSystemConfigValues( config=config, profile=config.profile )
+      values[ 'system_serial_number' ] = config.target.system_serial_number
+      values[ 'chassis_serial_number' ] = config.target.chassis_serial_number
+      values[ 'config_values' ] = config.config_values
+      values[ 'timestamp' ] = values[ 'timestamp' ].strftime( '%Y-%m-%d %H:%M:%S' )
+      results[ index + pos ] = values
+
+    return results
+
   def save( self, *args, **kwargs ):
     try:
       simplejson.loads( self._resources )
@@ -169,7 +234,10 @@ BuildJob
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE' )
     actions = {
+                 'jobRan': [],
                  'updateResourceState': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
                  'setResourceSuccess': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ],
-                 'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ]
+                 'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
+                 'getConfigStatus': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
+                 'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
               }

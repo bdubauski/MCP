@@ -40,7 +40,7 @@ MIDDLEWARE_CLASSES = (
 
 ROOT_URLCONF = 'mcp.urls'
 
-from plato.settings import PROVISIONING_PROFILES
+from plato.settings import PROVISIONING_PROFILES, PLATO_HOST_NAME
 
 # Database
 # https://docs.djangoproject.com/en/1.7/ref/settings/#databases

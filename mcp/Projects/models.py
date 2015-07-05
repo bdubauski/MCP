@@ -1,5 +1,6 @@
 import re
 
+from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError
 
@@ -15,7 +16,7 @@ class Project( models.Model ):
 This is a Generic Project
   """
   name = models.CharField( max_length=50, primary_key=True )
-  local_path = models.CharField( max_length=50, editable=False )
+  local_path = models.CharField( max_length=50 )
   last_checked = models.DateTimeField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -32,6 +33,10 @@ This is a Generic Project
 
     return not not_busy
 
+  @property
+  def git_url( self ):
+    return 'http://git.mcp.test/%s' % self.local_path
+
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
       raise ValidationError( 'Invalid name' )
@@ -39,7 +44,7 @@ This is a Generic Project
     super( Project, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
-    return "Project '%s'" % self.name
+    return 'Project "%s"' % self.name
 
 
 class GitHubProject( Project ):
@@ -47,10 +52,9 @@ class GitHubProject( Project ):
 This is a GitHub Project
   """
   github_url = models.CharField( max_length=200 )
-  last_commit = models.CharField( max_length=45 )
 
   def __unicode__( self ):
-    return "GitHub Project '%s'" % self.name
+    return 'GitHub Project "%s"' % self.name
 
   def setup( self ):
     pass
@@ -62,6 +66,41 @@ This is a GitHub Project
     pass
     # git fetch
 
+
+class Commit( models.Model ):
+  project = models.ForeignKey( Project )
+  branch = models.CharField( max_length=50 )
+  commit = models.CharField( max_length=45 )
+  lint_results = models.TextField( default='{}' )
+  test_results = models.TextField( default='{}' )
+  build_results = models.TextField( default='{}')
+  lint_at = models.DateTimeField( editable=False, blank=True, null=True )
+  test_at = models.DateTimeField( editable=False, blank=True, null=True )
+  build_at = models.DateTimeField( editable=False, blank=True, null=True )
+  done_at = models.DateTimeField( editable=False, blank=True, null=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  def save( self, *args, **kwargs ):
+    try:
+      simplejson.loads( self.lint_results )
+    except ValueError:
+      raise ValidationError( 'lint_results must be valid JSON' )
+
+    try:
+      simplejson.loads( self.test_results )
+    except ValueError:
+      raise ValidationError( 'test_results must be valid JSON' )
+
+    try:
+      simplejson.loads( self.build_results )
+    except ValueError:
+      raise ValidationError( 'build_results must be valid JSON' )
+
+    super( Commit, self ).save( *args, **kwargs )
+
+  def __unicode__( self ):
+    return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
 
 class Package( models.Model ):
   """

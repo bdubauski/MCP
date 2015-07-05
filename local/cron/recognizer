@@ -1,0 +1,124 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+import sys
+import logging
+import json
+from logging.handlers import SysLogHandler
+from datetime import datetime
+
+from django.utils.timezone import utc
+from mcp.Processor.models import QueueItem
+from mcp.Projects.models import Commit
+
+PID_FILE = '/var/run/recoginzer.pid'
+QUEUE_PRIORITY = 100
+
+logging.basicConfig()
+logger = logging.getLogger()
+handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
+handler.setFormatter( logging.Formatter( fmt='recognizer[%(process)d]: %(message)s' ) )
+logger.addHandler( handler )
+logger.setLevel( logging.INFO )
+logging.info( 'Starting...' )
+
+if os.path.exists( PID_FILE ):
+  logging.error( 'pid file exists, bailing...' )
+  sys.exit( 0 )
+
+tmp = open( PID_FILE, 'w' )
+tmp.write( '%s\n' % os.getpid() )
+tmp.close()
+
+# first look to see if anything has changed upstream and pull it
+#for project in GitHubProject.objects.all():
+# check for new commit
+# create CommitStatus preload targets
+# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'resource', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
+
+# check for commits that need to be linted
+for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):
+  status = json.loads( commit.lint_results )
+  done = True
+  success = True
+  for distro in status:
+    if not status[ distro ].get( 'status', None ):
+      logging.info( 'queuing up lint job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
+      item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, 'lint', QUEUE_PRIORITY )
+      status[ distro ][ 'status' ] = 'building'
+
+    done &= status[ distro ][ 'status' ] == 'done'
+    success &= status[ distro ].get( 'success', False )
+
+  commit.lint_results = json.dumps( status )
+
+  if done:
+    logging.info( 'lint complete for "%s", branch "%s"' % ( commit.project.name, commit.branch ) )
+    commit.lint_at = datetime.utcnow().replace( tzinfo=utc )
+    if not success:
+      logging.info( 'lint for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
+      commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+
+  commit.save()
+
+#check for commits that need testing
+for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=True ):
+  status = json.loads( commit.test_results )
+  done = True
+  success = True
+  for distro in status:
+    if not status[ distro ].get( 'status', None ):
+      logging.info( 'queuing up test job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
+      item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, 'test', QUEUE_PRIORITY )
+      status[ distro ][ 'status' ] = 'building'
+
+    done &= status[ distro ][ 'status' ] == 'done'
+    success &= status[ distro ].get( 'success', False )
+
+  commit.test_results = json.dumps( status )
+
+  if done:
+    logging.info( 'test complete for "%s", branch "%s"' % ( commit.project.name, commit.branch ) )
+    commit.test_at = datetime.utcnow().replace( tzinfo=utc )
+    if not success:
+      logging.info( 'test for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
+      commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+
+  commit.save()
+
+#check for commits that need building
+for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=True ):
+  if commit.branch == 'master': # only build from master branch
+    status = json.loads( commit.build_results )
+    done = True
+    success = True
+    for target in status:
+      for distro in status[ target ]:
+        if not status[ target ][ distro ].get( 'status', None ):
+          logging.info( 'queuing up "%s" job for "%s", branch "%s", distro "%s"' % ( target, commit.project.name, commit.branch, distro ) )
+          item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, target, QUEUE_PRIORITY )
+          status[ target ][ distro ][ 'status' ] = 'building'
+
+        done &= status[ target ][ distro ][ 'status' ] == 'done'
+        success &= status[ target ][ distro ].get( 'success', False )
+
+      commit.build_results = json.dumps( status )
+
+  else:
+    done = True
+
+  if done:
+    logging.info( '"%s" complete for "%s", branch "%s"' % ( target, commit.project.name, commit.branch ) )
+    commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    if not success:
+      logging.info( '"%s" for "%s", branch "%s" failed' % ( target, commit.project.name, commit.branch ) )
+    commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+
+  commit.save()
+
+os.unlink( PID_FILE )
+logging.info( 'Done!' )
+logging.shutdown()
+sys.exit( 0 )
