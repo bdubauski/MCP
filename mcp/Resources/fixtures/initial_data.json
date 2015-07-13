@@ -1,0 +1,53 @@
+[
+  {
+    "pk": "small-generic-precise",
+    "model": "Resources.resource",
+    "fields": {
+      "config_profile": "precise-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Precise",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-trusty",
+    "model": "Resources.resource",
+    "fields": {
+      "config_profile": "trusty-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Trusty",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-centos6",
+    "model": "Resources.resource",
+    "fields": {
+      "config_profile": "centos6-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Centos6",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-precise",
+    "model": "Resources.vmresource",
+    "fields": {
+      "vm_template": "small-generic"
+    }
+  },
+  {
+    "pk": "small-generic-trusty",
+    "model": "Resources.vmresource",
+    "fields": {
+      "vm_template": "small-generic"
+    }
+  },
+  {
+    "pk": "small-generic-centos6",
+    "model": "Resources.vmresource",
+    "fields": {
+      "vm_template": "small-generic"
+    }
+  }
+]

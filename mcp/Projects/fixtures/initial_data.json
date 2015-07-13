@@ -30,6 +30,16 @@
     }
   },
   {
+    "pk": "builtin-centos6",
+    "model": "Projects.build",
+    "fields": {
+      "project": "_builtin_",
+      "updated": "2014-01-01T01:01:01Z",
+      "manual": false,
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
     "pk": "builtin-trusty:small-generic-trusty",
     "model": "Projects.buildresource",
     "fields": {
@@ -45,6 +55,16 @@
     "fields": {
       "resource": "small-generic-precise",
       "build": "builtin-precise",
+      "name": "target",
+      "quanity": 1
+    }
+  },
+  {
+    "pk": "builtin-centos6:small-generic-centos6",
+    "model": "Projects.buildresource",
+    "fields": {
+      "resource": "small-generic-centos6",
+      "build": "builtin-centos6",
       "name": "target",
       "quanity": 1
     }
