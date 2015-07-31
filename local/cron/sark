@@ -1,4 +1,10 @@
 #!/usr/bin/python -u
+#
+#  sark
+#
+#   Checkes QueuItems to see if their resources are aviable, if they are, creates a buildjob and assigns resources
+#   runs the Jobs through, when job complets calls signalcomplete on the attached Commit or Promotion
+
 import os
 
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
@@ -10,11 +16,10 @@ from logging.handlers import SysLogHandler
 from datetime import datetime, timedelta
 
 from django.utils.timezone import utc
-from mcp.Projects.models import Commit
 from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resources.models import Resource
 
-CLEANUP_DELAY = 4
+CLEANUP_DELAY = 2
 PID_FILE = '/var/run/sark.pid'
 
 logging.basicConfig()
@@ -22,8 +27,12 @@ logger = logging.getLogger()
 handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
 handler.setFormatter( logging.Formatter( fmt='sark[%(process)d]: %(message)s' ) )
 logger.addHandler( handler )
-logger.setLevel( logging.INFO )
 logging.info( 'Starting...' )
+if '-v' in sys.argv:
+  logger.setLevel( logging.DEBUG )
+
+else:
+  logger.setLevel( logging.INFO )
 
 if os.path.exists( PID_FILE ):
   logging.error( 'pid file exists, bailing...' )
@@ -59,6 +68,8 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
     job.branch = item.branch
     job.target = item.target
     job.requires = item.requires
+    job.commit = item.commit
+    job.promotion = item.promotion
     job.save()
 
     # allocate the Resources
@@ -66,10 +77,12 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
     logging.info( 'Starting Queue Item "%s" with Resources "%s" as job "%s"' % ( item, resources, job.id ) )
     job._resources = json.dumps( resources )
     job.save()
+
   except Exception as e:
     logging.exception( 'Exception "%s" creating job for queue item "%s", skiping...' % ( e, item.pk ) )
     if job and job.pk:
       job.delete()
+
     item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )
     item.save()
     continue
@@ -100,43 +113,14 @@ for job in BuildJob.objects.filter( built_at__isnull=True ):
 
 # Iterate over the Ran jobs, and for now fake report them
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True ):
-  if job.target in ( 'lint', 'test', 'rpm', 'dpkg', 'resource' ):
-    commit = None
-    try:
-      commit = Commit.objects.get( branch=job.branch, project=job.project, done_at__isnull=True )
-    except Commit.DoesNotExist:
-      logging.warning( 'Unable to find commit to save results to, ignored...' )
-    except Commit.MultipleObjectsReturned:
-      logging.error( 'To many commits match, fix and re-try' )
-      continue
+  if job.commit is not None:
+    job.commit.signalComplete( job.target, job.build.name, job.resources )
 
-    if commit:
-      if job.target == 'lint':
-        status = json.loads( commit.lint_results )
-        distro = job.build.name.split( '-' )[1]
-        status[ distro ][ 'status' ] = 'done'
-        status[ distro ][ 'success' ] = job.resources[ 'target' ][0].get( 'success', False )
-        status[ distro ][ 'results' ] = job.resources[ 'target' ][0].get( 'results', '<not specified>' )
-        commit.lint_results = json.dumps( status )
-        commit.save()
+  elif job.promotion is not None:
+    job.promotion.signalComplete( job.build )
 
-      elif job.target == 'test':
-        status = json.loads( commit.test_results )
-        distro = job.build.name.split( '-' )[1]
-        status[ distro ][ 'status' ] = 'done'
-        status[ distro ][ 'success' ] = job.resources[ 'target' ][0].get( 'success', False )
-        status[ distro ][ 'results' ] = job.resources[ 'target' ][0].get( 'results', '<not specified>' )
-        commit.test_results = json.dumps( status )
-        commit.save()
-
-      else:
-        status = json.loads( commit.build_results )
-        distro = job.build.name.split( '-' )[1]
-        status[ job.target ][ distro ][ 'status' ] = 'done'
-        status[ job.target ][ distro ][ 'success' ] = job.resources[ 'target' ][0].get( 'success', False )
-        status[ job.target ][ distro ][ 'results' ] = job.resources[ 'target' ][0].get( 'results', '<not specified>' )
-        commit.build_results = json.dumps( status )
-        commit.save()
+  else:
+    logging.warning( 'Job has nothing to report to, hopfully that was intentional' )
 
   logging.info( 'Setting job "%s" to Reported.' % job.id )
   job.reported_at = datetime.utcnow().replace( tzinfo=utc )
@@ -149,8 +133,10 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     for index in range( 0, len( resource_map[ name ] ) ):
       if resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
         logging.info( 'Releasing resource "%s" "%s" of job "%s".' % ( name, index, job.id ) )
-        Resource.release( resource_map[ name ][ index ][ 'config' ]  )
-        job.updateResourceState( name, index, 'Releasing' )
+        if Resource.release( resource_map[ name ][ index ][ 'config' ]  ) is None:
+          job.updateResourceState( name, index, 'Released' )
+        else:
+          job.updateResourceState( name, index, 'Releasing' )
 
 # iterate over the Reported jobs and look to see if the resources are all released
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True ):

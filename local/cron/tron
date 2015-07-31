@@ -1,0 +1,137 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+import logging
+import sys
+from logging.handlers import SysLogHandler
+from django.conf import settings
+
+from mcp.Projects.models import Package, PackageVersion, BuildDependancy, Build
+from mcp.Processor.models import Promotion, QueueItem, PromotionBuild
+from mcp.Processor.Packrat import Packrat
+
+PID_FILE = '/var/run/tron.pid'
+QUEUE_PRIORITY = 100
+
+logging.basicConfig()
+logger = logging.getLogger()
+handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
+handler.setFormatter( logging.Formatter( fmt='recognizer[%(process)d]: %(message)s' ) )
+logger.addHandler( handler )
+logging.info( 'Starting...' )
+if '-v' in sys.argv:
+  logger.setLevel( logging.DEBUG )
+
+else:
+  logger.setLevel( logging.INFO )
+
+logging.info( 'Connecting to Packrat...' )
+packrat = Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKRAT_USERNAME, settings.PACKRAT_PSK )
+
+if os.path.exists( PID_FILE ):
+  logging.error( 'pid file exists, bailing...' )
+  sys.exit( 0 )
+
+tmp = open( PID_FILE, 'w' )
+tmp.write( '%s\n' % os.getpid() )
+tmp.close()
+
+def _queuePromotion( pkg_version, package_file_id, next_state ):
+  package = pkg_version.package
+  dependancy_list = BuildDependancy.objects.filter( package=package, state=next_state )
+  if len( dependancy_list ) == 0:
+    logging.info( 'No Dependancies for package "%s" version "%s" at state "%s", promoting...' % ( package.name, pkg_version.version, next_state ) )
+    packrat.promote( package_file_id, next_state )
+    pkg_version.state = next_state
+    pkg_version.save()
+    return
+
+  logging.info( 'Creating Promotion for package "%s" version "%s" to state "%s"...' % ( package.name, pkg_version.version, next_state ) )
+  promotion = Promotion()
+  promotion.package_version = pkg_version
+  promotion.to_state = next_state
+  promotion.package_file_id = package_file_id
+  promotion.save()
+
+  for dependancy in dependancy_list:
+    build = Build.objects.get( name=dependancy )
+    probuild = PromotionBuild()
+    probuild.promotion = promotion
+    probuild.build = build
+    probuild.status = 'queued'
+    print "---- %s ----" % dependancy
+    promotion.queue_items.append( QueueItem.inQueueBuild( build, 'master', False, QUEUE_PRIORITY, promotion=promotion ) )
+
+
+for promotion in Promotion.objects.all():
+  logging.debug( 'Checking promtion "%s"' % promotion )
+  done = True
+  for job in promotion.jobs.all():
+    done &= ( job.suceeded is True )
+
+  if not done:
+    continue
+
+  logging.info( 'Promoting "%s" version "%s" to "%s".' % ( promotion.package_verison.package.name, promotion.state ) )
+  packrat.promote( promotion.package_file_id, promotion.state )
+  pkg_version = promotion.package_version
+  pkg_version.state = promotion.state
+  pkg_version.save()
+
+  promotion.delete()
+
+for name in packrat.packages():
+  logging.debug( 'Checking package "%s"...' % name )
+  try:
+    package = Package.objects.get( pk=name )
+  except Package.DoesNotExist:
+    package = Package()
+    package.name = name
+    package.save()
+
+  version_map = packrat.package_files( package.name )
+  for package_file_id in version_map.keys():
+    version = version_map[ package_file_id ]
+    if version[ 'depr_at' ] or version[ 'prod_at' ] or version[ 'stage_at' ]: # techinically if state in in ( 'depr', 'prod', 'stage' ):
+      continue
+
+    if version[ 'ci_at' ] is None: # techinicall state == 'new', see comment on package_files
+      logging.info( 'Creating new package version for "%s" version "%s"' % ( package.name, version[ 'version' ] ) )
+      pkg_version = PackageVersion()
+      pkg_version.package = package
+      pkg_version.state = 'ci'
+      pkg_version.version = version[ 'version' ]
+      pkg_version.save()
+
+      packrat.promote( package_file_id, 'ci' )
+
+    else:
+      try:
+        pkg_version = PackageVersion.objects.get( package=package, version=version[ 'version' ] )
+
+      except PackageVersion.DoesNotExist:
+        logging.warning( 'Existing package for "%s" version "%s" not found' % ( package.name, version[ 'version' ] ) ) # someone manually moved something, hopfully they see this warning
+        continue
+
+    if pkg_version.promotion_set.all().count() > 0: # this package is being worked on
+      continue
+
+    if pkg_version.state == 'ci':
+      next_state = 'dev'
+
+    elif pkg_version.state == 'dev':
+      next_state = 'stage'
+
+    else:
+      raise Exception( 'Unknown state "%s"' % pkg_version.state )
+
+    _queuePromotion( pkg_version, package_file_id, next_state )
+
+packrat.logout()
+
+os.unlink( PID_FILE )
+logging.info( 'Done!' )
+logging.shutdown()
+sys.exit( 0 )

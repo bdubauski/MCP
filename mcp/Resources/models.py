@@ -69,7 +69,11 @@ Resource
 
   @staticmethod
   def release( config ):
-    config = Config.objects.get( pk=config )
+    try:
+      config = Config.objects.get( pk=config )
+    except Config.DoesNotExist:
+      return None # it's allready gone?
+
     if config.target.type == 'VM':
       return submitDeconfigureJob( config, True, True )
     else:

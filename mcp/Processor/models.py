@@ -5,9 +5,36 @@ from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from mcp.Projects.models import Build, Project
+from mcp.Projects.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
 from mcp.Resources.models import Resource, ResourceGroup
 from plato.Config.lib import getSystemConfigValues
+
+
+class Promotion( models.Model ):
+  package_version = models.ForeignKey( PackageVersion )
+  status = models.ManyToManyField( Build, through='PromotionBuild' )
+  to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
+  package_file_id = models.CharField( max_length=100 )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  def __unicode__( self ):
+    return 'Promotion for package "%s(%s)" to "%s"' % ( self.package_version.package.name, self.package_version.version, self.to_state )
+
+  def signalComplete( self, target, build_name, resources ):
+    pass
+
+class PromotionBuild( models.Model ):
+  promotion = models.ForeignKey( Promotion )
+  build = models.ForeignKey( Build )
+  status = models.CharField( max_length=50 )
+
+  def __unicode__( self ):
+    return 'PromotionBuild from "%s" to "%s" at "%s"' % ( self.promotion.name, self.build.name )
+
+  class Meta:
+      unique_together = ( 'promotion', 'build' )
+
 
 class QueueItem( models.Model ):
   """
@@ -22,6 +49,8 @@ QueueItem
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   resource_status = models.TextField( default='{}' )
   resource_groups = models.ManyToManyField( ResourceGroup )
+  commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
+  promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -63,7 +92,7 @@ QueueItem
     return result
 
   @staticmethod
-  def inQueueBuild( build, branch, manual, priority ):
+  def inQueueBuild( build, branch, manual, priority, promotion=None ):
     item = QueueItem()
     item.build = build
     item.manual = manual
@@ -72,12 +101,13 @@ QueueItem
     item.target = build.name
     item.requires = '%s-requires' % build.name
     item.priority = priority
+    item.promotion = promotion
     item.save()
 
     return item
 
   @staticmethod
-  def inQueueTarget( project, branch, distro, target, priority ):
+  def inQueueTarget( project, branch, distro, target, priority, commit=None ):
     try:
       build = Build.objects.get( name='builtin-%s' % distro )
     except Build.DoesNotExist:
@@ -91,6 +121,7 @@ QueueItem
     item.target = target
     item.requires = '%s-requires' % target
     item.priority = priority
+    item.commit = commit
     item.save()
 
     return item
@@ -122,6 +153,8 @@ BuildJob
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
   released_at = models.DateTimeField( editable=False, blank=True, null=True )
   manual = models.BooleanField()
+  commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
+  promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -144,6 +177,17 @@ BuildJob
       return 'built'
 
     return 'new'
+
+  @property
+  def suceeded( self ):
+    if self.ran_at is None:
+      return None
+
+    result = True
+    for resource in self.resources:
+      result &= self.resources[ 'result' ] is True
+
+    return result
 
   def jobRan( self ):
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
@@ -181,10 +225,10 @@ BuildJob
     config_list = tmp[ name ]
     if index:
       if count:
-        config_list = tmp[ index : index + count ]
+        config_list = tmp[ index:index + count ]
 
       else:
-        config_list = tmp[ index : ]
+        config_list = tmp[ index: ]
 
     if index is None:
       index = 0
@@ -200,10 +244,10 @@ BuildJob
     config_list = tmp[ name ]
     if index:
       if count:
-        config_list = tmp[ index : index + count ]
+        config_list = tmp[ index:index + count ]
 
       else:
-        config_list = tmp[ index : ]
+        config_list = tmp[ index: ]
 
     if index is None:
       index = 0

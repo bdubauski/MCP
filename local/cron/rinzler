@@ -1,0 +1,180 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+import logging
+import sys
+import glob
+import json
+import shutil
+from datetime import datetime
+from logging.handlers import SysLogHandler
+
+from django.utils.timezone import utc
+from django.conf import settings
+from mcp.Projects.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
+from mcp.Resources.models import Resource
+from mcp.Projects.Makefile import Makefile
+from mcp.Projects.Git import Git
+
+WORK_DIR = '/tmp/rinzler'
+PID_FILE = '/var/run/rinzler.pid'
+
+# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'resource', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
+
+logging.basicConfig()
+logger = logging.getLogger()
+handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
+handler.setFormatter( logging.Formatter( fmt='recognizer[%(process)d]: %(message)s' ) )
+logger.addHandler( handler )
+logging.info( 'Starting...' )
+if '-v' in sys.argv:
+  logger.setLevel( logging.DEBUG )
+
+else:
+  logger.setLevel( logging.INFO )
+
+if os.path.exists( PID_FILE ):
+  logging.error( 'pid file exists, bailing...' )
+  sys.exit( 0 )
+
+tmp = open( PID_FILE, 'w' )
+tmp.write( '%s\n' % os.getpid() )
+tmp.close()
+
+def _makeBuild( build_name, manual ):
+  dependancy_list = make.depends( build_name )
+  resource_list = make.resources( build_name )
+  logging.debug( 'Build: "%s" depends: "%s" resources: "%s".' % ( build_name, dependancy_list, resource_list ) )
+  try:
+    build = Build.objects.get( pk=build_name ) # TODO: untill update stuff is in place, we shoudn't ever find it, but here for future and saftey, when it does exist
+    for dependancy in build._dependancies.all(): #TODO: update instead of delete and re add
+      dependancy.delete()
+
+    for resource in build._resources.all():
+      resource.delete()
+
+  except Build.DoesNotExist:
+    build = Build()
+    build.name = build_name
+    build.project = project
+    build.manual = manual
+    build.save()
+
+  for dependancy in dependancy_list:
+    ( package_name, state ) = dependancy.split( ':' )
+    try:
+      package = Package.objects.get( name=package_name )
+
+    except Package.DoesNotExist:
+      logging.warning( 'Package "%s" for dependancy for build "%s" does not exist, skipped.' % ( package_name, build_name ) )
+      continue
+
+    builddep = BuildDependancy()
+    builddep.build = build
+    builddep.package = package
+    builddep.state = state
+    builddep.save()
+
+  for resource in resource_list:
+    ( name, quanity, resource_name ) = resource.split( ':' )
+    try:
+      resource = Resource.objects.get( name=resource_name )
+
+    except Resource.DoesNotExist:
+      logging.error( 'Resource "%s" for build "%s" does not exist, killing the build.' % ( resource_name, build_name ) )
+      build.delete()
+      return
+
+    buildres = BuildResource()
+    buildres.build = build
+    buildres.resource = resource
+    buildres.name = name
+    buildres.quanity = quanity
+    buildres.save()
+
+
+# where project dosen't have any auto builds nor queue items, nor manual builds in pre "ran" state, nor commit in flight
+for project in Project.objects.filter( commit__done_at__isnull=False, buildjob__isnull=True, queueitem__isnull=True ).order_by( '-last_checked' ):
+  if project.name.startswith( '_' ):
+    continue
+
+  logging.info( 'Checking project "%s"' % project.name )
+
+  if not project.local_path:
+    continue
+    #project.local_path = something random that dosen't exist
+    #mkdir project.local_path
+    #git = Git( settings.GIT_REPO_PATH, project.local_path )
+    #git.setup( project.githubproject.github_url )
+    continue
+
+
+  path = os.path.join( settings.GIT_REPO_PATH, project.local_path )
+  logging.debug( 'Updating "%s" for "%s"...' % ( path, project.name ) )
+  git = Git( path )
+
+  git.update()
+
+  branch_map = git.branch_map()
+
+  logging.debug( 'Branches: "%s"' % branch_map )
+
+  for branch in branch_map.keys():
+    try:
+      commit = Commit.objects.get( project=project, branch=branch, commit=branch_map[ branch ] )
+      continue # allready there, don't need to worry about it
+    except Commit.DoesNotExist:
+      pass
+
+    logging.info( 'New Commit "%s" on Branch "%s" of Project "%s"...' % ( branch_map[ branch ], branch, project.name ) )
+    git.checkout( WORK_DIR, branch )
+
+    make = Makefile( glob.glob( '%s/*' % WORK_DIR )[0] )
+
+    commit = Commit()
+    commit.project = project
+    commit.branch = branch
+    commit.commit = branch_map[ branch ]
+    distro_list = make.testDistros()
+    commit.lint_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
+    commit.test_results = commit.lint_results
+    commit.build_results = {}
+
+    if branch == 'master':
+      logging.info( 'Adding Package Build...' )
+
+      for tmp in ( 'dpkg', 'rpm', 'resource' ):
+        distro_list = make.packageDistros( tmp )
+        if distro_list:
+          commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+
+    commit.build_results = json.dumps( commit.build_results )
+    commit.save()
+
+    if branch == 'master':
+      logging.info( 'Updating Builds info...' )
+      for build in project.build_set.all(): #TODO: update what has changed, not delete everything and re-add everything
+        build.delete()
+
+      build_list = make.autoBuilds()
+      logging.debug( 'Auto Builds "%s".' % build_list )
+      for build in build_list:
+        _makeBuild( build, False )
+
+      build_list = make.manualBuilds()
+      logging.debug( 'Manual Builds "%s".' % build_list )
+      for build in build_list:
+        _makeBuild( build, True )
+
+    logging.debug( 'Cleaning up work dir.' )
+    shutil.rmtree( WORK_DIR )
+
+  project.last_checked = datetime.utcnow().replace( tzinfo=utc )
+  project.save()
+
+os.unlink( PID_FILE )
+logging.info( 'Done!' )
+logging.shutdown()
+sys.exit( 0 )

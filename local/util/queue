@@ -21,7 +21,7 @@ oparser.add_option( '-r', '--branch', help='git branch to check out (default: ma
 oparser.add_option( '-m', '--manual', help='Flag as Manual Build (-b only), ie: manual -> no auto cleanup (default: False)', dest='manual', default=False, action='store_true' )
 
 oparser.add_option( '-d', '--distro', help='Submit Task on Sepecified Distro (-t only)', dest='distro' )
-oparser.add_option( '-p', '--git', help='Git URL (URL to the local copy) (-t only)', dest='git' )
+oparser.add_option( '-g', '--git', help='Git URL (URL to the local copy) (-t only)', dest='git' )
 
 oparser.add_option( '-e', '--resource-group', help='Resource Group to use (can be specified multiple times)', dest='resource_group', default=[], action='append' )
 

@@ -1,0 +1,4 @@
+#!/bin/sh
+
+
+./graph | dot -Tpng -o/var/www/git/graph.png

@@ -3,7 +3,7 @@ from django.template import Template, Context
 
 from mcp.Projects.models import Commit
 from mcp.Resources.models import HARDWARE_PROFILE
-from mcp.Processor.models import QueueItem, BuildJob
+from mcp.Processor.models import QueueItem, BuildJob, Promotion
 from plato.Config.models import Config
 
 def index( request ):
@@ -14,6 +14,7 @@ def index( request ):
 <body>
 <a href="/admin/">Admin</a><br/>
 <a href="/status">Status</a><br/>
+<a href="http://git.mcp.test/graph.png">Dependancy Graph</a>
 </body>
 </html>""" )
 
@@ -41,11 +42,19 @@ def status( request ):
 <tr><td>{{ item.pk }}</td><td>{{ item.priority }}</td><td>{{ item.manual }}</td><td>{{ item.build.name }}</td><td>{{ item.resource_status }}</td><td>{{ item.updated }}</td><td>{{ item.target }}</td><td>{{ item.project.name }}</td><td>{{ item.branch }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
+</table>
+<b>Promotion Jobs</b>
+<table border="1">
+<tr><th>Promotion Id</th><th>Package</th><th>Version</th><th>To State</th><th>Created</th></tr>
+{% for item in promtion_list %}
+<tr><td>{{ item.pk }}</td><td>{{ item.package_version.package.name }}</td><td>{{ item.package_version.version }}</td><td>{{ item.to_state }}</td><td>{{ item.created }}</td></tr>
+{% endfor %}
+</table>
 <b>Commit List</b>
 <table border="1">
-<tr><th>Commit Id</th><th>Git URL</th><th>Branch</th><th>Lint At</th><th>Lint Status</th><th>Test At</th><th>Test Status</th><th>Build At</th><th>Build Status</th><th>Last Updated</th><th>Created</th></tr>
+<tr><th>Commit Id</th><th>Git URL</th><th>Branch</th><th>Commit</th><th>Lint At</th><th>Lint Status</th><th>Test At</th><th>Test Status</th><th>Build At</th><th>Build Status</th><th>Last Updated</th><th>Created</th></tr>
 {% for item in commit_list %}
-<tr><td>{{ item.pk }}</td><td>{{ item.project.githubproject.github_url }}</td><td>{{ item.branch }}</td><td>{{ item.lint_at }}</td><td>{{ item.lint_results }}</td><td>{{ item.test_at }}</td><td>{{ item.test_results }}</td><td>{{ item.build_at }}</td><td>{{ item.build_results }}</td><td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
+<tr><td>{{ item.pk }}</td><td>{{ item.project.githubproject.github_url }}</td><td>{{ item.branch }}</td><td>{{ item.commit }}</td><td>{{ item.lint_at }}</td><td>{{ item.lint_results }}</td><td>{{ item.test_at }}</td><td>{{ item.test_results }}</td><td>{{ item.build_at }}</td><td>{{ item.build_results }}</td><td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
 <b>Unused Resources</b>
@@ -62,7 +71,8 @@ Generated at {% now "jS F Y H:i" %}
   c = Context( {
                  'job_list': BuildJob.objects.all().order_by( 'pk' ),
                  'queue_list': QueueItem.objects.all().order_by( '-priority' ),
-                 'commit_list': Commit.objects.filter( done_at__isnull=True ),
+                 'promtion_list': Promotion.objects.all().order_by( 'pk' ),
+                 'commit_list': Commit.objects.filter( done_at__isnull=True ).order_by( 'pk' ),
                  'unused_list': Config.objects.filter( profile=HARDWARE_PROFILE, configured__isnull=True ).order_by( 'pk' )
                } )
   return HttpResponse( t.render( c ) )

@@ -1,4 +1,11 @@
 #!/usr/bin/python -u
+#
+# recongnizer
+#   Processes Records in the Commits table
+#
+#  Steps include linting, testing, then building
+#
+
 import os
 
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
@@ -21,8 +28,12 @@ logger = logging.getLogger()
 handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
 handler.setFormatter( logging.Formatter( fmt='recognizer[%(process)d]: %(message)s' ) )
 logger.addHandler( handler )
-logger.setLevel( logging.INFO )
 logging.info( 'Starting...' )
+if '-v' in sys.argv:
+  logger.setLevel( logging.DEBUG )
+
+else:
+  logger.setLevel( logging.INFO )
 
 if os.path.exists( PID_FILE ):
   logging.error( 'pid file exists, bailing...' )
@@ -32,12 +43,6 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-# first look to see if anything has changed upstream and pull it
-#for project in GitHubProject.objects.all():
-# check for new commit
-# create CommitStatus preload targets
-# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'resource', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
-
 # check for commits that need to be linted
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):
   status = json.loads( commit.lint_results )
@@ -46,7 +51,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
   for distro in status:
     if not status[ distro ].get( 'status', None ):
       logging.info( 'queuing up lint job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
-      item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, 'lint', QUEUE_PRIORITY )
+      item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, 'lint', QUEUE_PRIORITY, commit )
       status[ distro ][ 'status' ] = 'building'
 
     done &= status[ distro ][ 'status' ] == 'done'
@@ -71,7 +76,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   for distro in status:
     if not status[ distro ].get( 'status', None ):
       logging.info( 'queuing up test job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
-      item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, 'test', QUEUE_PRIORITY )
+      item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, 'test', QUEUE_PRIORITY, commit )
       status[ distro ][ 'status' ] = 'building'
 
     done &= status[ distro ][ 'status' ] == 'done'
@@ -98,7 +103,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       for distro in status[ target ]:
         if not status[ target ][ distro ].get( 'status', None ):
           logging.info( 'queuing up "%s" job for "%s", branch "%s", distro "%s"' % ( target, commit.project.name, commit.branch, distro ) )
-          item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, target, QUEUE_PRIORITY )
+          item = QueueItem.inQueueTarget( commit.project, commit.branch, distro, target, QUEUE_PRIORITY, commit )
           status[ target ][ distro ][ 'status' ] = 'building'
 
         done &= status[ target ][ distro ][ 'status' ] == 'done'

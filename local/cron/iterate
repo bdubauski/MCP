@@ -1,0 +1,12 @@
+#!/bin/sh
+
+#TODO: make a iterate/fullIterate lock to prevent one while the other is running
+
+set -x
+set -e
+
+# check the commits
+./recognizer
+
+# run thoes jobs
+./sark

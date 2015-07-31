@@ -1,3 +1,10 @@
+GIT_REPO_PATH = '/var/www/git'
+
+PACKRAT_HOST = 'http://packrat.mcp.test'
+PACKRAT_PROXY = None
+PACKRAT_USERNAME = 'mcp'
+PACKRAT_PSK = 'mcp'
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'w4hhv%e7yq8(-$u8w3e2w5_^4q749(*mb-#-j!1ms*w9s5f@x='
 

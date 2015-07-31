@@ -1,0 +1,23 @@
+#!/bin/sh
+
+#TODO: make a iterate/fullIterate lock to prevent one while the other is running
+
+set -x
+set -e
+
+# get packages up to date
+./tron
+
+# get the latest from git
+./rinzler
+
+# check the commits
+./recognizer
+
+# run thoes jobs
+./sark
+
+# update the dependancy graph
+cd ../util
+./dograph
+cd ../cron

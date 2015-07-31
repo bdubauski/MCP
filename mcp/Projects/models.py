@@ -9,14 +9,14 @@ from mcp.Resources.models import Resource
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5
 RELEASE_TYPE_CHOICES = ( ( 'ci', 'CI' ), ( 'dev', 'Development' ), ( 'stage', 'Staging' ), ( 'prod', 'Production' ), ( 'depr', 'Deprocated' ) )
-
+LOCAL_WORK_PATH = '/var/www/git'
 
 class Project( models.Model ):
   """
 This is a Generic Project
   """
   name = models.CharField( max_length=50, primary_key=True )
-  local_path = models.CharField( max_length=50 )
+  local_path = models.CharField( max_length=50, null=True, blank=True )
   last_checked = models.DateTimeField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -40,6 +40,9 @@ This is a Generic Project
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
       raise ValidationError( 'Invalid name' )
+
+    if not self.local_path:
+      self.local_path = None
 
     super( Project, self ).save( *args, **kwargs )
 
@@ -65,6 +68,37 @@ This is a GitHub Project
   def refresh( self ):
     pass
     # git fetch
+
+class Package( models.Model ):
+  """
+This is a Package
+  """
+  name = models.CharField( max_length=100, primary_key=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  def save( self, *args, **kwargs ):
+    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
+      raise ValidationError( 'Invalid name' )
+
+    super( Package, self ).save( *args, **kwargs )
+
+  def __unicode__( self ):
+    return 'Package "%s"' % self.name
+
+
+class PackageVersion( models.Model ):
+  """
+This is a Version of a Package
+  """
+  package = models.ForeignKey( Package )
+  version = models.CharField( max_length=50 )
+  state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  def __unicode__( self ):
+    return 'PackageVersion "%s" verison "%s"' % ( self.package.name, self.version )
 
 
 class Commit( models.Model ):
@@ -99,27 +133,44 @@ class Commit( models.Model ):
 
     super( Commit, self ).save( *args, **kwargs )
 
+  def signalComplete( self, target, build_name, resources ):
+    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'resource' ):
+      return
+
+    sucess = resources[ 'target' ][0].get( 'success', False )
+    results = resources[ 'target' ][0].get( 'results', '<not specified>' )
+
+    if target == 'lint':
+      status = simplejson.loads( self.lint_results )
+      distro = build_name.split( '-' )[1]
+      status[ distro ][ 'status' ] = 'done'
+      status[ distro ][ 'success' ] = sucess
+      status[ distro ][ 'results' ] = results
+      self.lint_results = simplejson.dumps( status )
+
+    elif target == 'test':
+      status = simplejson.loads( self.test_results )
+      distro = build_name.split( '-' )[1]
+      status[ distro ][ 'status' ] = 'done'
+      status[ distro ][ 'success' ] = sucess
+      status[ distro ][ 'results' ] = results
+      self.test_results = simplejson.dumps( status )
+
+    else:
+      status = simplejson.loads( self.build_results )
+      distro = build_name.split( '-' )[1]
+      status[ target ][ distro ][ 'status' ] = 'done'
+      status[ target ][ distro ][ 'success' ] = sucess
+      status[ target ][ distro ][ 'results' ] = results
+      self.build_results = simplejson.dumps( status )
+
+    self.save()
+
   def __unicode__( self ):
     return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
 
-class Package( models.Model ):
-  """
-This is a Package
-  """
-  name = models.CharField( max_length=100, primary_key=True )
-  cur_state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
-  created = models.DateTimeField( editable=False, auto_now_add=True )
-  updated = models.DateTimeField( editable=False, auto_now=True )
-
-  def save( self, *args, **kwargs ):
-    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
-      raise ValidationError( 'Invalid name' )
-
-    super( Package, self ).save( *args, **kwargs )
-
-  def __unicode__( self ):
-    return 'Package "%s"' % self.name
-
+  class Meta:
+      unique_together = ( 'project', 'branch' )
 
 class Build( models.Model ):
   """
@@ -186,22 +237,23 @@ This is a type of Build that can be done
   def __unicode__( self ):
     return 'Build "%s" of "%s"' % ( self.name, self.project.name )
 
+
 class BuildDependancy( models.Model ):
-  key = models.CharField( max_length=200, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
+  key = models.CharField( max_length=200, editable=False, primary_key=True ) # until django supports multi filed primary keys
   build = models.ForeignKey( Build )
-  dependancy = models.ForeignKey( Package )
+  package = models.ForeignKey( Package )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.name, self.dependancy.name )
+    self.key = '%s:%s' % ( self.build.name, self.package.name )
 
     super( BuildDependancy, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
-    return 'BuildDependancies from "%s" to "%s" at "%s"' % ( self.build.name, self.dependancy.name, self.state )
+    return 'BuildDependancies from "%s" to "%s" at "%s"' % ( self.build.name, self.package.name, self.state )
 
   class Meta:
-      unique_together = ( 'build', 'dependancy' )
+      unique_together = ( 'build', 'package' )
 
 class BuildResource( models.Model ):
   key = models.CharField( max_length=200, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
