@@ -1,4 +1,9 @@
 #!/usr/bin/python -u
+#
+#  tron
+#    retreive packages from packrat and track their status and handle promoting
+#
+#
 import os
 
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )

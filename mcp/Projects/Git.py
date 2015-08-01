@@ -23,6 +23,9 @@ class Git( object ):
     except Exception as e:
       raise Exception( 'Exception %s while executing "%s"' % ( e, args ) )
 
+    logging.debug( 'git: rc: %s' % proc.returncode )
+    logging.debug( 'git: output:\n----------\n%s\n---------' % stdout )
+
     if proc.returncode != 0:
       raise Exception( 'git returned "%s"' % proc.returncode )
 
@@ -32,14 +35,14 @@ class Git( object ):
 
     return result
 
-  def setup( self, url ):  # use ~/.netrc file for auth.... for now
-    self._execute( [ '--bare', 'clone', url ] )
-    self._execute( [ '--bare', 'update-server-info' ] )
-    os.path.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
+  def setup( self, url, parent_path ):  # use ~/.netrc file for auth.... for now
+    self._execute( [ 'clone', '--bare', url ], cwd=parent_path )
+    self._execute( [ 'update-server-info' ] )
+    os.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
 
   def update( self ):
     self._execute( [ 'fetch', 'origin', 'master:master' ] )
-    self._execute( [ '--bare', 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
+    self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
   #http://gitready.com/intermediate/2009/02/13/list-remote-branches.html
   def branch_map( self ):

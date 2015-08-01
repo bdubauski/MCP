@@ -25,6 +25,9 @@ class Makefile( object ):
       else:
         print '))))))))))))))) rc2: "%s"' % stdout
 
+    logging.debug( 'make: rc: %s' % proc.returncode )
+    logging.debug( 'make: output:\n----------\n%s\n---------' % stdout )
+
     if proc.returncode != 0:
       raise Exception( 'make returned "%s"' % proc.returncode )
 

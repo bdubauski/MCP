@@ -115,10 +115,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     done = True
 
   if done:
-    logging.info( '"%s" complete for "%s", branch "%s"' % ( target, commit.project.name, commit.branch ) )
+    logging.info( 'Commit "%s" of "%s" branch "%s" Complete' % ( commit.commit, commit.project.name, commit.branch ) )
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
     if not success:
-      logging.info( '"%s" for "%s", branch "%s" failed' % ( target, commit.project.name, commit.branch ) )
+      logging.warning( 'Commit "%s" of "%s" branch "%s" Failed' % ( commit.commit, commit.project.name, commit.branch ) )
     commit.done_at = datetime.utcnow().replace( tzinfo=utc )
 
   commit.save()

@@ -1,9 +1,15 @@
 #!/bin/sh
 
-#TODO: make a iterate/fullIterate lock to prevent one while the other is running
-
 set -x
 set -e
+
+if [ -e /var/run/mcpIterate.lock ];
+then
+  echo "Iterate lock exists, bailing"
+  exit 1
+fi
+
+touch /var/run/mcpIterate.lock
 
 # get packages up to date
 ./tron
@@ -21,3 +27,6 @@ set -e
 cd ../util
 ./dograph
 cd ../cron
+
+rm /var/run/mcpIterate.lock
+exit 0

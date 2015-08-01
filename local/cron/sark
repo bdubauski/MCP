@@ -19,7 +19,8 @@ from django.utils.timezone import utc
 from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resources.models import Resource
 
-CLEANUP_DELAY = 2
+# DELAY in Hours
+CLEANUP_DELAY = 0.5
 PID_FILE = '/var/run/sark.pid'
 
 logging.basicConfig()
