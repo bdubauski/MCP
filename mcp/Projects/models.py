@@ -91,6 +91,9 @@ This is a Version of a Package
   def __unicode__( self ):
     return 'PackageVersion "%s" verison "%s"' % ( self.package.name, self.version )
 
+  class Meta:
+      unique_together = ( 'package', 'version' )
+
 
 class Commit( models.Model ):
   project = models.ForeignKey( Project )
@@ -125,7 +128,7 @@ class Commit( models.Model ):
     super( Commit, self ).save( *args, **kwargs )
 
   def signalComplete( self, target, build_name, resources ):
-    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'resource' ):
+    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'rpkg', 'resource' ):
       return
 
     sucess = resources[ 'target' ][0].get( 'success', False )

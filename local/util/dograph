@@ -2,3 +2,4 @@
 
 
 ./graph | dot -Tpng -o/var/www/git/graph.png
+./graph | dot -Tpdf -o/var/www/git/graph.pdf

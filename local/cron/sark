@@ -20,7 +20,7 @@ from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resources.models import Resource
 
 # DELAY in Hours
-CLEANUP_DELAY = 0.5
+CLEANUP_DELAY = 0.25
 PID_FILE = '/var/run/sark.pid'
 
 logging.basicConfig()

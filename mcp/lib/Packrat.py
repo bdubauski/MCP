@@ -1,8 +1,6 @@
 import logging
 from cinp import client
 
-DISTRO_VERSION_CACHE = {}
-
 class Packrat( object ):
   def __init__( self, host, proxy, name, psk ):
     self.name = name
@@ -26,9 +24,8 @@ class Packrat( object ):
 
   def package_files( self, package ):
     logging.debug( 'packrat: listing package files for "%s"' % package )
-    id_list = self.cinp.extractIds( self.cinp.list( '/api/v1/Repos/PackageFile', filter='package', values={ 'package': '/api/v1/Repos/Package:%s:' % package }, count=50 )[0] )
 
-    return self.cinp.getObjects( uri='/api/v1/Repos/PackageFile::', id_list=id_list )
+    return self.cinp.getObjects( list_args={ 'uri': '/api/v1/Repos/PackageFile', 'filter': 'package', 'values': { 'package': '/api/v1/Repos/Package:%s:' % package } } )
 
   def promote( self, package_file_id, state ):
     logging.debug( 'packrat: promoting package file "%s" to "%s"' % ( package_file_id, state ) )

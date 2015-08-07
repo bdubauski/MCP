@@ -6,6 +6,7 @@ os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
 from mcp.Projects.models import Project, Build, Package, BuildDependancy
 
 print 'strict graph {'
+print 'rankdir=LR'
 
 for project in Project.objects.all().order_by( 'name' ):
   if project.name[0] == '_':
@@ -15,7 +16,7 @@ for project in Project.objects.all().order_by( 'name' ):
 for build in Build.objects.all().order_by( 'name' ):
   if build.name[0] == '_' or build.project.name[0] == '_':
     continue
-  print 'BLD_%s [shape="doubleoctagon"][label="%s"]' % ( build.name.replace( '-', '_' ), build.name )
+  print 'BLD_%s [shape="doubleoctagon"][label="%s"][color="%s"]' % ( build.name.replace( '-', '_' ), build.name, ( 'red' if build.manual else 'green' ) )
   print 'PRJ_%s -- BLD_%s [color=blue]' % ( build.project.name.replace( '-', '_' ), build.name.replace( '-', '_' ) )
 
 for package in Package.objects.all().order_by( 'name' ):

@@ -10,7 +10,7 @@ class Git( object ):
     self.dir = dir
 
   def _execute( self, args, cwd=None ):
-    logging.info( 'git: running "%s"' % args )
+    logging.debug( 'git: running "%s"' % args )
 
     try:
       if cwd is None:
@@ -41,7 +41,7 @@ class Git( object ):
     os.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
 
   def update( self ):
-    self._execute( [ 'fetch', 'origin', 'master:master' ] )
+    self._execute( [ 'fetch', 'origin', 'master:master', '--force' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
   #http://gitready.com/intermediate/2009/02/13/list-remote-branches.html
