@@ -45,9 +45,9 @@ def status( request ):
 </table>
 <b>Promotion Jobs</b>
 <table border="1">
-<tr><th>Promotion Id</th><th>Package</th><th>Version</th><th>To State</th><th>Created</th></tr>
+<tr><th>Promotion Id</th><th>Packages/Versions</th><th>To State</th><th>Created</th></tr>
 {% for item in promtion_list %}
-<tr><td>{{ item.pk }}</td><td>{{ item.package_version.package.name }}</td><td>{{ item.package_version.version }}</td><td>{{ item.to_state }}</td><td>{{ item.created }}</td></tr>
+<tr><td>{{ item.pk }}</td><td>{% for pkg_version in item.promotionpkgversion_set.all %} {{ pkg_version.package_version.package.name }}({{ pkg_version.package_version.version }}){% endfor %}</td><td>{{ item.to_state }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
 <b>Commit List</b>

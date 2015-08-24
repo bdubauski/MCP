@@ -86,7 +86,11 @@ Resource
 
   @staticmethod
   def built( config ): # called last to see if the resources are ready to go
-    config = Config.objects.get( pk=config )
+    try:
+      config = Config.objects.get( pk=config )
+    except Config.DoesNotExist:
+      return True # dosen't we pretend like it's all done
+
     return config.status == 'Configured'
 
   @staticmethod

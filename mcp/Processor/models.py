@@ -9,20 +9,36 @@ from mcp.Projects.models import Build, Project, PackageVersion, Commit, RELEASE_
 from mcp.Resources.models import Resource, ResourceGroup
 from plato.Config.lib import getSystemConfigValues
 
-
+# techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
+# with multiple "versions" for one "version" of the file.  So hopfully the rest of MCP maintains one commit at a time, and we will group
+# all versions of a package togeather in the same Promotion for now, better logic is needed eventually
 class Promotion( models.Model ):
-  package_version = models.ForeignKey( PackageVersion )
+  package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion' )
   status = models.ManyToManyField( Build, through='PromotionBuild' )
   to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
-  package_file_id = models.CharField( max_length=100 )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   def __unicode__( self ):
-    return 'Promotion for package "%s(%s)" to "%s"' % ( self.package_version.package.name, self.package_version.version, self.to_state )
+    return 'Promotion for package/versions %s to "%s"' % ( [ ( '%s(%s)' % ( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.to_state )
 
-  def signalComplete( self, target, build_name, resources ):
-    pass
+  def signalComplete( self, build ):
+    promotion_build = self.promotionbuild_set.get( build=build )
+    promotion_build.status = 'done'
+    promotion_build.save()
+
+
+class PromotionPkgVersion( models.Model ):
+  promotion = models.ForeignKey( Promotion )
+  package_version = models.ForeignKey( PackageVersion )
+  packrat_id = models.CharField( max_length=100 )
+
+  def __unicode__( self ):
+    return 'PromotionPkgVersion for package "%s" version "%s" promoting to "%s"' % ( self.package_version.package.name, self.package_version.version, self.promotion.to_state )
+
+  class Meta:
+    unique_together = ( 'promotion', 'package_version' )
+
 
 class PromotionBuild( models.Model ):
   promotion = models.ForeignKey( Promotion )
@@ -30,10 +46,10 @@ class PromotionBuild( models.Model ):
   status = models.CharField( max_length=50 )
 
   def __unicode__( self ):
-    return 'PromotionBuild from "%s" to "%s" at "%s"' % ( self.promotion.name, self.build.name )
+    return 'PromotionBuild to state "%s" using build "%s" at "%s"' % ( self.promotion.to_state, self.build.name, self.status )
 
   class Meta:
-      unique_together = ( 'promotion', 'build' )
+    unique_together = ( 'promotion', 'build' )
 
 
 class QueueItem( models.Model ):
@@ -107,15 +123,15 @@ QueueItem
     return item
 
   @staticmethod
-  def inQueueTarget( project, branch, distro, target, priority, commit=None ):
+  def inQueueTarget( project, branch, manual, distro, target, priority, commit=None ):
     try:
-      build = Build.objects.get( name='builtin-%s' % distro )
+      build = Build.objects.get( project_id='_builtin_', name=distro )
     except Build.DoesNotExist:
       raise Exception( 'distro "%s" not set up' % distro )
 
     item = QueueItem()
     item.build = build
-    item.manual = False
+    item.manual = manual
     item.project = project
     item.branch = branch
     item.target = target
@@ -199,6 +215,7 @@ BuildJob
       tmp[ name ][ index ][ 'status' ] = status
     except ( IndexError, KeyError ):
       return
+
     self._resources = simplejson.dumps( tmp )
     self.save()
 
@@ -208,6 +225,7 @@ BuildJob
       tmp[ name ][ index ][ 'success' ] = bool( success )
     except ( IndexError, KeyError ):
       return
+
     self._resources = simplejson.dumps( tmp )
     self.save()
 
@@ -217,6 +235,7 @@ BuildJob
       tmp[ name ][ index ][ 'results' ] = results
     except ( IndexError, KeyError ):
       return
+
     self._resources = simplejson.dumps( tmp )
     self.save()
 
@@ -226,7 +245,6 @@ BuildJob
     if index:
       if count:
         config_list = tmp[ index:index + count ]
-
       else:
         config_list = tmp[ index: ]
 
@@ -245,7 +263,6 @@ BuildJob
     if index:
       if count:
         config_list = tmp[ index:index + count ]
-
       else:
         config_list = tmp[ index: ]
 

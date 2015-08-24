@@ -21,11 +21,12 @@ from mcp.Projects.models import Project, Commit, Build, Package, BuildDependancy
 from mcp.Resources.models import Resource
 from mcp.lib.Makefile import Makefile
 from mcp.lib.Git import Git
+from mcp.lib.Slack import Slack
 
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
 
-# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'rpkg', 'resource', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
+# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -47,12 +48,14 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-def _makeBuild( build_name, manual ):
+slack = Slack( 'rinzler' )
+
+def _makeBuild( build_name, project, manual ):
   dependancy_list = make.depends( build_name )
   resource_list = make.resources( build_name )
   logging.debug( 'Build: "%s" depends: "%s" resources: "%s".' % ( build_name, dependancy_list, resource_list ) )
   try:
-    build = Build.objects.get( pk=build_name ) # TODO: untill update stuff is in place, we shoudn't ever find it, but here for future and saftey, when it does exist
+    build = Build.objects.get( project=project, name=build_name ) # TODO: untill update stuff is in place, we shoudn't ever find it, but here for future and saftey, when it does exist
     for dependancy in build._dependancies.all(): #TODO: update instead of delete and re add
       dependancy.delete()
 
@@ -152,6 +155,7 @@ for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=
       pass
 
     logging.info( 'New Commit "%s" on Branch "%s" of Project "%s"...' % ( branch_map[ branch ], branch, project.name ) )
+    slack.post_message( 'New Commit "%s" on Branch "%s" of Project "%s".' % ( branch_map[ branch ], branch, project.name ), slack.INFO )
     git.checkout( WORK_DIR, branch )
 
     make = Makefile( glob.glob( '%s/*' % WORK_DIR )[0] )
@@ -168,7 +172,7 @@ for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=
     if branch == 'master':
       logging.info( 'Adding Package Build...' )
 
-      for tmp in ( 'dpkg', 'rpm', 'rpkg', 'resource' ):
+      for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
         distro_list = make.packageDistros( tmp )
         if distro_list:
           commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
@@ -184,12 +188,12 @@ for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=
       build_list = make.autoBuilds()
       logging.debug( 'Auto Builds "%s".' % build_list )
       for build in build_list:
-        _makeBuild( build, False )
+        _makeBuild( build, project, False )
 
       build_list = make.manualBuilds()
       logging.debug( 'Manual Builds "%s".' % build_list )
       for build in build_list:
-        _makeBuild( build, True )
+        _makeBuild( build, project, True )
 
     logging.debug( 'Cleaning up work dir.' )
     shutil.rmtree( WORK_DIR )

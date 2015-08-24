@@ -3,7 +3,7 @@
 #  sark
 #
 #   Checkes QueuItems to see if their resources are aviable, if they are, creates a buildjob and assigns resources
-#   runs the Jobs through, when job complets calls signalcomplete on the attached Commit or Promotion
+#   runs the Jobs through, when job complets calls signalComplete on the attached Commit or Promotion
 
 import os
 
@@ -18,9 +18,10 @@ from datetime import datetime, timedelta
 from django.utils.timezone import utc
 from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resources.models import Resource
+from mcp.lib.Slack import Slack
 
 # DELAY in Hours
-CLEANUP_DELAY = 0.25
+CLEANUP_DELAY = 0.50
 PID_FILE = '/var/run/sark.pid'
 
 logging.basicConfig()
@@ -42,6 +43,8 @@ if os.path.exists( PID_FILE ):
 tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
+
+slack = Slack( 'sark' )
 
 # Iterate over the Queued Items
 for item in QueueItem.objects.all().order_by( '-priority' ): # start with the biggest number first
@@ -89,10 +92,11 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
     continue
 
   # remove the queue Item
+  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) for Queue Item %s submitted.' % ( job.id, job.project.name, job.build.name, job.branch, job.target, item.id ), slack.INFO )
   item.delete()
 
 # Iterate over the build new jobs
-for job in BuildJob.objects.filter( built_at__isnull=True ):
+for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
   resource_map = job.resources
   for name in resource_map:
@@ -112,8 +116,8 @@ for job in BuildJob.objects.filter( built_at__isnull=True ):
 
 # the Job will flag it's self as Ran
 
-# Iterate over the Ran jobs, and for now fake report them
-for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True ):
+# Iterate over the Ran jobs, and signalComplete
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
     job.commit.signalComplete( job.target, job.build.name, job.resources )
 
@@ -126,6 +130,24 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   logging.info( 'Setting job "%s" to Reported.' % job.id )
   job.reported_at = datetime.utcnow().replace( tzinfo=utc )
   job.save()
+
+  results = ''
+  for resources in job.resources:
+    for target in resources:
+      results += 'Target: *%s*\n' % target
+      for index in range( 0, len( results[ target ] ) ):
+        item = results[ target ][ index ]
+        results += 'Index %s\n' % index
+        try:
+          results += 'Sucess: *%s*\n' % item[ 'success' ]
+        except KeyError:
+          pass
+        try:
+          results += '```%s```\n' % item[ 'succresultsess' ]
+        except KeyError:
+          pass
+
+  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, item.id, results ), slack.INFO )
 
 # iterate over the Reported jobs that are not manual, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True, manual=False ):

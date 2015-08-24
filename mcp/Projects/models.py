@@ -128,7 +128,7 @@ class Commit( models.Model ):
     super( Commit, self ).save( *args, **kwargs )
 
   def signalComplete( self, target, build_name, resources ):
-    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'rpkg', 'resource' ):
+    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource' ):
       return
 
     sucess = resources[ 'target' ][0].get( 'success', False )
@@ -136,7 +136,7 @@ class Commit( models.Model ):
 
     if target == 'lint':
       status = simplejson.loads( self.lint_results )
-      distro = build_name.split( '-' )[1]
+      distro = build_name
       status[ distro ][ 'status' ] = 'done'
       status[ distro ][ 'success' ] = sucess
       status[ distro ][ 'results' ] = results
@@ -144,7 +144,7 @@ class Commit( models.Model ):
 
     elif target == 'test':
       status = simplejson.loads( self.test_results )
-      distro = build_name.split( '-' )[1]
+      distro = build_name
       status[ distro ][ 'status' ] = 'done'
       status[ distro ][ 'success' ] = sucess
       status[ distro ][ 'results' ] = results
@@ -152,7 +152,7 @@ class Commit( models.Model ):
 
     else:
       status = simplejson.loads( self.build_results )
-      distro = build_name.split( '-' )[1]
+      distro = build_name
       status[ target ][ distro ][ 'status' ] = 'done'
       status[ target ][ distro ][ 'success' ] = sucess
       status[ target ][ distro ][ 'results' ] = results
@@ -170,31 +170,14 @@ class Build( models.Model ):
   """
 This is a type of Build that can be done
   """
-  name = models.CharField( max_length=100, primary_key=True )
+  key = models.CharField( max_length=160, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
+  name = models.CharField( max_length=100 )
   project = models.ForeignKey( Project )
-  _dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
+  dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
   _resources = models.ManyToManyField( Resource, through='BuildResource' )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
-
-  @property
-  def dependancies( self ):
-    result = {}
-    for dependancy in self.builddependancy_set.all():
-      result[ dependancy.dependancy ] = dependancy.state
-
-    return result
-
-  @dependancies.setter
-  def dependancies( self, value ):
-    self.builddependancy_set.clear()
-    for dependancy in value:
-      tmp = BuildDependancy()
-      tmp.build = self
-      tmp.dependancy = dependancy
-      tmp.state = value[ dependancy ]
-      tmp.save()
 
   @property
   def resources( self ):
@@ -226,20 +209,24 @@ This is a type of Build that can be done
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
       raise ValidationError( 'Invalid name' )
 
+    self.key = '%s:%s' % ( self.project.name, self.name )
+
     super( Build, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
     return 'Build "%s" of "%s"' % ( self.name, self.project.name )
 
+  class Meta:
+      unique_together = ( 'name', 'project' )
 
 class BuildDependancy( models.Model ):
-  key = models.CharField( max_length=200, editable=False, primary_key=True ) # until django supports multi filed primary keys
+  key = models.CharField( max_length=250, editable=False, primary_key=True ) # until django supports multi filed primary keys
   build = models.ForeignKey( Build )
   package = models.ForeignKey( Package )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.name, self.package.name )
+    self.key = '%s:%s' % ( self.build.key, self.package.name )
 
     super( BuildDependancy, self ).save( *args, **kwargs )
 
@@ -250,14 +237,14 @@ class BuildDependancy( models.Model ):
       unique_together = ( 'build', 'package' )
 
 class BuildResource( models.Model ):
-  key = models.CharField( max_length=200, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
+  key = models.CharField( max_length=250, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   build = models.ForeignKey( Build )
   resource = models.ForeignKey( Resource )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.name, self.resource.name )
+    self.key = '%s:%s' % ( self.build.key, self.resource.name )
 
     super( BuildResource, self ).save( *args, **kwargs )
 
