@@ -13,7 +13,7 @@ import sys
 from logging.handlers import SysLogHandler
 from django.conf import settings
 
-from mcp.Projects.models import Package, PackageVersion, BuildDependancy
+from mcp.Project.models import Package, PackageVersion, BuildDependancy
 from mcp.Processor.models import Promotion, QueueItem, PromotionBuild, PromotionPkgVersion
 from mcp.lib.Packrat import Packrat
 from mcp.lib.Slack import Slack

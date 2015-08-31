@@ -4,7 +4,7 @@ from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from mcp.Resources.models import Resource
+from mcp.Resource.models import Resource
 
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5

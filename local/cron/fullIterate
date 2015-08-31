@@ -24,9 +24,7 @@ touch /var/run/mcpIterate.lock
 ./sark
 
 # update the dependancy graph
-cd ../util
 ./dograph
-cd ../cron
 
 rm /var/run/mcpIterate.lock
 exit 0

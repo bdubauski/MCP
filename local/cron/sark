@@ -17,11 +17,11 @@ from datetime import datetime, timedelta
 
 from django.utils.timezone import utc
 from mcp.Processor.models import QueueItem, BuildJob
-from mcp.Resources.models import Resource
+from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
 
 # DELAY in Hours
-CLEANUP_DELAY = 0.50
+CLEANUP_DELAY = 0.10
 PID_FILE = '/var/run/sark.pid'
 
 logging.basicConfig()
@@ -132,22 +132,22 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   job.save()
 
   results = ''
-  for resources in job.resources:
-    for target in resources:
-      results += 'Target: *%s*\n' % target
-      for index in range( 0, len( results[ target ] ) ):
-        item = results[ target ][ index ]
-        results += 'Index %s\n' % index
-        try:
-          results += 'Sucess: *%s*\n' % item[ 'success' ]
-        except KeyError:
-          pass
-        try:
-          results += '```%s```\n' % item[ 'succresultsess' ]
-        except KeyError:
-          pass
+  resource_list = job.resources
+  for target in resource_list:
+    results += 'Target: *%s*\n' % target
+    for index in range( 0, len( resource_list[ target ] ) ):
+      tmp = resource_list[ target ][ index ]
+      results += 'Index %s\n' % index
+      try:
+        results += 'Sucess: *%s*\n' % tmp[ 'success' ]
+      except KeyError:
+        pass
+      try:
+        results += '```%s```\n' % tmp[ 'results' ]
+      except KeyError:
+        pass
 
-  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, item.id, results ), slack.INFO )
+  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, results ), slack.INFO )
 
 # iterate over the Reported jobs that are not manual, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, released_at__isnull=True, manual=False ):

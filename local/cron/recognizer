@@ -18,7 +18,7 @@ from datetime import datetime
 
 from django.utils.timezone import utc
 from mcp.Processor.models import QueueItem
-from mcp.Projects.models import Commit
+from mcp.Project.models import Commit
 from mcp.lib.Slack import Slack
 
 PID_FILE = '/var/run/recoginzer.pid'

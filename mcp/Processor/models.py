@@ -5,8 +5,8 @@ from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError
 
-from mcp.Projects.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
-from mcp.Resources.models import Resource, ResourceGroup
+from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
+from mcp.Resource.models import Resource, ResourceGroup
 from plato.Config.lib import getSystemConfigValues
 
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
@@ -206,6 +206,8 @@ BuildJob
     return result
 
   def jobRan( self ):
+    if not self.built_at:
+      self.built_at = datetime.utcnow().replace( tzinfo=utc )
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
     self.save()
 

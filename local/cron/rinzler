@@ -17,8 +17,8 @@ from logging.handlers import SysLogHandler
 
 from django.utils.timezone import utc
 from django.conf import settings
-from mcp.Projects.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
-from mcp.Resources.models import Resource
+from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
+from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile
 from mcp.lib.Git import Git
 from mcp.lib.Slack import Slack
@@ -56,7 +56,7 @@ def _makeBuild( build_name, project, manual ):
   logging.debug( 'Build: "%s" depends: "%s" resources: "%s".' % ( build_name, dependancy_list, resource_list ) )
   try:
     build = Build.objects.get( project=project, name=build_name ) # TODO: untill update stuff is in place, we shoudn't ever find it, but here for future and saftey, when it does exist
-    for dependancy in build._dependancies.all(): #TODO: update instead of delete and re add
+    for dependancy in build.dependancies.all(): #TODO: update instead of delete and re add
       dependancy.delete()
 
     for resource in build._resources.all():

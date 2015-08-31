@@ -1,8 +1,8 @@
 from django.http import HttpResponse
 from django.template import Template, Context
 
-from mcp.Projects.models import Commit
-from mcp.Resources.models import HARDWARE_PROFILE
+from mcp.Project.models import Commit
+from mcp.Resource.models import HARDWARE_PROFILE
 from mcp.Processor.models import QueueItem, BuildJob, Promotion
 from plato.Config.models import Config
 

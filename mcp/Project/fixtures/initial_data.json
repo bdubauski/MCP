@@ -1,7 +1,7 @@
 [
   {
     "pk": "_builtin_",
-    "model": "Projects.project",
+    "model": "Project.project",
     "fields": {
       "updated": "2014-01-01T01:01:01Z",
       "local_path": "",
@@ -11,7 +11,7 @@
   },
   {
     "pk": "_buildin_:trusty",
-    "model": "Projects.build",
+    "model": "Project.build",
     "fields": {
       "name": "trusty",
       "project": "_builtin_",
@@ -22,7 +22,7 @@
   },
   {
     "pk": "_buildin_:precise",
-    "model": "Projects.build",
+    "model": "Project.build",
     "fields": {
       "name": "precise",
       "project": "_builtin_",
@@ -33,7 +33,7 @@
   },
   {
     "pk": "_buildin_:centos6",
-    "model": "Projects.build",
+    "model": "Project.build",
     "fields": {
       "name": "centos6",
       "project": "_builtin_",
@@ -44,7 +44,7 @@
   },
   {
     "pk": "builtin-trusty:small-generic-trusty",
-    "model": "Projects.buildresource",
+    "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-trusty",
       "build": "_buildin_:trusty",
@@ -54,7 +54,7 @@
   },
   {
     "pk": "builtin-precise:small-generic-precise",
-    "model": "Projects.buildresource",
+    "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-precise",
       "build": "_buildin_:precise",
@@ -64,7 +64,7 @@
   },
   {
     "pk": "builtin-centos6:small-generic-centos6",
-    "model": "Projects.buildresource",
+    "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-centos6",
       "build": "_buildin_:centos6",

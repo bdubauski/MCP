@@ -1,7 +1,7 @@
 [
   {
     "pk": "small-generic-precise",
-    "model": "Resources.resource",
+    "model": "Resource.resource",
     "fields": {
       "config_profile": "precise-mcp",
       "updated": "2014-01-01T01:01:01Z",
@@ -11,7 +11,7 @@
   },
   {
     "pk": "small-generic-trusty",
-    "model": "Resources.resource",
+    "model": "Resource.resource",
     "fields": {
       "config_profile": "trusty-mcp",
       "updated": "2014-01-01T01:01:01Z",
@@ -21,7 +21,7 @@
   },
   {
     "pk": "small-generic-centos6",
-    "model": "Resources.resource",
+    "model": "Resource.resource",
     "fields": {
       "config_profile": "centos6-mcp",
       "updated": "2014-01-01T01:01:01Z",
@@ -31,21 +31,21 @@
   },
   {
     "pk": "small-generic-precise",
-    "model": "Resources.vmresource",
+    "model": "Resource.vmresource",
     "fields": {
       "vm_template": "small-generic"
     }
   },
   {
     "pk": "small-generic-trusty",
-    "model": "Resources.vmresource",
+    "model": "Resource.vmresource",
     "fields": {
       "vm_template": "small-generic"
     }
   },
   {
     "pk": "small-generic-centos6",
-    "model": "Resources.vmresource",
+    "model": "Resource.vmresource",
     "fields": {
       "vm_template": "small-generic"
     }

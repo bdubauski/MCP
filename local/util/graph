@@ -3,7 +3,7 @@ import os
 
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
 
-from mcp.Projects.models import Project, Build, Package, BuildDependancy
+from mcp.Project.models import Project, Build, Package, BuildDependancy
 
 print 'strict graph {'
 print 'rankdir=LR'
