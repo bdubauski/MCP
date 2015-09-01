@@ -12,10 +12,10 @@ test:
 	./manage.py test
 
 lint-requires:
-	echo linter
+# linter not in precise	echo linter
 
 lint:
-	linter -i manage.py -i mcp/Processor/migrations/ -i mcp/Resource/migrations/ -i mcp/Project/migrations
+#	linter -i manage.py -i mcp/Processor/migrations/ -i mcp/Resource/migrations/ -i mcp/Project/migrations
 
 dpkg-distros:
 	echo precise
