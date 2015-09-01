@@ -3,6 +3,9 @@ import subprocess
 
 MAKE_CMD = '/usr/bin/make'
 
+class MakeException( Exception ):
+  pass
+
 class Makefile( object ):
   def __init__( self, dir ):
     self.dir = dir
@@ -18,15 +21,12 @@ class Makefile( object ):
     except Exception as e:
       raise Exception( 'Exception %s while makeing target "%s"' % ( e, target ) )
 
+    logging.debug( 'make: rc: %s' % proc.returncode )
+    logging.debug( 'make: output:\n----------\n%s\n---------' % stdout )
+
     if proc.returncode == 2:
       if stdout.startswith( 'make: *** No rule to make target' ):
         return []
-
-      else:
-        print '))))))))))))))) rc2: "%s"' % stdout
-
-    logging.debug( 'make: rc: %s' % proc.returncode )
-    logging.debug( 'make: output:\n----------\n%s\n---------' % stdout )
 
     if proc.returncode != 0:
       raise Exception( 'make returned "%s"' % proc.returncode )

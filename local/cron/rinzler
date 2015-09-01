@@ -19,7 +19,7 @@ from django.utils.timezone import utc
 from django.conf import settings
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
-from mcp.lib.Makefile import Makefile
+from mcp.lib.Makefile import Makefile, MakeException
 from mcp.lib.Git import Git
 from mcp.lib.Slack import Slack
 
@@ -164,7 +164,12 @@ for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=
     commit.project = project
     commit.branch = branch
     commit.commit = branch_map[ branch ]
-    distro_list = make.testDistros()
+    try:
+      distro_list = make.testDistros()
+    except MakeException as e:
+      logging.error( 'Error Retreiving Test Distros from Makefile "%s", ignorning commit.' % e )
+      continue
+
     commit.lint_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
     commit.test_results = commit.lint_results
     commit.build_results = {}
@@ -173,30 +178,45 @@ for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=
       logging.info( 'Adding Package Build...' )
 
       for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
-        distro_list = make.packageDistros( tmp )
+        try:
+          distro_list = make.packageDistros( tmp )
+        except MakeException as e:
+          logging.error( 'Error Retreiving Packaging Distros from Makefile "%s", ignorning commit.' % e )
+          continue
+
         if distro_list:
           commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
 
     commit.build_results = json.dumps( commit.build_results )
-    commit.save()
 
     if branch == 'master':
       logging.info( 'Updating Builds info...' )
       for build in project.build_set.all(): #TODO: update what has changed, not delete everything and re-add everything
         build.delete()
 
-      build_list = make.autoBuilds()
+      try:
+        build_list = make.autoBuilds()
+      except MakeException as e:
+        logging.error( 'Error Retreiving Auto Builds from Makefile "%s", ignorning commit.' % e )
+        continue
+
       logging.debug( 'Auto Builds "%s".' % build_list )
       for build in build_list:
         _makeBuild( build, project, False )
 
-      build_list = make.manualBuilds()
+      try:
+        build_list = make.manualBuilds()
+      except MakeException as e:
+        logging.error( 'Error Retreiving Manual Builds from Makefile "%s", ignorning commit.' % e )
+        continue
+
       logging.debug( 'Manual Builds "%s".' % build_list )
       for build in build_list:
         _makeBuild( build, project, True )
 
     logging.debug( 'Cleaning up work dir.' )
     shutil.rmtree( WORK_DIR )
+    commit.save()
 
   project.last_checked = datetime.utcnow().replace( tzinfo=utc )
   project.save()
