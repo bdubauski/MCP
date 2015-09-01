@@ -15,7 +15,7 @@ lint-requires:
 	echo linter
 
 lint:
-	../linter/linter -c ../linter.json -i manage.py -i mcp/Processor/migrations/ -i mcp/Resource/migrations/ -i mcp/Project/migrations
+	linter -i manage.py -i mcp/Processor/migrations/ -i mcp/Resource/migrations/ -i mcp/Project/migrations
 
 dpkg-distros:
 	echo precise
