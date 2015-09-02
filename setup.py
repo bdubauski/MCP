@@ -11,7 +11,8 @@ class custom_build( build_py ):
       if os.path.exists( 'mcp/settings.py' ):
         print 'Moving settings.py asside...'
         os.rename('mcp/settings.py', 'mcp/settings.py.tmp')
-        open( 'mcp/settings.py', 'w' ).close()
+
+      open( 'mcp/settings.py', 'w' ).close()
 
       # build_py.run( self )
       # get .pys
@@ -53,9 +54,9 @@ class custom_build( build_py ):
         self.mkpath(os.path.dirname(target))
         self.copy_file(os.path.join(src_dir, filename), target, preserve_mode=False)
 
+      os.unlink( 'mcp/settings.py' )
       if os.path.exists( 'mcp/settings.py.tmp' ):
         print 'Moving settings.py back...'
-        os.unlink( 'mcp/settings.py' )
         os.rename('mcp/settings.py.tmp', 'mcp/settings.py')
 
 setup( name='mcp-master',
