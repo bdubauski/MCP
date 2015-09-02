@@ -2,14 +2,19 @@ DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
 
 all:
 
+clean:
+	$(RM) -r build
+	$(RM) dpkg
+	dh_clean
+
 test-distros:
 	echo precise
 
 test-requires:
-	echo django postgres
+	echo plato-master
 
 test:
-	./manage.py test
+	/usr/local/plato/setup/setupWizard tests/setup-answers
 
 lint-requires:
 # linter not in precise	echo linter
@@ -21,14 +26,14 @@ dpkg-distros:
 	echo precise
 
 dpkg-requires:
-	echo dpkg-dev debhelper cdbs
+	echo dpkg-dev debhelper cdbs python-dev python-setuptools
 
 dpkg:
 	dpkg-buildpackage -b -us -uc
 	touch dpkg
 
 dpkg-file:
-	echo $(shell ls ../mcp_*.deb)
+	echo $(shell ls ../mcp_*.deb):precise
 
 
-.PHONY: test-distros test-requires test lint-requires lint dpkg-distros dpkg-requires dpkg
+.PHONY: all clean test-distros test-requires test lint-requires lint dpkg-distros dpkg-requires dpkg

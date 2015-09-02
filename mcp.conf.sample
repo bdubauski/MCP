@@ -1,6 +1,6 @@
 GIT_REPO_PATH = '/var/www/git'
 
-PACKRAT_HOST = 'http://packrat.mcp.test'
+PACKRAT_HOST = 'http://packrat'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
 PACKRAT_PSK = 'mcp'
@@ -9,13 +9,13 @@ PACKRAT_PSK = 'mcp'
 SECRET_KEY = 'w4hhv%e7yq8(-$u8w3e2w5_^4q749(*mb-#-j!1ms*w9s5f@x='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-MCP_HOST_NAME = 'http://mcp.mcp.test'
+MCP_HOST_NAME = 'http://mcp'
 MCP_PROXY = None
 
 # Application definition
@@ -73,9 +73,6 @@ DATABASES = {
 
 
 DATABASE_ROUTERS = [ 'mcp.lib.db.MCPRouter' ]
-
-# Internationalization
-# https://docs.djangoproject.com/en/1.7/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
