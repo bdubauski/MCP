@@ -12,10 +12,10 @@ fi
 touch /var/run/mcpIterate.lock
 
 # check the commits
-./recognizer
+/usr/local/mcp/cron/recognizer
 
 # run thoes jobs
-./sark
+/usr/local/mcp/cron/sark
 
 rm /var/run/mcpIterate.lock
 exit 0

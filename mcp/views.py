@@ -14,7 +14,7 @@ def index( request ):
 <body>
 <a href="/admin/">Admin</a><br/>
 <a href="/status">Status</a><br/>
-<a href="http://git.mcp.test/graph.png">Dependancy Graph</a>
+Dependancy Graph <a href="/static/graph.png">(png)</a> <a href="/static/graph.pdf">(pdf)</a></br>
 </body>
 </html>""" )
 

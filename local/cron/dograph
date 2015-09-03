@@ -1,5 +1,0 @@
-#!/bin/sh
-
-
-./graph | dot -Tpng -o/var/www/mcp/static/graph.png
-./graph | dot -Tpdf -o/var/www/mcp/static/graph.pdf

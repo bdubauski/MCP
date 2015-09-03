@@ -117,7 +117,7 @@ for promotion in Promotion.objects.all():
 
 # look for new package versions
 for name in packrat.packages():
-  logging.debug( 'Checking package "%s"...' % name )
+  logging.info( 'Checking package "%s"...' % name )
   try:
     package = Package.objects.get( pk=name )
   except Package.DoesNotExist:

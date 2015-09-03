@@ -8,6 +8,6 @@ X-Python-Version: >= 2.7
 
 Package: mcp
 Architecture: all
-Depends: plato-master (>= 0.3.18), ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Depends: plato-master (>= 0.3.18), python-cinp, graphviz, ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
 Description: MCP
   MCP - Master Controll Program

@@ -20,15 +20,15 @@ set -e
 
 case "$1" in
     configure)
-        if [ ! -f /etc/mcp/mcp.conf ] ;
+        if [ ! -f /etc/mcp/master.conf ] ;
         then
           echo "Creating starter mcp.conf..."
-          cp /etc/mcp/mcp.conf.sample /etc/mcp/mcp.conf
+          cp /etc/mcp/master.conf.sample /etc/mcp/master.conf
         fi
         if [ ! -h /usr/share/pyshared/mcp/settings.py ] ;
         then
           echo "Fixing settings.py..."
-          ln -sf /etc/mcp/mcp.conf /usr/share/pyshared/mcp/settings.py
+          ln -sf /etc/mcp/master.conf /usr/share/pyshared/mcp/settings.py
         fi
         echo "Reloading cron..."
         /etc/init.d/cron reload
