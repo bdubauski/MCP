@@ -1,3 +1,9 @@
+mcp (0.2-1) precise; urgency=medium
+
+  * PAckaging Fixes 
+
+ -- Peter <peter@blueboy>  Thu, 03 Sep 2015 21:07:37 -0600
+
 mcp (0.1-1) precise; urgency=medium
 
   * Initial release.
