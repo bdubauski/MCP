@@ -167,6 +167,7 @@ BuildJob
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
+  acknowledged_at = models.DateTimeField( editable=False, blank=True, null=True )
   released_at = models.DateTimeField( editable=False, blank=True, null=True )
   manual = models.BooleanField()
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
@@ -180,8 +181,11 @@ BuildJob
 
   @property
   def state( self ):
-    if self.released_at and self.reported_at and self.ran_at and self.built_at:
+    if self.released_at and self.acknowledged_at and self.reported_at and self.ran_at and self.built_at:
       return 'released'
+
+    if self.acknowledged_at and self.reported_at and self.ran_at and self.built_at:
+      return 'acknowledged'
 
     if self.reported_at and self.ran_at and self.built_at:
       return 'reported'
@@ -201,13 +205,14 @@ BuildJob
 
     result = True
     for resource in self.resources:
-      result &= self.resources[ 'result' ] is True
+      result &= self.resources.get( 'result', False ) is True
 
     return result
 
   def jobRan( self ):
     if not self.built_at:
       self.built_at = datetime.utcnow().replace( tzinfo=utc )
+
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
     self.save()
 

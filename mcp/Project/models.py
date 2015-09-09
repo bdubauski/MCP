@@ -96,6 +96,9 @@ This is a Version of a Package
 
 
 class Commit( models.Model ):
+  """
+A Single Commit of a Project
+  """
   project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
@@ -164,7 +167,7 @@ class Commit( models.Model ):
     return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
 
   class Meta:
-      unique_together = ( 'project', 'branch' )
+      unique_together = ( 'project', 'commit' )
 
 class Build( models.Model ):
   """

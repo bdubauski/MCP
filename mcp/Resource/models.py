@@ -123,9 +123,13 @@ class VMResource( Resource ):
   vm_template = models.CharField( max_length=50 )
 
   def available( self, quantity ):
-    return True # for now there is allways vm space aviable
+    subnet = SubNet.objects.get( pk=TARGET_SUBNET )
+    if len( subnet.unused_list ) < quantity:
+      return False
 
-  def allocate( self, job, name, quaninity, config_id_list=None ): # for now config_id_list is ignored, VMs don't pre-exist, so can't pre pick them
+    return True
+
+  def allocate( self, job, name, quantity, config_id_list=None ): # for now config_id_list is ignored, VMs don't pre-exist, so can't pre pick them
     try:
       profile = Profile.objects.get( pk=self.config_profile )
     except Profile.DoesNotExist:
@@ -137,9 +141,11 @@ class VMResource( Resource ):
 
     pod = Pod.objects.get( pk=TARGET_POD )
     subnet = SubNet.objects.get( pk=TARGET_SUBNET )
+    if len( subnet.unused_list ) < quantity:
+      raise Exception( 'Not enough unused Ips Available' )
 
     results = []
-    for index in range( 0, quaninity ):
+    for index in range( 0, quantity ):
       address_list = []
       address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
       config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), pod, profile, address_list )
@@ -160,7 +166,7 @@ class HardwareResource( Resource ):
   def available( self, quantity ):
     return Config.objects.filter( profile_id=HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).count() >= quantity
 
-  def allocate( self, job, name, quaninity, config_id_list=None ):
+  def allocate( self, job, name, quantity, config_id_list=None ):
     try:
       profile = Profile.objects.get( pk=self.config_profile )
     except Profile.DoesNotExist:
@@ -175,7 +181,7 @@ class HardwareResource( Resource ):
     config_list = list( config_list )
 
     results = []
-    for index in range( 0, quaninity ):
+    for index in range( 0, quantity ):
       config = config_list.pop( 0 )
       config.config_values = config_values( job, name, index )
       config.profile = profile

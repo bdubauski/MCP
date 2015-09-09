@@ -59,6 +59,8 @@ def _queuePromotion( pkg_version, packrat_id, state, to_state ):
       logging.warning( 'Package "%s" version "%s" has differing to_state from existing promotion, going to ignore for now.' % ( package.name, pkg_version.version ) )
       return
 
+    # TODO: really any package that has the same target build and state should join the club... assuming it get's on board before
+    #       the repo snapshot is made for the build to operate from
     logging.info( 'Joining package "%s" version "%s" to Existing Promotion...' % ( package.name, pkg_version.version ) )
     promotion_pkg_version = PromotionPkgVersion()
     promotion_pkg_version.promotion = promotion

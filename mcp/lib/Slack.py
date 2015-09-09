@@ -25,11 +25,11 @@ class Slack( object ):
 
   def post_message( self, message, emoji=NOTSET ):
     data = {
-        'token':        self.api_token,
-        'channel':      self.channel_name,
-        'username':     self.user_name,
-        'text':         message,
-        'icon_emoji':   emoji
+        'token': self.api_token,
+        'channel': self.channel_name,
+        'username': self.user_name,
+        'text': message,
+        'icon_emoji': emoji
     }
 
     url = '%s/%s' % ( self.slack_api_base_url, 'chat.postMessage' )
