@@ -55,12 +55,12 @@ def _makeBuild( build_name, project, manual ):
   resource_list = make.resources( build_name )
   logging.debug( 'Build: "%s" depends: "%s" resources: "%s".' % ( build_name, dependancy_list, resource_list ) )
   try:
-    build = Build.objects.get( project=project, name=build_name ) # TODO: untill update stuff is in place, we shoudn't ever find it, but here for future and saftey, when it does exist
-    for dependancy in build.dependancies.all(): #TODO: update instead of delete and re add
-      dependancy.delete()
+    build = Build.objects.get( project=project, name=build_name )
+    for item in build.buildresource_set.all(): #TODO: update instead of delete and re add
+      item.delete()
 
-    for resource in build._resources.all():
-      resource.delete()
+    for item in build.builddependancy_set.all():
+      item.delete()
 
   except Build.DoesNotExist:
     build = Build()

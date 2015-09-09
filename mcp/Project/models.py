@@ -177,36 +177,10 @@ This is a type of Build that can be done
   name = models.CharField( max_length=100 )
   project = models.ForeignKey( Project )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
-  _resources = models.ManyToManyField( Resource, through='BuildResource' )
+  resources = models.ManyToManyField( Resource, through='BuildResource' )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
-
-  @property
-  def resources( self ):
-    result = {}
-    for resource in self.buildresource_set.all():
-      result[ resource.name ] = ( resource.resource, resource.quanity )
-
-    return result
-
-  @resources.setter
-  def resources( self, value ):
-    self.buildresource_set.clear()
-    for name in value:
-      resource = value[ name ]
-      if isinstance( resource, tuple ):
-        ( resource, quanity ) = value
-
-      else:
-        quanity = 1
-
-      tmp = BuildResource()
-      tmp.build = self
-      tmp.resource = resource
-      tmp.name = name
-      tmp.quanity = quanity
-      tmp.save()
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):

@@ -163,7 +163,7 @@ BuildJob
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   requires = models.CharField( max_length=50 )
-  _resources = models.TextField( default='{}' )
+  resources = models.TextField( default='{}' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -174,10 +174,6 @@ BuildJob
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
-
-  @property
-  def resources( self ):
-    return simplejson.loads( self._resources )
 
   @property
   def state( self ):
@@ -204,8 +200,8 @@ BuildJob
       return None
 
     result = True
-    for resource in self.resources:
-      result &= self.resources.get( 'result', False ) is True
+    for resource in simplejson.loads( self.resources ):
+      result &= resource.get( 'result', False ) is True
 
     return result
 
@@ -217,43 +213,43 @@ BuildJob
     self.save()
 
   def updateResourceState( self, name, index, status ):
-    tmp = simplejson.loads( self._resources )
+    resource_map = simplejson.loads( self.resources )
     try:
-      tmp[ name ][ index ][ 'status' ] = status
+      resource_map[ name ][ index ][ 'status' ] = status
     except ( IndexError, KeyError ):
       return
 
-    self._resources = simplejson.dumps( tmp )
+    self.resources = simplejson.dumps( resource_map )
     self.save()
 
   def setResourceSuccess( self, name, index, success ):
-    tmp = simplejson.loads( self._resources )
+    resource_map = simplejson.loads( self.resources )
     try:
-      tmp[ name ][ index ][ 'success' ] = bool( success )
+      resource_map[ name ][ index ][ 'success' ] = bool( success )
     except ( IndexError, KeyError ):
       return
 
-    self._resources = simplejson.dumps( tmp )
+    self.resources = simplejson.dumps( resource_map )
     self.save()
 
   def setResourceResults( self, name, index, results ):
-    tmp = simplejson.loads( self._resources )
+    resource_map = simplejson.loads( self.resources )
     try:
-      tmp[ name ][ index ][ 'results' ] = results
+      resource_map[ name ][ index ][ 'results' ] = results
     except ( IndexError, KeyError ):
       return
 
-    self._resources = simplejson.dumps( tmp )
+    self.resources = simplejson.dumps( resource_map )
     self.save()
 
   def getConfigStatus( self, name, index=None, count=None ):
-    tmp = simplejson.loads( self._resources )
-    config_list = tmp[ name ]
+    resource_map = simplejson.loads( self.resources )
+    config_list = resource_map[ name ]
     if index:
       if count:
-        config_list = tmp[ index:index + count ]
+        config_list = resource_map[ index:index + count ]
       else:
-        config_list = tmp[ index: ]
+        config_list = resource_map[ index: ]
 
     if index is None:
       index = 0
@@ -265,13 +261,13 @@ BuildJob
     return results
 
   def getProvisioningInfo( self, name, index=None, count=None ):
-    tmp = simplejson.loads( self._resources )
-    config_list = tmp[ name ]
+    resource_map = simplejson.loads( self.resources )
+    config_list = resource_map[ name ]
     if index:
       if count:
-        config_list = tmp[ index:index + count ]
+        config_list = resource_map[ index:index + count ]
       else:
-        config_list = tmp[ index: ]
+        config_list = resource_map[ index: ]
 
     if index is None:
       index = 0
@@ -290,7 +286,7 @@ BuildJob
 
   def save( self, *args, **kwargs ):
     try:
-      simplejson.loads( self._resources )
+      simplejson.loads( self.resources )
     except ValueError:
       raise ValidationError( 'status must be valid JSON' )
 

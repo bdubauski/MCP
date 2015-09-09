@@ -81,7 +81,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
     # allocate the Resources
     resources = item.allocateResources( job )
     logging.info( 'Starting Queue Item "%s" with Resources "%s" as job "%s"' % ( item, resources, job.id ) )
-    job._resources = json.dumps( resources )
+    job.resources = json.dumps( resources )
     job.save()
 
   except Exception as e:
@@ -100,7 +100,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
 # Iterate over the build new jobs
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
-  resource_map = job.resources
+  resource_map = json.loads( job.resources )
   for name in resource_map:
     for index in range( 0, len( resource_map[ name ] ) ):
       if resource_map[ name ][ index ][ 'status' ] not in ( 'Allocated', 'Building' ):
@@ -121,7 +121,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
-    job.commit.signalComplete( job.target, job.build.name, job.resources )
+    job.commit.signalComplete( job.target, job.build.name, json.loads( job.resources ) )
 
   elif job.promotion is not None:
     job.promotion.signalComplete( job.build )
@@ -134,11 +134,11 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   job.save()
 
   results = ''
-  resource_list = job.resources
-  for target in resource_list:
+  resource_map = json.loads( job.resources )
+  for target in resource_map:
     results += 'Target: *%s*\n' % target
-    for index in range( 0, len( resource_list[ target ] ) ):
-      tmp = resource_list[ target ][ index ]
+    for index in range( 0, len( resource_map[ target ] ) ):
+      tmp = resource_map[ target ][ index ]
       results += 'Index %s\n' % index
       try:
         results += 'Sucess: *%s*\n' % tmp[ 'success' ]
@@ -167,7 +167,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
-  resource_map = job.resources
+  resource_map = json.loads( job.resources )
   for name in resource_map:
     for index in range( 0, len( resource_map[ name ] ) ):
       if resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
@@ -177,15 +177,14 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
         else:
           job.updateResourceState( name, index, 'Releasing' )
 
-  # iterate over the Acknoledged jobs and look to see if the resources are all released
-  resource_map = job.resources
+  resource_map = json.loads( job.resources )
   for name in resource_map:
     for index in range( 0, len( resource_map[ name ] ) ):
       if resource_map[ name ][ index ][ 'status' ] == 'Releasing':
         if Resource.released( resource_map[ name ][ index ][ 'config' ] ):
           job.updateResourceState( name, index, 'Released' )
 
-  resource_map = job.resources
+  resource_map = json.loads( job.resources )
   ready = True
   for name in resource_map:
     for index in range( 0, len( resource_map[ name ] ) ):
