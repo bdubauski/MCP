@@ -1,3 +1,10 @@
+mcp (0.4-1) precise; urgency=medium
+
+  * rinzler bug fixes
+  * field nameing cleanup
+
+ -- Peter <peter@blueboy>  Wed, 09 Sep 2015 13:21:44 -0600
+
 mcp (0.3-1) precise; urgency=medium
 
   * Acknoledge stage after reported stage to allow failed
