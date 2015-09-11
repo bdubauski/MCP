@@ -79,11 +79,10 @@ QueueItem
     if result:
       return result
 
-    resource_map = self.build.resources
-    for name in resource_map:
-      resource = resource_map[ name ][0].native
-      quanitity = resource_map[ name ][1]
-      tmp = resource.available( quanitity )
+    for buildresource in self.build.buildresource_set.all():
+      quanity = buildresource.quanity
+      resource = buildresource.resource.native
+      tmp = resource.available( quanity )
       if not tmp:
         result[ resource.name ] = 'Not Available'
 
@@ -95,12 +94,12 @@ QueueItem
     for group in self.resource_groups.all():
       group_config_list += group.config_list
 
-    resource_map = self.build.resources
-    for name in resource_map:
-      resource = resource_map[ name ][0].native
-      quanitity = resource_map[ name ][1]
-      config_list = resource.allocate( job, name, quanitity, config_id_list=group_config_list ) # first try to allocated from resource groups
-      config_list += resource.allocate( job, name, quanitity - len( config_list ) ) # now allocated from general pool
+    for buildresource in self.build.buildresource_set.all():
+      name = buildresource.name
+      quanity = buildresource.quanity
+      resource = buildresource.resource.native
+      config_list = resource.allocate( job, name, quanity, config_id_list=group_config_list ) # first try to allocated from resource groups
+      config_list += resource.allocate( job, name, quanity - len( config_list ) ) # now allocated from general pool
       result[ name ] = []
       for config in config_list:
         result[ name ].append( { 'status': 'Allocated', 'config': config } )
@@ -200,8 +199,10 @@ BuildJob
       return None
 
     result = True
-    for resource in simplejson.loads( self.resources ):
-      result &= resource.get( 'result', False ) is True
+    resource_map = simplejson.loads( self.resources )
+    for target in resource_map:
+      for i in range( 0, len( resource_map[ target ] ) ):
+        result &= resource_map[ target ][ i ].get( 'success', False ) is True
 
     return result
 
