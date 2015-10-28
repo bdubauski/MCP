@@ -1,3 +1,10 @@
+mcp (0.5-1) precise; urgency=medium
+
+  * better handling of jobs
+  * tweeking meaning of complete
+
+ -- Peter <peter@blueboy>  Wed, 28 Oct 2015 11:32:55 -0600
+
 mcp (0.4-1) precise; urgency=medium
 
   * rinzler bug fixes
