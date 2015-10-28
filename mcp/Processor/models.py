@@ -193,6 +193,9 @@ BuildJob
 
     return 'new'
 
+  # some jobs have more than one resources, in this case, if a resource hasn't
+  # report a status we will assume it has sucess, due to the fact that many
+  # of the sub resources will never report
   @property
   def suceeded( self ):
     if self.ran_at is None:
@@ -202,7 +205,7 @@ BuildJob
     resource_map = simplejson.loads( self.resources )
     for target in resource_map:
       for i in range( 0, len( resource_map[ target ] ) ):
-        result &= resource_map[ target ][ i ].get( 'success', False ) is True
+        result &= resource_map[ target ][ i ].get( 'success', True )
 
     return result
 

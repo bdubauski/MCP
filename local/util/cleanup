@@ -14,6 +14,10 @@ job_id = sys.argv[1]
 
 job = BuildJob.objects.get( pk=job_id )
 
+if not job.built_at:
+  print 'Job "%s" has not completed building' % job_id
+  sys.exit( 1 )
+
 job.ran_at = datetime.utcnow().replace( tzinfo=utc )
 job.reported_at = datetime.utcnow().replace( tzinfo=utc )
 job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )

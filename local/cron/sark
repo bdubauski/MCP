@@ -48,6 +48,7 @@ tmp.close()
 
 slack = Slack( 'sark' )
 
+
 # Iterate over the Queued Items
 for item in QueueItem.objects.all().order_by( '-priority' ): # start with the biggest number first
   try:
@@ -97,6 +98,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
   slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) for Queue Item %s submitted.' % ( job.id, job.project.name, job.build.name, job.branch, job.target, item.id ), slack.INFO )
   item.delete()
 
+
 # Iterate over the build new jobs
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
@@ -116,7 +118,9 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
     job.built_at = datetime.utcnow().replace( tzinfo=utc )
     job.save()
 
+
 # the Job will flag it's self as Ran
+
 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
@@ -165,6 +169,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     job.save()
     continue
 
+
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
   resource_map = json.loads( job.resources )
@@ -195,6 +200,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     logging.info( 'Setting job "%s" to Released.' % job.id )
     job.released_at = datetime.utcnow().replace( tzinfo=utc )
     job.save()
+
 
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
 for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):

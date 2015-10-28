@@ -103,8 +103,19 @@ def _makeBuild( build_name, project, manual ):
 
 
 # where project dosen't have any auto builds nor queue items, nor manual builds in pre "ran" state, nor commit in flight
-for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=True ).order_by( '-last_checked' ):
+for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last_checked' ):
   if project.name.startswith( '_' ):
+    continue
+
+  if project.commit_set.filter( done_at__isnull=True ).count() > 0:
+    continue
+
+  ready = True
+  for job in project.buildjob_set.all():
+    ready &= not job.manual
+    ready &= job.state in ( 'released', 'acknowledged', 'reported' )
+
+  if not ready:
     continue
 
   ready = True
@@ -134,7 +145,6 @@ for project in Project.objects.filter( buildjob__isnull=True, queueitem__isnull=
     git = Git( path )
     git.setup( project.githubproject.github_url, parent_path )
     project.save()
-
 
   else:
     path = os.path.join( settings.GIT_REPO_PATH, project.local_path )
