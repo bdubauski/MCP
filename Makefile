@@ -33,7 +33,7 @@ dpkg:
 	touch dpkg
 
 dpkg-file:
-	echo $(shell ls ../mcp_.*.deb):precise
+	echo $(shell ls ../mcp_*.deb):precise
 
 
 .PHONY: all clean test-distros test-requires test lint-requires lint dpkg-distros dpkg-requires dpkg
