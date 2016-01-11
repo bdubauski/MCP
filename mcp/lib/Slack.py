@@ -13,10 +13,10 @@ class Slack( object ):
   SUCCESS = ':+1:'
   DONE = ':checkered_flag:'
 
-  def __init__( self, proc, proxy=None ):
+  def __init__( self, proc, site=None, proxy=None ):
     self.api_token = 'xoxb-4764916304-pICcdd83dhhBOBVzljiJmHy6'
     self.channel_name = '#mcp'
-    self.user_name = 'mcp-%s' % proc
+    self.user_name = 'mcp(%s)-%s' % ( site, proc ) if site else 'mcp-%s' % proc
     self.slack_api_base_url = 'https://slack.com/api'
     if proxy:
       self.opener = urllib2.build_opener( urllib2.ProxyHandler( { 'http': proxy, 'https': proxy } ) )

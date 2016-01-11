@@ -1,8 +1,8 @@
 from django.http import HttpResponse
 from django.template import Template, Context
+from django.conf import settings
 
 from mcp.Project.models import Commit
-from mcp.Resource.models import HARDWARE_PROFILE
 from mcp.Processor.models import QueueItem, BuildJob, Promotion
 from plato.Config.models import Config
 
@@ -73,6 +73,6 @@ Generated at {% now "jS F Y H:i" %}
                  'queue_list': QueueItem.objects.all().order_by( '-priority' ),
                  'promtion_list': Promotion.objects.all().order_by( 'pk' ),
                  'commit_list': Commit.objects.filter( done_at__isnull=True ).order_by( 'pk' ),
-                 'unused_list': Config.objects.filter( profile=HARDWARE_PROFILE, configured__isnull=True ).order_by( 'pk' )
+                 'unused_list': Config.objects.filter( profile=settings.HARDWARE_PROFILE, configured__isnull=True ).order_by( 'pk' )
                } )
   return HttpResponse( t.render( c ) )

@@ -33,21 +33,24 @@
     "pk": "small-generic-precise",
     "model": "Resource.vmresource",
     "fields": {
-      "vm_template": "small-generic"
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
     }
   },
   {
     "pk": "small-generic-trusty",
     "model": "Resource.vmresource",
     "fields": {
-      "vm_template": "small-generic"
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
     }
   },
   {
     "pk": "small-generic-centos6",
     "model": "Resource.vmresource",
     "fields": {
-      "vm_template": "small-generic"
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
     }
   }
 ]
