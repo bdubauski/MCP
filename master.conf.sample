@@ -1,6 +1,7 @@
-GIT_REPO_PATH = '/var/www/git'
+GIT_LOCAL_PATH = '/var/www/git'
+GIT_HOST = 'http://git/'
 
-PACKRAT_HOST = 'http://packrat'
+PACKRAT_HOST = 'http://packrat/'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
 PACKRAT_PSK = 'mcp'
@@ -23,7 +24,7 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-MCP_HOST_NAME = 'http://mcp'
+MCP_HOST = 'http://mcp/'
 MCP_PROXY = None
 
 # Application definition

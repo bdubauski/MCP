@@ -3,13 +3,13 @@ import re
 from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 from mcp.Resource.models import Resource
 
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5
 RELEASE_TYPE_CHOICES = ( ( 'ci', 'CI' ), ( 'dev', 'Development' ), ( 'stage', 'Staging' ), ( 'prod', 'Production' ), ( 'depr', 'Deprocated' ) )
-LOCAL_WORK_PATH = '/var/www/git'
 
 class Project( models.Model ):
   """
@@ -35,7 +35,7 @@ This is a Generic Project
 
   @property
   def git_url( self ):
-    return 'http://git.mcp.test/%s' % self.local_path
+    return '%s%s' % ( settings.GIT_HOST, self.local_path )
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):

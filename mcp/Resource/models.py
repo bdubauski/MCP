@@ -20,7 +20,7 @@ from plato.Provisioner.lib import submitConfigureJob, submitDeconfigureJob
 
 def config_values( job, name, index ):
   return simplejson.dumps( {
-                             'mcp_host': settings.MCP_HOST_NAME,
+                             'mcp_host': settings.MCP_HOST,
                              'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
                              'mcp_job_id': job.pk,
                              'mcp_resource_name': name,
@@ -33,7 +33,7 @@ def config_values( job, name, index ):
 
 def config_values_prealloc():
   return simplejson.dumps( {
-                             'mcp_host': settings.MCP_HOST_NAME,
+                             'mcp_host': settings.MCP_HOST,
                              'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
                              'mcp_prealloc': True
                             } )
