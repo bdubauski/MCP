@@ -15,8 +15,9 @@ import logging
 import json
 from logging.handlers import SysLogHandler
 from datetime import datetime
-
 from django.utils.timezone import utc
+from django.conf import settings
+
 from mcp.Processor.models import QueueItem
 from mcp.Project.models import Commit
 from mcp.lib.Slack import Slack
@@ -44,7 +45,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'recognizer' )
+slack = Slack( 'recognizer', settings.SITE_NAME )
 
 # check for commits that need to be linted
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):

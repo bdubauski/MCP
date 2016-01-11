@@ -14,8 +14,9 @@ import logging
 import json
 from logging.handlers import SysLogHandler
 from datetime import datetime, timedelta
-
 from django.utils.timezone import utc
+from django.conf import settings
+
 from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
@@ -46,7 +47,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'sark' )
+slack = Slack( 'sark', settings.SITE_NAME )
 
 
 # Iterate over the Queued Items
@@ -59,6 +60,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
       item.resource_status = json.dumps( status )
       item.save()
       continue
+
   except Exception as e:
     logging.exception( 'Exception "%s" checking resources for item "%s", skiping...' % ( e, item.pk ) )
     item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )

@@ -14,9 +14,9 @@ import json
 import shutil
 from datetime import datetime
 from logging.handlers import SysLogHandler
-
 from django.utils.timezone import utc
 from django.conf import settings
+
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile, MakeException
@@ -48,7 +48,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'rinzler' )
+slack = Slack( 'rinzler', settings.SITE_NAME )
 
 def _makeBuild( build_name, project, manual ):
   dependancy_list = make.depends( build_name )

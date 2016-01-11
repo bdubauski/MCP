@@ -1,3 +1,9 @@
+mcp (0.6-1) precise; urgency=medium
+
+  * Adding ability to pre-create VMs so speed up new jobs
+
+ -- Peter <peter@blueboy>  Mon, 11 Jan 2016 13:49:12 -0700
+
 mcp (0.5-1) precise; urgency=medium
 
   * better handling of jobs
