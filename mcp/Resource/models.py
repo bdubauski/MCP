@@ -162,7 +162,7 @@ class VMResource( Resource ):
       index += 1
       address_list = []
       address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-      config = createConfig( 'mcp-preallocate-%s' % ( seed * 10 ) + index, pod, profile, address_list ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
+      config = createConfig( 'mcp-preallocate-%s' % ( ( seed * 10 ) + index ), pod, profile, address_list ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
       config.config_values = config_values_prealloc()
       config.save()
       createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
@@ -179,7 +179,7 @@ class VMResource( Resource ):
 
     pod = Pod.objects.get( pk=settings.TARGET_POD )
 
-    config_list = self._preallocList( pod, profile, vmtemplate )
+    config_list = list( self._preallocList( pod, profile, vmtemplate ) )
 
     subnet = SubNet.objects.get( pk=settings.TARGET_SUBNET )
     if len( subnet.unused_list ) < ( quantity - len( config_list ) ):
@@ -195,7 +195,7 @@ class VMResource( Resource ):
       if config:
         self._takeOver( config, job, name, index )
       else:
-        config = self._createnew( job, name, index, pod, profile, vmtemplate, subnet )
+        config = self._createNew( job, name, index, pod, profile, vmtemplate, subnet )
 
       results.append( config.pk )
 

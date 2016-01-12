@@ -38,6 +38,7 @@ class Slack( object ):
       resp = self.opener.open( url, data=data )
     except Exception as e:
       logging.warning( 'Slack: Got Exception "%s" when posting message' % e )
+      return
 
     rc = resp.read()
     resp.close()
@@ -45,6 +46,8 @@ class Slack( object ):
       rc = json.loads( rc )
     except TypeError:
       logging.warning( 'Slack: Response not valid JSON.' )
+      return
 
     if 'ok' not in rc:
       logging.warning( 'Slack: Failed to post message "%s"' % rc )
+      return

@@ -14,6 +14,8 @@ HARDWARE_PROFILE = 'mcp-resource'
 
 SITE_NAME = None
 
+SLACK_PROXY = None
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'w4hhv%e7yq8(-$u8w3e2w5_^4q749(*mb-#-j!1ms*w9s5f@x='
 

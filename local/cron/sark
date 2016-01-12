@@ -47,7 +47,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'sark', settings.SITE_NAME )
+slack = Slack( 'sark', settings.SITE_NAME, settings.SLACK_PROXY )
 
 
 # Iterate over the Queued Items

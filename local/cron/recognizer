@@ -45,7 +45,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'recognizer', settings.SITE_NAME )
+slack = Slack( 'recognizer', settings.SITE_NAME, settings.SLACK_PROXY )
 
 # check for commits that need to be linted
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):
