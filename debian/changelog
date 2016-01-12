@@ -1,3 +1,11 @@
+mcp (0.7-1) precise; urgency=medium
+
+  * Slack proxy
+  * preallocation fixes
+  * initial data fixed
+
+ -- Peter <peter@blueboy>  Tue, 12 Jan 2016 16:35:23 -0700
+
 mcp (0.6-1) precise; urgency=medium
 
   * Adding ability to pre-create VMs so speed up new jobs
