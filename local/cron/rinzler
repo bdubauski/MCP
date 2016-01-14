@@ -53,7 +53,8 @@ slack = Slack( 'rinzler', settings.SITE_NAME, settings.SLACK_PROXY )
 def _makeBuild( build_name, project, manual ):
   dependancy_list = make.depends( build_name )
   resource_list = make.resources( build_name )
-  logging.debug( 'Build: "%s" depends: "%s" resources: "%s".' % ( build_name, dependancy_list, resource_list ) )
+  network_list = make.networks( build_name )
+  logging.debug( 'Build: "%s" depends: "%s" resources: "%s" networks: "%s".' % ( build_name, dependancy_list, resource_list, network_list ) )
   try:
     build = Build.objects.get( project=project, name=build_name )
     for item in build.buildresource_set.all(): #TODO: update instead of delete and re add
@@ -101,6 +102,12 @@ def _makeBuild( build_name, project, manual ):
     buildres.quanity = quanity
     buildres.save()
 
+  network = {}
+  for name in network_list:
+    network[ name ] = ''
+
+  build.networks = json.dumps( network )
+  build.save()
 
 # where project dosen't have any auto builds nor queue items, nor manual builds in pre "ran" state, nor commit in flight
 for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last_checked' ):

@@ -200,7 +200,7 @@ class VMResource( Resource ):
 
       results.append( config.pk )
 
-    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, hashlib.md5( '%s-%s' % ( job.pk, name ) ).hexdigest()[ 0:10 ] )
+    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, hashlib.md5( '%s-%s-%s' % ( job.pk, name, config_id_list ) ).hexdigest()[ 0:10 ] )
 
     return results
 
@@ -274,3 +274,15 @@ ResourceGroup
 
   def __unicode__( self ):
     return 'Resource Group "%s"' % self.description
+
+
+class NetworkResource( models.Model ):
+  """
+NetworkResource
+  """
+  subnet = models.IntField( primary_key=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  def __unicode__( self ):
+    return 'Network Resource for subnet "%s"' % self.subnet

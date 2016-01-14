@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from django.utils.timezone import utc
 from django.conf import settings
 
-from mcp.Processor.models import QueueItem, BuildJob
+from mcp.Processor.models import QueueItem, BuildJob, BuildJobNetworkResource
 from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
 
@@ -54,10 +54,16 @@ slack = Slack( 'sark', settings.SITE_NAME, settings.SLACK_PROXY )
 for item in QueueItem.objects.all().order_by( '-priority' ): # start with the biggest number first
   try:
     # Check to see if resources are aviable
-    status = item.checkResources()
-    if status:
-      logging.info( 'Queue Item "%s" waiting for "%s"' % ( item, status ))
-      item.resource_status = json.dumps( status )
+    ( compute_status, network_status ) = item.checkResources()
+    if compute_status:
+      logging.info( 'Queue Item "%s" waiting for compute "%s"' % ( item, compute_status ) )
+      item.resource_status = json.dumps( { 'compute': compute_status } )
+      item.save()
+      continue
+
+    if network_status:
+      logging.info( 'Queue Item "%s" waiting for network "%s"' % ( item, network_status ) )
+      item.resource_status = json.dumps( { 'network': network_status } )
       item.save()
       continue
 
@@ -82,14 +88,22 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
     job.save()
 
     # allocate the Resources
-    resources = item.allocateResources( job )
-    logging.info( 'Starting Queue Item "%s" with Resources "%s" as job "%s"' % ( item, resources, job.id ) )
-    job.resources = json.dumps( resources )
+    ( compute_resources, network_resources ) = item.allocateResources( job )
+    logging.info( 'Starting Queue Item "%s" with Compute "%s", Network "%s", as job "%s"' % ( item, compute_resources, network_resources, job.id ) )
+    job.resources = json.dumps( compute_resources )
     job.save()
+    for network in network_resources:
+      bjnr = BuildJobNetworkResource()
+      bjnr.buildjob = job
+      bjnr.networkresource = network_resources[ network ]
+      bjnr.name = network
+      bjnr.save()
 
   except Exception as e:
     logging.exception( 'Exception "%s" creating job for queue item "%s", skiping...' % ( e, item.pk ) )
     if job and job.pk:
+      for network in job.networks:
+        network.delete()
       job.delete()
 
     item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )
@@ -207,6 +221,8 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
 for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
   logging.info( 'Cleaning up job "%s".' % job.id )
+  for network in job.networks:
+    network.delete()
   job.delete()
 
 os.unlink( PID_FILE )

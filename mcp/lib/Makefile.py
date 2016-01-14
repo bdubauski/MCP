@@ -46,6 +46,9 @@ class Makefile( object ):
   def resources( self, build ):
     return self._execute( '%s-resources' % build )
 
+  def networks( self, build ):
+    return self._execute( '%s-networks' % build )
+
   def depends( self, build ):
     return self._execute( '%s-depends' % build )
 

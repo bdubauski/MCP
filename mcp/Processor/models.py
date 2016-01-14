@@ -6,8 +6,9 @@ from django.db import models
 from django.core.exceptions import ValidationError
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
-from mcp.Resource.models import Resource, ResourceGroup
+from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
 from plato.Config.lib import getSystemConfigValues
+from plato.Network.models import SubNet
 
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
 # with multiple "versions" for one "version" of the file.  So hopfully the rest of MCP maintains one commit at a time, and we will group
@@ -63,6 +64,7 @@ QueueItem
   requires = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
+  networks = models.TextField( default='{}' )
   resource_status = models.TextField( default='{}' )
   resource_groups = models.ManyToManyField( ResourceGroup )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
@@ -71,25 +73,32 @@ QueueItem
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   def checkResources( self ):
-    result = {}
+    compute = {}
+    network = {}
     for group in self.resource_groups.all():
       if not group.available():
-        result[ group.name ] = 'Not Available'
+        compute[ group.name ] = 'Not Available'
 
-    if result:
-      return result
+    if compute:
+      return compute, network
 
     for buildresource in self.build.buildresource_set.all():
       quanity = buildresource.quanity
       resource = buildresource.resource.native
       tmp = resource.available( quanity )
       if not tmp:
-        result[ resource.name ] = 'Not Available'
+        compute[ resource.name ] = 'Not Available'
 
-    return result
+    have = len( NetworkResource.objects.filter( buildjob=None ) )
+    need = len( simplejson.loads( self.networks ) )
+    if have < need:
+      network[ 'network' ] = 'Need: %s   Available: %s' % ( need, have )
+
+    return ( compute, network )
 
   def allocateResources( self, job ): # warning, dosen't check first, make sure you are sure there are resources available before calling
-    result = {}
+    compute = {}
+    network = {}
     group_config_list = []
     for group in self.resource_groups.all():
       group_config_list += group.config_list
@@ -100,11 +109,16 @@ QueueItem
       resource = buildresource.resource.native
       config_list = resource.allocate( job, name, quanity, config_id_list=group_config_list ) # first try to allocated from resource groups
       config_list += resource.allocate( job, name, quanity - len( config_list ) ) # now allocated from general pool
-      result[ name ] = []
+      compute[ name ] = []
       for config in config_list:
-        result[ name ].append( { 'status': 'Allocated', 'config': config } )
+        compute[ name ].append( { 'status': 'Allocated', 'config': config } )
 
-    return result
+    networks = simplejson.loads( self.networks )
+    resource_list = list( NetworkResource.objects.filter( buildjob=None ) )
+    for name in networks:
+      network[ name ] = resource_list.pop( 0 )
+
+    return ( compute, network )
 
   @staticmethod
   def inQueueBuild( build, branch, manual, priority, promotion=None ):
@@ -171,6 +185,7 @@ BuildJob
   manual = models.BooleanField()
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
+  networks = models.ManyToManyField( NetworkResource, through='BuildJobNetworkResource' )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -288,6 +303,27 @@ BuildJob
 
     return results
 
+  def getNetworkInfo( self, name ):
+    try:
+      network = self.networks.filter( name=name )
+    except NetworkResource.DoesNotExist:
+      return {}
+
+    try:
+      subnet = SubNet.objects.get( pk=network.subnet )
+    except SubNet.DoesNotExist:
+      return {}
+
+    results = { 'description': network.name, 'network': subnet.network, 'prefix': subnet.prefix }
+    if subnet.gateway:
+      results[ 'gateway' ] = subnet.gateway
+    if subnet.broadcast:
+      results[ 'broadcast' ] = subnet.broadcast
+    if subnet.vlan:
+      results[ 'vlan' ] = subnet.vlan
+
+    return results
+
   def save( self, *args, **kwargs ):
     try:
       simplejson.loads( self.resources )
@@ -308,4 +344,17 @@ BuildJob
                  'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
                  'getConfigStatus': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
+                 'getNetworkInfo': [ { 'type': 'String' } ],
               }
+
+
+class BuildJobNetworkResource( models.Model ):
+  buildjob = models.ForeignKey( BuildJob )
+  networkresource = models.ForeignKey( NetworkResource )
+  name = models.CharField( max_length=100 )
+
+  def __unicode__( self ):
+    return 'BuildJobNetworkResource for BuildJob "%s" NetworkResource "%s" Named "%s"' % ( self.buildjob, self.networkresource, self.name )
+
+  class Meta:
+    unique_together = ( 'buildjob', 'networkresource' )
