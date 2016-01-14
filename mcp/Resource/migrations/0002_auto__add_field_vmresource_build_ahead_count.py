@@ -10,7 +10,7 @@ class Migration(SchemaMigration):
     def forwards(self, orm):
         # Adding field 'VMResource.build_ahead_count'
         db.add_column('Resource_vmresource', 'build_ahead_count',
-                      self.gf('django.db.models.fields.IntegerField')(default=2),
+                      self.gf('django.db.models.fields.IntegerField')(default=0),
                       keep_default=False)
 
 

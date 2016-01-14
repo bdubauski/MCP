@@ -1,4 +1,5 @@
 import re
+import hashlib
 
 from django.utils import simplejson
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -122,7 +123,7 @@ Resource
 
 class VMResource( Resource ):
   vm_template = models.CharField( max_length=50 )
-  build_ahead_count = models.IntegerField( default=2 )
+  build_ahead_count = models.IntegerField( default=0 )
 
   def available( self, quantity ):
     subnet = SubNet.objects.get( pk=settings.TARGET_SUBNET )
@@ -162,7 +163,7 @@ class VMResource( Resource ):
       index += 1
       address_list = []
       address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-      config = createConfig( 'mcp-preallocate-%s' % ( ( seed * 10 ) + index ), pod, profile, address_list ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
+      config = createConfig( 'mcp-preallocate--%s-%s' % ( seed, index ), pod, profile, address_list ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
       config.config_values = config_values_prealloc()
       config.save()
       createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
@@ -199,7 +200,7 @@ class VMResource( Resource ):
 
       results.append( config.pk )
 
-    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, job.pk )
+    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, hashlib.md5( '%s-%s' % ( job.pk, name ) ).hexdigest()[ 0:10 ] )
 
     return results
 
