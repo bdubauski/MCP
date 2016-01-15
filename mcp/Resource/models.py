@@ -280,7 +280,7 @@ class NetworkResource( models.Model ):
   """
 NetworkResource
   """
-  subnet = models.IntField( primary_key=True )
+  subnet = models.IntegerField( primary_key=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 

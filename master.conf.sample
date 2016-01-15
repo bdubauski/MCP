@@ -48,6 +48,10 @@ INSTALLED_APPS = (
     'plato.Config',
     'plato.Device',
     'plato.Network',
+    'plato.Power',
+    'plato.Storage',
+    'plato.Provisioner',
+    'plato.Report'
 )
 
 MIDDLEWARE_CLASSES = (
