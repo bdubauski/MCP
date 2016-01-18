@@ -102,7 +102,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
   except Exception as e:
     logging.exception( 'Exception "%s" creating job for queue item "%s", skiping...' % ( e, item.pk ) )
     if job and job.pk:
-      for network in job.networks:
+      for network in job.networks.all():
         network.delete()
       job.delete()
 
@@ -221,7 +221,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
 for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
   logging.info( 'Cleaning up job "%s".' % job.id )
-  for network in job.networks:
+  for network in job.networks.all():
     network.delete()
   job.delete()
 

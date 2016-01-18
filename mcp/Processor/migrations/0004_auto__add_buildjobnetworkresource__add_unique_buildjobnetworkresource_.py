@@ -22,21 +22,12 @@ class Migration(SchemaMigration):
         # Adding unique constraint on 'BuildJobNetworkResource', fields ['buildjob', 'networkresource']
         db.create_unique('Processor_buildjobnetworkresource', ['buildjob_id', 'networkresource_id'])
 
-        # Adding field 'QueueItem.networks'
-        db.add_column('Processor_queueitem', 'networks',
-                      self.gf('django.db.models.fields.TextField')(default='{}'),
-                      keep_default=False)
-
-
     def backwards(self, orm):
         # Removing unique constraint on 'BuildJobNetworkResource', fields ['buildjob', 'networkresource']
         db.delete_unique('Processor_buildjobnetworkresource', ['buildjob_id', 'networkresource_id'])
 
         # Deleting model 'BuildJobNetworkResource'
         db.delete_table('Processor_buildjobnetworkresource')
-
-        # Deleting field 'QueueItem.networks'
-        db.delete_column('Processor_queueitem', 'networks')
 
 
     models = {
@@ -99,7 +90,6 @@ class Migration(SchemaMigration):
             'created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'manual': ('django.db.models.fields.BooleanField', [], {'default': 'False'}),
-            'networks': ('django.db.models.fields.TextField', [], {'default': "'{}'"}),
             'priority': ('django.db.models.fields.IntegerField', [], {'default': '50'}),
             'project': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['Project.Project']"}),
             'promotion': ('django.db.models.fields.related.ForeignKey', [], {'to': "orm['Processor.Promotion']", 'null': 'True', 'on_delete': 'models.SET_NULL', 'blank': 'True'}),

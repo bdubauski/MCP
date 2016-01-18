@@ -178,6 +178,7 @@ This is a type of Build that can be done
   project = models.ForeignKey( Project )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
   resources = models.ManyToManyField( Resource, through='BuildResource' )
+  networks = models.TextField( default='{}' )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -185,6 +186,11 @@ This is a type of Build that can be done
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
       raise ValidationError( 'Invalid name' )
+
+    try:
+      simplejson.loads( self.networks )
+    except ValueError:
+      raise ValidationError( 'networks must be valid JSON' )
 
     self.key = '%s:%s' % ( self.project.name, self.name )
 

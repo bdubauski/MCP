@@ -61,10 +61,8 @@ QueueItem
   project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
-  requires = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
-  networks = models.TextField( default='{}' )
   resource_status = models.TextField( default='{}' )
   resource_groups = models.ManyToManyField( ResourceGroup )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
@@ -90,7 +88,7 @@ QueueItem
         compute[ resource.name ] = 'Not Available'
 
     have = len( NetworkResource.objects.filter( buildjob=None ) )
-    need = len( simplejson.loads( self.networks ) )
+    need = len( simplejson.loads( self.build.networks ) )
     if have < need:
       network[ 'network' ] = 'Need: %s   Available: %s' % ( need, have )
 
@@ -113,7 +111,7 @@ QueueItem
       for config in config_list:
         compute[ name ].append( { 'status': 'Allocated', 'config': config } )
 
-    networks = simplejson.loads( self.networks )
+    networks = simplejson.loads( self.build.networks )
     resource_list = list( NetworkResource.objects.filter( buildjob=None ) )
     for name in networks:
       network[ name ] = resource_list.pop( 0 )
@@ -128,7 +126,6 @@ QueueItem
     item.project = build.project
     item.branch = branch
     item.target = build.name
-    item.requires = '%s-requires' % build.name
     item.priority = priority
     item.promotion = promotion
     item.save()
@@ -148,7 +145,6 @@ QueueItem
     item.project = project
     item.branch = branch
     item.target = target
-    item.requires = '%s-requires' % target
     item.priority = priority
     item.commit = commit
     item.save()
@@ -160,6 +156,11 @@ QueueItem
       simplejson.loads( self.resource_status )
     except ValueError:
       raise ValidationError( 'resource_status must be valid JSON' )
+
+    try:
+      simplejson.loads( self.networks )
+    except ValueError:
+      raise ValidationError( 'networks must be valid JSON' )
 
     super( QueueItem, self ).save( *args, **kwargs )
 
@@ -303,6 +304,26 @@ BuildJob
 
     return results
 
+  def setConfigValues( self, values, name, index=None, count=None ):
+    resource_map = simplejson.loads( self.resources )
+    config_list = resource_map[ name ]
+    if index:
+      if count:
+        config_list = resource_map[ index:index + count ]
+      else:
+        config_list = resource_map[ index: ]
+
+    if index is None:
+      index = 0
+
+    for pos in range( 0, len( config_list ) ):
+      config = Resource.config( config_list[ pos ][ 'config' ] )
+      config.config_values = simplejson.dumps( values )
+      config.save()
+
+    return True
+
+
   def getNetworkInfo( self, name ):
     try:
       network = self.networks.filter( name=name )
@@ -344,6 +365,7 @@ BuildJob
                  'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
                  'getConfigStatus': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
+                 'setConfigValues': [ { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'getNetworkInfo': [ { 'type': 'String' } ],
               }
 

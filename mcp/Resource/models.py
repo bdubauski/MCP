@@ -28,7 +28,6 @@ def config_values( job, name, index ):
                              'mcp_resource_index': index,
                              'mcp_git_url': job.project.git_url,
                              'mcp_git_branch': job.branch,
-                             'mcp_make_requires': job.requires,
                              'mcp_make_target': job.target
                             } )
 

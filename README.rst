@@ -70,6 +70,7 @@ package distros: (called on MCP)
   <build name>-networks: ->
 
 package distros: (called on distro)
+  <build name>-config: ->
   <build name>-requires: ->
 
 
