@@ -157,11 +157,6 @@ QueueItem
     except ValueError:
       raise ValidationError( 'resource_status must be valid JSON' )
 
-    try:
-      simplejson.loads( self.networks )
-    except ValueError:
-      raise ValidationError( 'networks must be valid JSON' )
-
     super( QueueItem, self ).save( *args, **kwargs )
 
   def __unicode__( self ):
@@ -176,7 +171,6 @@ BuildJob
   project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
-  requires = models.CharField( max_length=50 )
   resources = models.TextField( default='{}' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -265,11 +259,11 @@ BuildJob
   def getConfigStatus( self, name, index=None, count=None ):
     resource_map = simplejson.loads( self.resources )
     config_list = resource_map[ name ]
-    if index:
-      if count:
-        config_list = resource_map[ index:index + count ]
+    if index is not None:
+      if count is not None:
+        config_list = config_list[ index:index + count ]
       else:
-        config_list = resource_map[ index: ]
+        config_list = config_list[ index: ]
 
     if index is None:
       index = 0
@@ -283,11 +277,11 @@ BuildJob
   def getProvisioningInfo( self, name, index=None, count=None ):
     resource_map = simplejson.loads( self.resources )
     config_list = resource_map[ name ]
-    if index:
-      if count:
-        config_list = resource_map[ index:index + count ]
+    if index is not None:
+      if count is not None:
+        config_list = config_list[ index:index + count ]
       else:
-        config_list = resource_map[ index: ]
+        config_list = config_list[ index: ]
 
     if index is None:
       index = 0
@@ -307,32 +301,30 @@ BuildJob
   def setConfigValues( self, values, name, index=None, count=None ):
     resource_map = simplejson.loads( self.resources )
     config_list = resource_map[ name ]
-    if index:
-      if count:
-        config_list = resource_map[ index:index + count ]
+    if index is not None:
+      if count is not None:
+        config_list = config_list[ index:index + count ]
       else:
-        config_list = resource_map[ index: ]
-
-    if index is None:
-      index = 0
+        config_list = config_list[ index: ]
 
     for pos in range( 0, len( config_list ) ):
       config = Resource.config( config_list[ pos ][ 'config' ] )
-      config.config_values = simplejson.dumps( values )
+      new_values = simplejson.loads( config.config_values )
+      new_values.update( values )
+      config.config_values = simplejson.dumps( new_values )
       config.save()
 
     return True
 
-
   def getNetworkInfo( self, name ):
     try:
-      network = self.networks.filter( name=name )
-    except NetworkResource.DoesNotExist:
+      network = self.buildjobnetworkresource_set.get( name=name )
+    except BuildJobNetworkResource.DoesNotExist:
       return {}
 
     try:
-      subnet = SubNet.objects.get( pk=network.subnet )
-    except SubNet.DoesNotExist:
+      subnet = SubNet.objects.get( pk=network.networkresource.subnet )
+    except ( SubNet.DoesNotExist, NetworkResource.DoesNotExist ):
       return {}
 
     results = { 'description': network.name, 'network': subnet.network, 'prefix': subnet.prefix }
@@ -379,4 +371,4 @@ class BuildJobNetworkResource( models.Model ):
     return 'BuildJobNetworkResource for BuildJob "%s" NetworkResource "%s" Named "%s"' % ( self.buildjob, self.networkresource, self.name )
 
   class Meta:
-    unique_together = ( 'buildjob', 'networkresource' )
+    unique_together = ( ( 'buildjob', 'networkresource' ), ( 'buildjob', 'name' ) )
