@@ -109,29 +109,26 @@ def _makeBuild( build_name, project, manual ):
   build.networks = json.dumps( network )
   build.save()
 
-# where project dosen't have any auto builds nor queue items, nor manual builds in pre "ran" state, nor commit in flight
+# where project dosen't have any queue items
 for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last_checked' ):
   if project.name.startswith( '_' ):
     continue
 
+  # nor have any commits in flight
   if project.commit_set.filter( done_at__isnull=True ).count() > 0:
     continue
 
+  # not auto builds
+  # nor builds in pre "ran" state
   ready = True
   for job in project.buildjob_set.all():
-    ready &= not job.manual
+    ready &= job.manual
     ready &= job.state in ( 'released', 'acknowledged', 'reported' )
 
   if not ready:
     continue
 
-  ready = True
-  for commit in project.commit_set.all():
-    ready &= commit.done_at is not None
-
-  if not ready:
-    continue
-
+  # it's good let's do this
   logging.info( 'Checking project "%s"' % project.name )
 
   if not project.local_path:
