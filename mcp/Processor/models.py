@@ -258,7 +258,11 @@ BuildJob
 
   def getConfigStatus( self, name, index=None, count=None ):
     resource_map = simplejson.loads( self.resources )
-    config_list = resource_map[ name ]
+    try:
+      config_list = resource_map[ name ]
+    except KeyError:
+      return {}
+
     if index is not None:
       if count is not None:
         config_list = config_list[ index:index + count ]
@@ -276,7 +280,11 @@ BuildJob
 
   def getProvisioningInfo( self, name, index=None, count=None ):
     resource_map = simplejson.loads( self.resources )
-    config_list = resource_map[ name ]
+    try:
+      config_list = resource_map[ name ]
+    except KeyError:
+      return {}
+
     if index is not None:
       if count is not None:
         config_list = config_list[ index:index + count ]
@@ -300,7 +308,11 @@ BuildJob
 
   def setConfigValues( self, values, name, index=None, count=None ):
     resource_map = simplejson.loads( self.resources )
-    config_list = resource_map[ name ]
+    try:
+      config_list = resource_map[ name ]
+    except KeyError:
+      return False
+
     if index is not None:
       if count is not None:
         config_list = config_list[ index:index + count ]
