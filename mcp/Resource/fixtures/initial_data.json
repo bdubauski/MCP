@@ -20,6 +20,16 @@
     }
   },
   {
+    "pk": "small-generic-xenial",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "xenial-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Xenial",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
     "pk": "small-generic-centos6",
     "model": "Resource.resource",
     "fields": {
@@ -39,6 +49,14 @@
   },
   {
     "pk": "small-generic-trusty",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "small-generic-xenial",
     "model": "Resource.vmresource",
     "fields": {
       "vm_template": "small-generic",
@@ -113,6 +131,23 @@
       "config_script": "",
       "parents": [
         "trusty",
+        "mcp-auto"
+      ],
+      "selectable": false
+    }
+  },
+  {
+    "pk": "xenial-mcp",
+    "model": "Config.profile",
+    "fields": {
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Xenial MCP Auto Build",
+      "created": "2014-01-01T01:01:01Z",
+      "deconfig_script": "",
+      "config_values": "",
+      "config_script": "",
+      "parents": [
+        "xenial",
         "mcp-auto"
       ],
       "selectable": false
