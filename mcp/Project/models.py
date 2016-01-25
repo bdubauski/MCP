@@ -227,7 +227,7 @@ class BuildResource( models.Model ):
   quanity = models.IntegerField( default=1 )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.key, self.resource.name )
+    self.key = '%s:%s:%s' % ( self.build.key, self.name, self.resource.name )
 
     super( BuildResource, self ).save( *args, **kwargs )
 
