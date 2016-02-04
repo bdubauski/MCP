@@ -119,6 +119,9 @@ Resource
   def __unicode__( self ):
     return 'Generic Resource "%s"' % self.description
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class VMResource( Resource ):
   vm_template = models.CharField( max_length=50 )
@@ -206,6 +209,8 @@ class VMResource( Resource ):
   def __unicode__( self ):
     return 'VM Resource "%s"' % self.description
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 class HardwareResource( Resource ):
   hardware_template = models.CharField( max_length=50 )
@@ -243,6 +248,9 @@ class HardwareResource( Resource ):
   def __unicode__( self ):
     return 'Hardware Resource "%s"' % self.description
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class ResourceGroup( models.Model ):
   """
@@ -274,6 +282,9 @@ ResourceGroup
   def __unicode__( self ):
     return 'Resource Group "%s"' % self.description
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class NetworkResource( models.Model ):
   """
@@ -285,3 +296,6 @@ NetworkResource
 
   def __unicode__( self ):
     return 'Network Resource for subnet "%s"' % self.subnet
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

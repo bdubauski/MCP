@@ -49,6 +49,9 @@ This is a Generic Project
   def __unicode__( self ):
     return 'Project "%s"' % self.name
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class GitHubProject( Project ):
   """
@@ -60,7 +63,8 @@ This is a GitHub Project
     return 'GitHub Project "%s"' % self.name
 
   class API:
-    pass
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class Package( models.Model ):
   """
@@ -80,7 +84,8 @@ This is a Package
     return 'Package "%s"' % self.name
 
   class API:
-    pass
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class PackageVersion( models.Model ):
   """
@@ -99,7 +104,8 @@ This is a Version of a Package
       unique_together = ( 'package', 'version' )
 
   class API:
-    pass
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class Commit( models.Model ):
   """
@@ -176,7 +182,8 @@ A Single Commit of a Project
       unique_together = ( 'project', 'commit' )
 
   class API:
-    pass
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class Build( models.Model ):
   """
@@ -185,8 +192,8 @@ This is a type of Build that can be done
   key = models.CharField( max_length=160, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   name = models.CharField( max_length=100 )
   project = models.ForeignKey( Project )
-  dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
-  resources = models.ManyToManyField( Resource, through='BuildResource' )
+  dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
+  resources = models.ManyToManyField( Resource, through='BuildResource', help_text='' )
   networks = models.TextField( default='{}' )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -211,6 +218,10 @@ This is a type of Build that can be done
   class Meta:
       unique_together = ( 'name', 'project' )
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
+
 class BuildDependancy( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True ) # until django supports multi filed primary keys
   build = models.ForeignKey( Build )
@@ -227,6 +238,10 @@ class BuildDependancy( models.Model ):
 
   class Meta:
       unique_together = ( 'build', 'package' )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class BuildResource( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
@@ -245,3 +260,6 @@ class BuildResource( models.Model ):
 
   class Meta:
       unique_together = ( 'build', 'name' )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

@@ -14,8 +14,8 @@ from plato.Network.models import SubNet
 # with multiple "versions" for one "version" of the file.  So hopfully the rest of MCP maintains one commit at a time, and we will group
 # all versions of a package togeather in the same Promotion for now, better logic is needed eventually
 class Promotion( models.Model ):
-  package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion' )
-  status = models.ManyToManyField( Build, through='PromotionBuild' )
+  package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion', help_text='' )
+  status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
   to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -27,6 +27,9 @@ class Promotion( models.Model ):
     promotion_build = self.promotionbuild_set.get( build=build )
     promotion_build.status = 'done'
     promotion_build.save()
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 
 class PromotionPkgVersion( models.Model ):
@@ -40,6 +43,9 @@ class PromotionPkgVersion( models.Model ):
   class Meta:
     unique_together = ( 'promotion', 'package_version' )
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class PromotionBuild( models.Model ):
   promotion = models.ForeignKey( Promotion )
@@ -51,6 +57,9 @@ class PromotionBuild( models.Model ):
 
   class Meta:
     unique_together = ( 'promotion', 'build' )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 
 class QueueItem( models.Model ):
@@ -64,7 +73,7 @@ QueueItem
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   resource_status = models.TextField( default='{}' )
-  resource_groups = models.ManyToManyField( ResourceGroup )
+  resource_groups = models.ManyToManyField( ResourceGroup, help_text='' )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -162,6 +171,9 @@ QueueItem
   def __unicode__( self ):
     return 'QueueItem for "%s" of priority "%s"' % ( self.build.name, self.priority )
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class BuildJob( models.Model ):
   """
@@ -180,7 +192,7 @@ BuildJob
   manual = models.BooleanField()
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
-  networks = models.ManyToManyField( NetworkResource, through='BuildJobNetworkResource' )
+  networks = models.ManyToManyField( NetworkResource, through='BuildJobNetworkResource', help_text='' )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -362,7 +374,7 @@ BuildJob
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE' )
-    actions = {
+    actions = {  # TODO: these can only be called by jobs, need some kind of auth for them
                  'jobRan': [],
                  'updateResourceState': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
                  'setResourceSuccess': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ],
