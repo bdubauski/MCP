@@ -35,11 +35,11 @@ var mcpBuilder = {};
        cinp.call( '/api/v1/Auth(keepalive)', {} );
     };
 
-    mcp.getMirrors = function()
+    mcp.getProjects = function()
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.list( '/api/v1/Repos/Mirror' ) ).then(
+      $.when( cinp.list( '/api/v1/Project/GitHubProject' ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(

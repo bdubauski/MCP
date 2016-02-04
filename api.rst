@@ -1,16 +1,16 @@
-==============================
-CInP API Documentation for MCP
-==============================
+===========================
+CInP API Documentation for 
+===========================
 
 ------------
-Namespace -
+Namespace - 
 ------------
 URL: /api/v1/
 
 API Version: v1
 
 
-Model - Auth
+Model - <unwknown>
 -----------------
 
 URL: /api/v1/Auth
@@ -77,9 +77,135 @@ Return Type::
 
 
 
-----------------------
-Namespace - .Processor
-----------------------
+--------------------
+Namespace - .Project
+--------------------
+URL: /api/v1/Project
+
+API Version: v1
+
+
+Model - <unwknown>
+-----------------
+
+URL: /api/v1/Project/GitHubProject
+
+
+::
+
+  This is a GitHub Project
+
+
+
+
+Fields
+~~~~~~
+
+::
+
+  - updated(DateTime)(R)
+  - name(String)(RC)(Req)
+  - created(DateTime)(R)
+  - github_url(String)(RW)(Req)
+  - local_path(String)(R)
+  - last_checked(DateTime)(RW)(Req)
+
+
+
+Model - <unwknown>
+-----------------
+
+URL: /api/v1/Project/PackageVersion
+
+
+::
+
+  This is a Version of a Package
+
+
+
+
+Fields
+~~~~~~
+
+::
+
+  - state(String)(RW)(Req)
+  - version(String)(RW)(Req)
+  - created(DateTime)(R)
+  - updated(DateTime)(R)
+  - package(Model)(RW)(Req) uri: /api/v1/Project/Package
+
+
+
+Model - <unwknown>
+-----------------
+
+URL: /api/v1/Project/Commit
+
+
+::
+
+  A Single Commit of a Project
+
+
+
+
+Fields
+~~~~~~
+
+::
+
+  - lint_results(String)(RW)(Req)
+  - build_results(String)(RW)(Req)
+  - lint_at(DateTime)(R)
+  - created(DateTime)(R)
+  - updated(DateTime)(R)
+  - test_results(String)(RW)(Req)
+  - project(Model)(RW)(Req) uri: <unknown>
+  - test_at(DateTime)(R)
+  - branch(String)(RW)(Req)
+  - done_at(DateTime)(R)
+  - build_at(DateTime)(R)
+  - commit(String)(RW)(Req)
+
+
+
+Model - <unwknown>
+-----------------
+
+URL: /api/v1/Project/Package
+
+
+::
+
+  This is a Package
+
+
+
+
+Fields
+~~~~~~
+
+::
+
+  - updated(DateTime)(R)
+  - name(String)(RC)(Req)
+  - created(DateTime)(R)
+
+
+
+-----------------------------
+Namespace - .Project.Resource
+-----------------------------
+URL: /api/v1/Resource
+
+API Version: v1
+
+
+---------------------------------------
+Namespace - .Project.Resource.Processor
+---------------------------------------
 URL: /api/v1/Processor
 
 API Version: v1
@@ -115,9 +241,9 @@ Fields
   - build(Model)(R)(Req) uri: <unknown>
   - branch(String)(RW)(Req)
   - released_at(DateTime)(R)
-  - commit(Model)(RW) uri: <unknown>
+  - commit(Model)(RW) uri: /api/v1/Project/Commit
   - promotion(Model)(RW) uri: <unknown>
-  - networks(ModelList)(RW)(Req) uri: <unknown>
+  - networks(ModelList)(RW)(Req) uri: <unknown> - <django.utils.functional.__proxy__ object at 0x7f9839240150>
   - resources(String)(RW)(Req)
 
 
