@@ -4,6 +4,8 @@ from cinp.django_plugin import DjangoAPI
 
 api = DjangoAPI( '/api/v1/' )
 api.registerApp( 'Processor', 'v1' )
+api.registerApp( 'Project', 'v1' )
+api.registerApp( 'Resource', 'v1' )
 
 admin.autodiscover()
 

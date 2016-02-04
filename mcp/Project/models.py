@@ -59,6 +59,8 @@ This is a GitHub Project
   def __unicode__( self ):
     return 'GitHub Project "%s"' % self.name
 
+  class API:
+    pass
 
 class Package( models.Model ):
   """
@@ -77,6 +79,8 @@ This is a Package
   def __unicode__( self ):
     return 'Package "%s"' % self.name
 
+  class API:
+    pass
 
 class PackageVersion( models.Model ):
   """
@@ -94,6 +98,8 @@ This is a Version of a Package
   class Meta:
       unique_together = ( 'package', 'version' )
 
+  class API:
+    pass
 
 class Commit( models.Model ):
   """
@@ -168,6 +174,9 @@ A Single Commit of a Project
 
   class Meta:
       unique_together = ( 'project', 'commit' )
+
+  class API:
+    pass
 
 class Build( models.Model ):
   """

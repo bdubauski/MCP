@@ -72,6 +72,7 @@ package distros: (called on MCP)
 package distros: (called on distro)
   <build name>-config: ->
   <build name>-requires: ->
+  <build name>-setup: ->
 
 
 work flow:
