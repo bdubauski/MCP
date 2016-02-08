@@ -2,9 +2,10 @@ import re
 
 from django.utils import simplejson
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.conf import settings
 
+from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
 
 # from packrat Repos/models.py
@@ -46,8 +47,27 @@ This is a Generic Project
 
     super( Project, self ).save( *args, **kwargs )
 
+  def postResults( self, commit, lint, test, build ):
+    try:
+      self.githubproject.postResults( commit, lint, test, build )
+    except ObjectDoesNotExist:
+      pass
+
   def __unicode__( self ):
     return 'Project "%s"' % self.name
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
+
+class GitProject( Project ):
+  """
+This is a Git Project
+  """
+  git_url = models.CharField( max_length=200 )
+
+  def __unicode__( self ):
+    return 'Git Project "%s"' % self.name
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -57,10 +77,15 @@ class GitHubProject( Project ):
   """
 This is a GitHub Project
   """
-  github_url = models.CharField( max_length=200 )
+  git_url = models.CharField( max_length=200 )
+  repo_name = models.CharField( max_length=200 )
 
   def __unicode__( self ):
-    return 'GitHub Project "%s"' % self.name
+    return 'GitHub Project "%s"(%s)' % ( self.name, self.repo_name )
+
+  def postResults( self, commit, lint, test, build ):
+    gh = GitHub( settings.GITHUB_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
+    gh.postComment( self.repo_name, commit, 'Lint Reulsts:\n`%s`\nTest Results:\n`%s`\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

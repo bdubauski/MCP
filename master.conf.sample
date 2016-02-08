@@ -1,6 +1,10 @@
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'
 
+GITHUB_HOST = 'http://github'
+GITHUB_USER = 'mcp'
+GITHUB_PASS = 'mcp'
+
 PACKRAT_HOST = 'http://packrat/'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'

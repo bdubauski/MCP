@@ -29,7 +29,6 @@ logger.addHandler( handler )
 logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
-
 else:
   logger.setLevel( logging.INFO )
 

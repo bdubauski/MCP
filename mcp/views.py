@@ -55,7 +55,7 @@ def status( request ):
 <table border="1">
 <tr><th>Commit Id</th><th>Git URL</th><th>Branch</th><th>Commit</th><th>Lint At</th><th>Lint Status</th><th>Test At</th><th>Test Status</th><th>Build At</th><th>Build Status</th><th>Last Updated</th><th>Created</th></tr>
 {% for item in commit_list %}
-<tr><td>{{ item.pk }}</td><td>{{ item.project.githubproject.github_url }}</td><td>{{ item.branch }}</td><td>{{ item.commit }}</td><td>{{ item.lint_at }}</td><td>{{ item.lint_results }}</td><td>{{ item.test_at }}</td><td>{{ item.test_results }}</td><td>{{ item.build_at }}</td><td>{{ item.build_results }}</td><td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
+<tr><td>{{ item.pk }}</td><td>{{ item.project.githubproject.git_url }}</td><td>{{ item.branch }}</td><td>{{ item.commit }}</td><td>{{ item.lint_at }}</td><td>{{ item.lint_results }}</td><td>{{ item.test_at }}</td><td>{{ item.test_results }}</td><td>{{ item.build_at }}</td><td>{{ item.build_results }}</td><td>{{ item.updated }}</td><td>{{ item.created }}</td></tr>
 {% endfor %}
 </table>
 <b>Unused Resources</b>

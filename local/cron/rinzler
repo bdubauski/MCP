@@ -16,6 +16,7 @@ from datetime import datetime
 from logging.handlers import SysLogHandler
 from django.utils.timezone import utc
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
 
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
@@ -36,7 +37,6 @@ logger.addHandler( handler )
 logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
-
 else:
   logger.setLevel( logging.INFO )
 
@@ -111,6 +111,7 @@ def _makeBuild( build_name, project, manual ):
 
 # where project dosen't have any queue items
 for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last_checked' ):
+
   if project.name.startswith( '_' ):
     continue
 
@@ -128,11 +129,19 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
   if not ready:
     continue
 
+  try:  # for now we only support git based projects
+    project = project.githubproject
+  except ObjectDoesNotExist:
+    try:
+      project = project.gitproject
+    except ObjectDoesNotExist:
+      continue
+
   # it's good let's do this
   logging.info( 'Checking project "%s"' % project.name )
 
   if not project.local_path:
-    project.local_path = '%s/%s' % ( project.pk, os.path.basename( project.githubproject.github_url ) )
+    project.local_path = '%s/%s' % ( project.pk, os.path.basename( project.git_url ) )
     path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
     parent_path = '/'.join( path.split( '/' )[ :-1 ] )
     logging.debug( 'Creating "%s" for "%s"...' % ( parent_path, project.name ) )
@@ -147,7 +156,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
         raise e
 
     git = Git( path )
-    git.setup( project.githubproject.github_url, parent_path )
+    git.setup( project.git_url, parent_path )
     project.save()
 
   else:
