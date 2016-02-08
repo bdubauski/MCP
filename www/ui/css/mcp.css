@@ -1,0 +1,136 @@
+@import url(https://fonts.googleapis.com/css?family=Syncopate:400,700);
+@import url(https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,300,600,700);
+@import url(https://fonts.googleapis.com/css?family=Source+Code+Pro:400,500,600,700,300,200);
+
+html {
+    position: relative;
+    min-height: 100%;
+}
+
+body {
+    /* Margin bottom by footer height */
+    margin-bottom: 60px;
+}
+
+.navbar-brand {
+    font-family: "Syncopate", Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    font-size: 2em;
+    vertical-align: middle;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: "Source Sans Pro", Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    color: #8F8F8F;
+}
+
+h1 > a {
+    color: #8F8F8F;
+}
+
+h1 > a:hover {
+    color: #8F8F8F;
+}
+
+.projects {
+    padding-top: 3px;
+}
+
+.projects h4 {
+    color: #337ab7;
+    margin-bottom: 0;
+}
+
+.projects h4 a:link {
+    font-weight: 300;
+    color: #8F8F8F;
+}
+
+.project {
+    background-color: #fff;
+    border-radius: 0;
+    height: auto;
+    margin-bottom: 0.46rem;
+    padding: 0.8em 0.5em 0.8em 1.5em;
+}
+
+.project.passed {
+    background: rgba(0, 0, 0, 0) linear-gradient(to right, #44a662 0px, #44a662 8px, #fff 8px, #fff 100%) no-repeat scroll 0 0;
+}
+
+.project.failed {
+    background: rgba(0, 0, 0, 0) linear-gradient(to right, #d94341 0px, #d94341 8px, #fff 8px, #fff 100%) no-repeat scroll 0 0;
+}
+
+.project dl {
+    font-weight: 300;
+    padding-left: 20px;
+}
+
+.project.passed dl dt {
+    color: #44a662;
+    font-weight: 300;
+    padding-bottom: 10px;
+}
+
+.project.failed dl dt {
+    color: #d94341;
+    font-weight: 300;
+    padding-bottom: 10px;
+}
+
+.label {
+    font-size: 50%;
+    font-weight: 200;
+    padding: 0.2em 0.6em 0.2em 0.6em;
+    vertical-align: middle;
+}
+
+.sidebar {
+    font-family: "Source Sans Pro", Helvetica, Arial, sans-serif;
+    margin: 44px 0 20px;
+    padding-bottom: 9px;
+}
+
+.sidebar.page-header {
+    padding-top: 10px;
+    padding-bottom: 0
+}
+
+.sidebar dl {
+    margin: 0;
+    padding: 0;
+}
+
+.tab-content {
+    margin: 20px 0;
+}
+
+.footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
+    background-color: #f5f5f5;
+}
+
+/* Custom page CSS
+-------------------------------------------------- */
+/* Not required for template or sticky footer method. */
+
+body > .container-fluid {
+    padding: 60px 15px 0;
+}
+
+.container .text-muted {
+    margin: 20px 0;
+}
+
+.footer > .container-fluid {
+    padding: 15px;
+}
+
+code {
+    font-size: 80%;
+}

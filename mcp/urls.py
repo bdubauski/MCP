@@ -11,7 +11,7 @@ admin.autodiscover()
 
 urlpatterns = patterns('',
     url( r'^$', 'mcp.views.index' ),
-    url( r'^status', 'mcp.views.status' ),
+    url( r'^projects', 'mcp.views.projects' ),
     url( r'^admin/', include( admin.site.urls ) ),
     url( r'^api/', include( api.urls ) ),
 )
