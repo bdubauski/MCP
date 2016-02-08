@@ -1,3 +1,31 @@
+mcp (0.9-2) precise; urgency=medium
+
+  * Adding AJAX like UI
+  * Expanding API
+
+ -- Peter <peter@blueboy>  Wed, 03 Feb 2016 20:36:23 -0700
+
+mcp (0.8-2) precise; urgency=medium
+
+  * Network Resource Managment
+  * API for setting config values
+
+ -- Peter <peter@blueboy>  Thu, 14 Jan 2016 15:44:06 -0700
+
+mcp (0.7-1) precise; urgency=medium
+
+  * Slack proxy
+  * preallocation fixes
+  * initial data fixed
+
+ -- Peter <peter@blueboy>  Tue, 12 Jan 2016 16:35:23 -0700
+
+mcp (0.6-1) precise; urgency=medium
+
+  * Adding ability to pre-create VMs so speed up new jobs
+
+ -- Peter <peter@blueboy>  Mon, 11 Jan 2016 13:49:12 -0700
+
 mcp (0.5-1) precise; urgency=medium
 
   * better handling of jobs

@@ -67,9 +67,12 @@ package distros: (called on MCP)
   manual-builds: ->
   <build name>-depends: -> ci/dev projects this build has the ability to block (only for auto-builds)
   <build name>-resources: ->
+  <build name>-networks: ->
 
 package distros: (called on distro)
+  <build name>-config: ->
   <build name>-requires: ->
+  <build name>-setup: ->
 
 
 work flow:
@@ -134,4 +137,3 @@ dependancies:
 
 Testing ordering:
   order by projects from fewest dependancies to the most
-

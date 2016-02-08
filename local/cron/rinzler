@@ -14,9 +14,10 @@ import json
 import shutil
 from datetime import datetime
 from logging.handlers import SysLogHandler
-
 from django.utils.timezone import utc
 from django.conf import settings
+from django.core.exceptions import ObjectDoesNotExist
+
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile, MakeException
@@ -36,7 +37,6 @@ logger.addHandler( handler )
 logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
-
 else:
   logger.setLevel( logging.INFO )
 
@@ -48,12 +48,13 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'rinzler' )
+slack = Slack( 'rinzler', settings.SITE_NAME, settings.SLACK_PROXY )
 
 def _makeBuild( build_name, project, manual ):
   dependancy_list = make.depends( build_name )
   resource_list = make.resources( build_name )
-  logging.debug( 'Build: "%s" depends: "%s" resources: "%s".' % ( build_name, dependancy_list, resource_list ) )
+  network_list = make.networks( build_name )
+  logging.debug( 'Build: "%s" depends: "%s" resources: "%s" networks: "%s".' % ( build_name, dependancy_list, resource_list, network_list ) )
   try:
     build = Build.objects.get( project=project, name=build_name )
     for item in build.buildresource_set.all(): #TODO: update instead of delete and re add
@@ -101,35 +102,47 @@ def _makeBuild( build_name, project, manual ):
     buildres.quanity = quanity
     buildres.save()
 
+  network = {}
+  for name in network_list:
+    network[ name ] = ''
 
-# where project dosen't have any auto builds nor queue items, nor manual builds in pre "ran" state, nor commit in flight
+  build.networks = json.dumps( network )
+  build.save()
+
+# where project dosen't have any queue items
 for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last_checked' ):
+
   if project.name.startswith( '_' ):
     continue
 
+  # nor have any commits in flight
   if project.commit_set.filter( done_at__isnull=True ).count() > 0:
     continue
 
+  # not auto builds
+  # nor builds in pre "ran" state
   ready = True
   for job in project.buildjob_set.all():
-    ready &= not job.manual
+    ready &= job.manual
     ready &= job.state in ( 'released', 'acknowledged', 'reported' )
 
   if not ready:
     continue
 
-  ready = True
-  for commit in project.commit_set.all():
-    ready &= commit.done_at is not None
+  try:  # for now we only support git based projects
+    project = project.githubproject
+  except ObjectDoesNotExist:
+    try:
+      project = project.gitproject
+    except ObjectDoesNotExist:
+      continue
 
-  if not ready:
-    continue
-
+  # it's good let's do this
   logging.info( 'Checking project "%s"' % project.name )
 
   if not project.local_path:
-    project.local_path = project.githubproject.github_url.replace( 'https://github.emcrubicon.com/', '' )
-    path = os.path.join( settings.GIT_REPO_PATH, project.local_path )
+    project.local_path = '%s/%s' % ( project.pk, os.path.basename( project.git_url ) )
+    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
     parent_path = '/'.join( path.split( '/' )[ :-1 ] )
     logging.debug( 'Creating "%s" for "%s"...' % ( parent_path, project.name ) )
     try:
@@ -143,11 +156,11 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
         raise e
 
     git = Git( path )
-    git.setup( project.githubproject.github_url, parent_path )
+    git.setup( project.git_url, parent_path )
     project.save()
 
   else:
-    path = os.path.join( settings.GIT_REPO_PATH, project.local_path )
+    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
     logging.debug( 'Updating "%s" for "%s"...' % ( path, project.name ) )
     git = Git( path )
 

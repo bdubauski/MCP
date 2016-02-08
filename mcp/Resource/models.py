@@ -1,4 +1,5 @@
 import re
+import hashlib
 
 from django.utils import simplejson
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
@@ -17,25 +18,25 @@ from plato.Provisioner.lib import submitConfigureJob, submitDeconfigureJob
 # make sure only one thing is calling these methods at a time...
 # other than ready, that is thread safe
 
-VMHOST = 1
-TARGET_SUBNET = 1
-TARGET_POD = 'mcp'
-
-HARDWARE_PROFILE = 'mcp-resource'
 
 def config_values( job, name, index ):
   return simplejson.dumps( {
-                             'mcp_host': settings.MCP_HOST_NAME,
+                             'mcp_host': settings.MCP_HOST,
                              'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
                              'mcp_job_id': job.pk,
                              'mcp_resource_name': name,
                              'mcp_resource_index': index,
                              'mcp_git_url': job.project.git_url,
                              'mcp_git_branch': job.branch,
-                             'mcp_make_requires': job.requires,
                              'mcp_make_target': job.target
                             } )
 
+def config_values_prealloc():
+  return simplejson.dumps( {
+                             'mcp_host': settings.MCP_HOST,
+                             'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
+                             'mcp_prealloc': True
+                            } )
 
 class Resource( models.Model ):
   """
@@ -80,7 +81,7 @@ Resource
       job = submitDeconfigureJob( config, True, False )
       config.hostname = 'mcp-unused-%s' % ( config.pk )
       config.description = '%s.%s' % ( config.hostname, config.pod.domain )
-      config.profile_id = HARDWARE_PROFILE # this goes after submitDeconfigureJob so that the job has the target's deconfigure job
+      config.profile_id = settings.HARDWARE_PROFILE # this goes after submitDeconfigureJob so that the job has the target's deconfigure job
       config.save()
       return job
 
@@ -118,16 +119,56 @@ Resource
   def __unicode__( self ):
     return 'Generic Resource "%s"' % self.description
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class VMResource( Resource ):
   vm_template = models.CharField( max_length=50 )
+  build_ahead_count = models.IntegerField( default=0 )
 
   def available( self, quantity ):
-    subnet = SubNet.objects.get( pk=TARGET_SUBNET )
+    subnet = SubNet.objects.get( pk=settings.TARGET_SUBNET )
     if len( subnet.unused_list ) < quantity:
       return False
 
     return True
+
+  @staticmethod
+  def _preallocList( pod, profile, vmtemplate ):
+    return Config.objects.filter( pod=pod, profile=profile, configured__isnull=False, hostname__startswith='mcp-preallocate-' )
+
+  @staticmethod
+  def _takeOver( config, job, name, index ):
+    config.hostname = 'mcp-auto--%s-%s-%s' % ( job.pk, name, index )
+    config.description = '%s.%s' % ( config.hostname, config.pod.domain )
+    config.config_values = config_values( job, name, index )
+    config.save()
+
+  @staticmethod
+  def _createNew( job, name, index, pod, profile, vmtemplate, subnet ):
+    address_list = []
+    address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
+    config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), pod, profile, address_list )
+    config.config_values = config_values( job, name, index )
+    config.save()
+    createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
+    return config
+
+  @staticmethod
+  def _replentishPreAllocate( goal_number, pod, profile, vmtemplate, subnet, seed ):
+    index = 0
+    while Config.objects.filter( pod=pod, profile=profile, hostname__startswith='mcp-preallocate-' ).count() < goal_number:
+      if len( subnet.unused_list ) < 1:
+        return # just bail, something else will complain about this, we are just making an effort for speed here
+
+      index += 1
+      address_list = []
+      address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
+      config = createConfig( 'mcp-preallocate--%s-%s' % ( seed, index ), pod, profile, address_list ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
+      config.config_values = config_values_prealloc()
+      config.save()
+      createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
 
   def allocate( self, job, name, quantity, config_id_list=None ): # for now config_id_list is ignored, VMs don't pre-exist, so can't pre pick them
     try:
@@ -139,32 +180,43 @@ class VMResource( Resource ):
     except VMTemplate.DoesNotExist:
       raise Exception( 'VMTemplate "%s" not found' % self.vm_template )
 
-    pod = Pod.objects.get( pk=TARGET_POD )
-    subnet = SubNet.objects.get( pk=TARGET_SUBNET )
-    if len( subnet.unused_list ) < quantity:
+    pod = Pod.objects.get( pk=settings.TARGET_POD )
+
+    config_list = list( self._preallocList( pod, profile, vmtemplate ) )
+
+    subnet = SubNet.objects.get( pk=settings.TARGET_SUBNET )
+    if len( subnet.unused_list ) < ( quantity - len( config_list ) ):
       raise Exception( 'Not enough unused Ips Available' )
 
     results = []
     for index in range( 0, quantity ):
-      address_list = []
-      address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-      config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), pod, profile, address_list )
-      config.config_values = config_values( job, name, index )
-      config.save()
-      createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=VMHOST ), vmtemplate=vmtemplate )
+      try:
+        config = config_list.pop( 0 )
+      except IndexError:
+        config = None
+
+      if config:
+        self._takeOver( config, job, name, index )
+      else:
+        config = self._createNew( job, name, index, pod, profile, vmtemplate, subnet )
+
       results.append( config.pk )
+
+    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, hashlib.md5( '%s-%s-%s' % ( job.pk, name, config_id_list ) ).hexdigest()[ 0:10 ] )
 
     return results
 
   def __unicode__( self ):
     return 'VM Resource "%s"' % self.description
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 class HardwareResource( Resource ):
   hardware_template = models.CharField( max_length=50 )
 
   def available( self, quantity ):
-    return Config.objects.filter( profile_id=HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).count() >= quantity
+    return Config.objects.filter( profile_id=settings.HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).count() >= quantity
 
   def allocate( self, job, name, quantity, config_id_list=None ):
     try:
@@ -177,7 +229,7 @@ class HardwareResource( Resource ):
     else:
       config_list = Config.objects.all()
 
-    config_list = config_list.filter( profile_id=HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).order_by( 'pk' )
+    config_list = config_list.filter( profile_id=settings.HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).order_by( 'pk' )
     config_list = list( config_list )
 
     results = []
@@ -195,6 +247,9 @@ class HardwareResource( Resource ):
 
   def __unicode__( self ):
     return 'Hardware Resource "%s"' % self.description
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 
 class ResourceGroup( models.Model ):
@@ -226,3 +281,21 @@ ResourceGroup
 
   def __unicode__( self ):
     return 'Resource Group "%s"' % self.description
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
+
+class NetworkResource( models.Model ):
+  """
+NetworkResource
+  """
+  subnet = models.IntegerField( primary_key=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  def __unicode__( self ):
+    return 'Network Resource for subnet "%s"' % self.subnet
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

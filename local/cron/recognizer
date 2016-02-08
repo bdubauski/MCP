@@ -15,8 +15,9 @@ import logging
 import json
 from logging.handlers import SysLogHandler
 from datetime import datetime
-
 from django.utils.timezone import utc
+from django.conf import settings
+
 from mcp.Processor.models import QueueItem
 from mcp.Project.models import Commit
 from mcp.lib.Slack import Slack
@@ -32,7 +33,6 @@ logger.addHandler( handler )
 logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
-
 else:
   logger.setLevel( logging.INFO )
 
@@ -44,7 +44,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'recognizer' )
+slack = Slack( 'recognizer', settings.SITE_NAME, settings.SLACK_PROXY )
 
 # check for commits that need to be linted
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):
@@ -69,6 +69,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
       logging.info( 'Lint for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
       commit.done_at = datetime.utcnow().replace( tzinfo=utc )
       slack.post_message( 'Lint for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
+      commit.project.postResults( commit.commit, commit.lint_results, None, None )
     else:
       slack.post_message( 'Lint for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
 
@@ -97,6 +98,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       logging.info( 'Test for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
       commit.done_at = datetime.utcnow().replace( tzinfo=utc )
       slack.post_message( 'Test for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
+      commit.project.postResults( commit.commit, commit.lint_results, commit.test_results, None )
     else:
       slack.post_message( 'Test for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
 
@@ -133,6 +135,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       slack.post_message( 'Commit "%s" of "%s", branch "%s" Finished.' % ( commit.commit, commit.project.name, commit.branch ), slack.DONE )
 
     commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.project.postResults( commit.commit, commit.lint_results, commit.test_results, commit.build_results )
 
   commit.save()
 

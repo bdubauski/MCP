@@ -2,14 +2,15 @@ import re
 
 from django.utils import simplejson
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.conf import settings
 
+from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
 
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5
 RELEASE_TYPE_CHOICES = ( ( 'ci', 'CI' ), ( 'dev', 'Development' ), ( 'stage', 'Staging' ), ( 'prod', 'Production' ), ( 'depr', 'Deprocated' ) )
-LOCAL_WORK_PATH = '/var/www/git'
 
 class Project( models.Model ):
   """
@@ -35,7 +36,7 @@ This is a Generic Project
 
   @property
   def git_url( self ):
-    return 'http://git.mcp.test/%s' % self.local_path
+    return '%s%s' % ( settings.GIT_HOST, self.local_path )
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
@@ -46,18 +47,48 @@ This is a Generic Project
 
     super( Project, self ).save( *args, **kwargs )
 
+  def postResults( self, commit, lint, test, build ):
+    try:
+      self.githubproject.postResults( commit, lint, test, build )
+    except ObjectDoesNotExist:
+      pass
+
   def __unicode__( self ):
     return 'Project "%s"' % self.name
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
+
+class GitProject( Project ):
+  """
+This is a Git Project
+  """
+  git_url = models.CharField( max_length=200 )
+
+  def __unicode__( self ):
+    return 'Git Project "%s"' % self.name
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 
 class GitHubProject( Project ):
   """
 This is a GitHub Project
   """
-  github_url = models.CharField( max_length=200 )
+  git_url = models.CharField( max_length=200 )
+  repo_name = models.CharField( max_length=200 )
 
   def __unicode__( self ):
-    return 'GitHub Project "%s"' % self.name
+    return 'GitHub Project "%s"(%s)' % ( self.name, self.repo_name )
+
+  def postResults( self, commit, lint, test, build ):
+    gh = GitHub( settings.GITHUB_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
+    gh.postComment( self.repo_name, commit, 'Lint Reulsts:\n`%s`\nTest Results:\n`%s`\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 
 class Package( models.Model ):
@@ -77,6 +108,9 @@ This is a Package
   def __unicode__( self ):
     return 'Package "%s"' % self.name
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class PackageVersion( models.Model ):
   """
@@ -93,6 +127,9 @@ This is a Version of a Package
 
   class Meta:
       unique_together = ( 'package', 'version' )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
 
 class Commit( models.Model ):
@@ -169,6 +206,10 @@ A Single Commit of a Project
   class Meta:
       unique_together = ( 'project', 'commit' )
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
+
 class Build( models.Model ):
   """
 This is a type of Build that can be done
@@ -176,8 +217,9 @@ This is a type of Build that can be done
   key = models.CharField( max_length=160, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   name = models.CharField( max_length=100 )
   project = models.ForeignKey( Project )
-  dependancies = models.ManyToManyField( Package, through='BuildDependancy' )
-  resources = models.ManyToManyField( Resource, through='BuildResource' )
+  dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
+  resources = models.ManyToManyField( Resource, through='BuildResource', help_text='' )
+  networks = models.TextField( default='{}' )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -185,6 +227,11 @@ This is a type of Build that can be done
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
       raise ValidationError( 'Invalid name' )
+
+    try:
+      simplejson.loads( self.networks )
+    except ValueError:
+      raise ValidationError( 'networks must be valid JSON' )
 
     self.key = '%s:%s' % ( self.project.name, self.name )
 
@@ -195,6 +242,10 @@ This is a type of Build that can be done
 
   class Meta:
       unique_together = ( 'name', 'project' )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class BuildDependancy( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True ) # until django supports multi filed primary keys
@@ -213,6 +264,10 @@ class BuildDependancy( models.Model ):
   class Meta:
       unique_together = ( 'build', 'package' )
 
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
+
 class BuildResource( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   build = models.ForeignKey( Build )
@@ -221,7 +276,7 @@ class BuildResource( models.Model ):
   quanity = models.IntegerField( default=1 )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.key, self.resource.name )
+    self.key = '%s:%s:%s' % ( self.build.key, self.name, self.resource.name )
 
     super( BuildResource, self ).save( *args, **kwargs )
 
@@ -230,3 +285,6 @@ class BuildResource( models.Model ):
 
   class Meta:
       unique_together = ( 'build', 'name' )
+
+  class API:
+    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

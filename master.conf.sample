@@ -1,9 +1,24 @@
-GIT_REPO_PATH = '/var/www/git'
+GIT_LOCAL_PATH = '/var/www/git'
+GIT_HOST = 'http://git/'
 
-PACKRAT_HOST = 'http://packrat'
+GITHUB_HOST = 'http://github'
+GITHUB_USER = 'mcp'
+GITHUB_PASS = 'mcp'
+
+PACKRAT_HOST = 'http://packrat/'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
 PACKRAT_PSK = 'mcp'
+
+VMHOST = 1
+TARGET_SUBNET = 1
+TARGET_POD = 'mcp'
+
+HARDWARE_PROFILE = 'mcp-resource'
+
+SITE_NAME = None
+
+SLACK_PROXY = None
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'w4hhv%e7yq8(-$u8w3e2w5_^4q749(*mb-#-j!1ms*w9s5f@x='
@@ -15,7 +30,7 @@ TEMPLATE_DEBUG = True
 
 ALLOWED_HOSTS = []
 
-MCP_HOST_NAME = 'http://mcp'
+MCP_HOST = 'http://mcp/'
 MCP_PROXY = None
 
 # Application definition
@@ -37,6 +52,10 @@ INSTALLED_APPS = (
     'plato.Config',
     'plato.Device',
     'plato.Network',
+    'plato.Power',
+    'plato.Storage',
+    'plato.Provisioner',
+    'plato.Report'
 )
 
 MIDDLEWARE_CLASSES = (
