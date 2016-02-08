@@ -77,15 +77,15 @@ class GitHubProject( Project ):
   """
 This is a GitHub Project
   """
-  git_url = models.CharField( max_length=200 )
-  repo_name = models.CharField( max_length=200 )
+  org = models.CharField( max_length=50 )
+  repo = models.CharField( max_length=50 )
 
   def __unicode__( self ):
     return 'GitHub Project "%s"(%s)' % ( self.name, self.repo_name )
 
   def postResults( self, commit, lint, test, build ):
-    gh = GitHub( settings.GITHUB_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
-    gh.postComment( self.repo_name, commit, 'Lint Reulsts:\n`%s`\nTest Results:\n`%s`\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
+    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
+    gh.postComment( self.org, self.repo, commit, 'Lint Results:\n`%s`\nTest Results:\n`%s`\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

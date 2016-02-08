@@ -1,7 +1,8 @@
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'
 
-GITHUB_HOST = 'http://github'
+GITHUB_API_HOST = 'https://github/api/v3'
+GITHUB_HOST = 'https://github/'
 GITHUB_USER = 'mcp'
 GITHUB_PASS = 'mcp'
 
