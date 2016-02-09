@@ -1,7 +1,8 @@
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'
 
-GITHUB_HOST = 'http://github'
+GITHUB_API_HOST = 'https://github/api/v3'
+GITHUB_HOST = 'https://github/'
 GITHUB_USER = 'mcp'
 GITHUB_PASS = 'mcp'
 
@@ -66,6 +67,10 @@ MIDDLEWARE_CLASSES = (
 )
 
 ROOT_URLCONF = 'mcp.urls'
+
+TEMPLATE_DIRS = (
+    '/usr/share/pyshared/mcp/templates'
+)
 
 from plato.settings import PROVISIONING_PROFILES, PLATO_HOST_NAME # noqa
 

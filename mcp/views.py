@@ -1,8 +1,8 @@
-from django.http import HttpResponse
-from django.template import Template, Context
+from django.template import Context
+from django.shortcuts import render
 from django.conf import settings
 
-from mcp.Project.models import Commit
+from mcp.Project.models import Commit, Project
 from mcp.Processor.models import QueueItem, BuildJob, Promotion
 from plato.Config.models import Config
 

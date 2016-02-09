@@ -129,19 +129,28 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
   if not ready:
     continue
 
+  url = None
   try:  # for now we only support git based projects
     project = project.githubproject
+    url = '%s/%s/%s.git' % ( settings.GITHUB_URL, project.org, project.repo )
   except ObjectDoesNotExist:
+    pass
+
+  if url is None:
     try:
       project = project.gitproject
+      url = project.git_url
     except ObjectDoesNotExist:
-      continue
+      pass
+
+  if url is None: # for now we only support Git based projects
+    continue
 
   # it's good let's do this
   logging.info( 'Checking project "%s"' % project.name )
 
   if not project.local_path:
-    project.local_path = '%s/%s' % ( project.pk, os.path.basename( project.git_url ) )
+    project.local_path = '%s/%s' % ( project.pk, os.path.basename( url ) )
     path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
     parent_path = '/'.join( path.split( '/' )[ :-1 ] )
     logging.debug( 'Creating "%s" for "%s"...' % ( parent_path, project.name ) )
@@ -156,7 +165,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
         raise e
 
     git = Git( path )
-    git.setup( project.git_url, parent_path )
+    git.setup( url, parent_path )
     project.save()
 
   else:
