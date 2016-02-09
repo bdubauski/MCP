@@ -35,7 +35,7 @@ This is a Generic Project
     return not not_busy
 
   @property
-  def git_url( self ):
+  def internal_git_url( self ):
     return '%s%s' % ( settings.GIT_HOST, self.local_path )
 
   def save( self, *args, **kwargs ):
@@ -81,7 +81,7 @@ This is a GitHub Project
   repo = models.CharField( max_length=50 )
 
   def __unicode__( self ):
-    return 'GitHub Project "%s"(%s)' % ( self.name, self.repo_name )
+    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self.org, self.repo )
 
   def postResults( self, commit, lint, test, build ):
     gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )

@@ -26,7 +26,7 @@ def config_values( job, name, index ):
                              'mcp_job_id': job.pk,
                              'mcp_resource_name': name,
                              'mcp_resource_index': index,
-                             'mcp_git_url': job.project.git_url,
+                             'mcp_git_url': job.project.internal_git_url,
                              'mcp_git_branch': job.branch,
                              'mcp_make_target': job.target
                             } )
