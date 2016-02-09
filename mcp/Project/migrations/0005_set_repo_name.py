@@ -8,7 +8,7 @@ from django.db import models
 class Migration(SchemaMigration):
 
     def forwards(self, orm):
-        for gh in orm.Project.githubproject:
+        for gh in orm.Githubproject.objects.all():
           parts = gh.git_url.split( '/' )
           gh.org = parts[3]
           gh.repo = parts[4]
@@ -65,8 +65,8 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'GitHubProject', '_ormbases': ['Project.Project']},
             'git_url': ('django.db.models.fields.CharField', [], {'max_length': '200'}),
             'project_ptr': ('django.db.models.fields.related.OneToOneField', [], {'to': "orm['Project.Project']", 'unique': 'True', 'primary_key': 'True'}),
-            'repo_name': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
-            'org_name': ('django.db.models.fields.CharField', [], {'max_length': '50'})
+            'repo': ('django.db.models.fields.CharField', [], {'max_length': '50'}),
+            'org': ('django.db.models.fields.CharField', [], {'max_length': '50'})
         },
         'Project.gitproject': {
             'Meta': {'object_name': 'GitProject', '_ormbases': ['Project.Project']},

@@ -17,7 +17,7 @@ class Migration(SchemaMigration):
 
         db.rename_column('Project_githubproject', 'github_url', 'git_url')
 
-        # Adding field 'GitHubProject.repo_name'
+        # Adding field 'GitHubProject.repo'
         db.add_column('Project_githubproject', 'repo',
                       self.gf('django.db.models.fields.CharField')(default='<unknwon>', max_length=50),
                       keep_default=False)
@@ -31,9 +31,11 @@ class Migration(SchemaMigration):
         # Deleting model 'GitProject'
         db.delete_table('Project_gitproject')
 
-        # Deleting field 'GitHubProject.repo_name'
+        # Deleting field 'GitHubProject.repo'
         db.delete_column('Project_githubproject', 'repo')
         db.delete_column('Project_githubproject', 'org')
+
+        db.rename_column('Project_githubproject', 'git_url', 'github_url')
 
 
     models = {
