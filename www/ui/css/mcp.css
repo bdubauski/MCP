@@ -12,11 +12,28 @@ body {
     margin-bottom: 60px;
 }
 
-.navbar-brand {
-    font-family: "Syncopate", Helvetica, Arial, sans-serif;
-    font-weight: 400;
-    font-size: 2em;
-    vertical-align: middle;
+.footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 60px;
+    background-color: #f5f5f5;
+}
+
+/* Custom page CSS
+-------------------------------------------------- */
+/* Not required for template or sticky footer method. */
+
+body > .container-fluid {
+    padding: 60px 15px 0;
+}
+
+.container .text-muted {
+    margin: 20px 0;
+}
+
+.footer > .container-fluid {
+    padding: 15px;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -31,6 +48,77 @@ h1 > a {
 
 h1 > a:hover {
     color: #8F8F8F;
+}
+
+.navbar-brand {
+    font-family: "Syncopate", Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    font-size: 2em;
+    vertical-align: middle;
+}
+
+#login-dp{
+    min-width: 250px;
+    padding: 14px 14px 0;
+    overflow:hidden;
+}
+#login-dp .help-block{
+    font-size:12px
+}
+#login-dp .bottom{
+    border-top:1px solid #ddd;
+    clear:both;
+    padding:14px;
+}
+#login-dp .social-buttons{
+    margin:12px 0
+}
+#login-dp .social-buttons a{
+    width: 49%;
+}
+#login-dp .form-group {
+    margin-bottom: 10px;
+}
+.btn-gh{
+    color: #fff;
+    background-color:#201F1F;
+}
+.btn-gh:hover{
+    color: #fff;
+    background-color:#626262
+}
+@media(max-width:768px){
+    #login-dp{
+        background-color: inherit;
+        color: #fff;
+    }
+    #login-dp .bottom{
+        background-color: inherit;
+        border-top:0 none;
+    }
+}
+
+.label {
+    font-size: 50%;
+    font-weight: 200;
+    padding: 0.2em 0.6em 0.2em 0.6em;
+    vertical-align: middle;
+}
+
+.sidebar {
+    font-family: "Source Sans Pro", Helvetica, Arial, sans-serif;
+    margin: 44px 0 20px;
+    padding-bottom: 9px;
+}
+
+.sidebar.page-header {
+    padding-top: 10px;
+    padding-bottom: 0
+}
+
+.sidebar dl {
+    margin: 0;
+    padding: 0;
 }
 
 .projects {
@@ -80,55 +168,8 @@ h1 > a:hover {
     padding-bottom: 10px;
 }
 
-.label {
-    font-size: 50%;
-    font-weight: 200;
-    padding: 0.2em 0.6em 0.2em 0.6em;
-    vertical-align: middle;
-}
-
-.sidebar {
-    font-family: "Source Sans Pro", Helvetica, Arial, sans-serif;
-    margin: 44px 0 20px;
-    padding-bottom: 9px;
-}
-
-.sidebar.page-header {
-    padding-top: 10px;
-    padding-bottom: 0
-}
-
-.sidebar dl {
-    margin: 0;
-    padding: 0;
-}
-
 .tab-content {
     margin: 20px 0;
-}
-
-.footer {
-    position: absolute;
-    bottom: 0;
-    width: 100%;
-    height: 60px;
-    background-color: #f5f5f5;
-}
-
-/* Custom page CSS
--------------------------------------------------- */
-/* Not required for template or sticky footer method. */
-
-body > .container-fluid {
-    padding: 60px 15px 0;
-}
-
-.container .text-muted {
-    margin: 20px 0;
-}
-
-.footer > .container-fluid {
-    padding: 15px;
 }
 
 code {
