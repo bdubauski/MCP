@@ -35,11 +35,29 @@ var mcpBuilder = {};
        cinp.call( '/api/v1/Auth(keepalive)', {} );
     };
 
+    mcp.getObject = function( uri )
+    {
+      var deferred = $.Deferred();
+      $.when( cinp.get( uri ) ).then(
+        function( data )
+        {
+          deferred.resolve( data );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
     mcp.getProjects = function()
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.list( '/api/v1/Project/GitHubProject' ) ).then(
+      $.when( cinp.list( '/api/v1/Project/Project' ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(
