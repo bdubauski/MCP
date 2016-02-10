@@ -1,30 +1,725 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+    <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-    <title>Bootstrap 101 Template</title>
+    <title>MCP</title>
+    <meta name="description" content="">
 
-    <!-- Bootstrap -->
-    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="ui/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom styles for this template -->
+    <link href="ui/css/mcp.css" rel="stylesheet">
+    <link href="ui/css/font-awesome.min.css" rel="stylesheet">
 
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
-      <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
-      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <script src="ui/js/html5shiv.min.js"></script>
+    <script src="ui/js/respond.min.js"></script>
     <![endif]-->
 </head>
+
 <body>
-  <h1>MCP</h1>
-  <h2>Master Controll Program</h2>
-  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
-  <script src="js/jquery.min.js"></script>
-  <!-- Include all compiled plugins (below), or include individual files as needed -->
-  <script src="js/bootstrap.min.js"></script>
-  <script src="js/cinp.js"></script>
-  <script src="js/mcp.js"></script>
-</body>
-<html>
+  <div id="modalbox">
+    <div class="devoops-modal">
+      <div class="devoops-modal-header">
+        <div class="modal-header-name"><span/></div>
+        <div class="box-icons">
+          <a class="close-link">
+            <i class="fa fa-times"></i>
+          </a>
+        </div>
+      </div>
+      <div class="devoops-modal-inner">
+      </div>
+      <div class="devoops-modal-bottom">
+      </div>
+    </div>
+  </div>
+
+        <!-- Fixed navbar -->
+<nav class="navbar navbar-default navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+            aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand text-muted" href="#">MCP CI/CD<!-- <i class="fa fa-retweet fa-rotate-90"></i> --></a>
+        </div>
+        <div id="navbar" class="collapse navbar-collapse">
+            <ul class="nav navbar-nav">
+                <li id="home-tab"><a href="#home">Home</a></li>
+                <li id="project-tab"><a href="#project">Projects</a></li>
+                <li id="global-tab"><a href="#global">Globals</a></li>
+                <li id="help-tab"> <a href="#help">Help</a></li>
+            </ul>
+            <ul class="nav navbar-nav navbar-right">
+                <li><p class="navbar-text">Already have an account?</p></li>
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown"><b>Login</b> <span class="caret"></span></a>
+                    <ul id="login-dp" class="dropdown-menu">
+                        <li>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    Login via
+                                    <div class="social-buttons">
+                                        <a href="#" class="btn btn-gh"><i class="fa fa-github-square"></i> Github</a>
+                                    </div>
+                                    or
+                                    <form class="form" role="form" method="post" action="login" accept-charset="UTF-8" id="login-nav">
+                                        <div class="form-group">
+                                            <label class="sr-only" for="exampleInputEmail2">Email address</label>
+                                            <input type="email" class="form-control" id="exampleInputEmail2" placeholder="Email address" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="sr-only" for="exampleInputPassword2">Password</label>
+                                            <input type="password" class="form-control" id="exampleInputPassword2" placeholder="Password" required>
+                                            <div class="help-block text-right"><a href="">Forget your password ?</a></div>
+                                        </div>
+                                        <div class="form-group">
+                                            <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+                                        </div>
+                                        <div class="checkbox">
+                                            <label>
+                                                <input type="checkbox"> keep me logged-in
+                                            </label>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="bottom text-center">
+                                    New here ? <a href="#"><b>Create Account</b></a>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div><!--/.nav-collapse -->
+    </div>
+</nav>
+
+
+        <div class="container-fluid">
+
+<div class="row">
+    <div class="col-md-10 col-md-push-2">
+        <div class="starter-template">
+            <div class="page-header">
+                <h1 id="main-title"/>
+            </div>
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" role="tablist">
+                <li class="active">
+                    <a href="#build-jobs" role="tab" data-toggle="tab">
+                        <i class="fa fa-wrench fa-fw"></i> Build Jobs
+                    </a>
+                </li>
+                <li>
+                    <a href="#queued-jobs" role="tab" data-toggle="tab">
+                        <i class="fa fa-exchange fa-fw"></i> Queued Jobs
+                    </a>
+                </li>
+                <li>
+                    <a href="#promotion-jobs" role="tab" data-toggle="tab">
+                        <i class="fa fa-cloud-upload fa-fw"></i> Promotion Jobs
+                    </a>
+                </li>
+                <li>
+                    <a href="#commit-list" role="tab" data-toggle="tab">
+                        <i class="fa fa-code-fork"></i> Commit List
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Tab panes -->
+            <div class="tab-content">
+                <div class="tab-pane fade active in" id="build-jobs">
+                    <table class="table table-condensed table-hover">
+                        <thead>
+                            <tr>
+                                <th>Job Id</th>
+                                <th>Distro</th>
+                                <th>State</th>
+                                <th>Status</th>
+                                <th>Manual</th>
+                                <th>Updated</th>
+                                <th>Target</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr>
+                                <td>537</td>
+                                <td>xenial</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 667, &quot;results&quot;: &quot;nullunit/nsq&#39;\n debian/rules binary\nmake[1]: Entering directory &#39;/nullunit/nsq&#39;\ntest -x debian/rules\ndh_testroot\ndh_prep \ndh_installdirs -A \nmkdir -p \&quot;.\&quot;\nAdding cdbs dependencies to debian/mlx-nsq.substvars\ndh_installdirs -pmlx-nsq \ndh_installdocs -pmlx-nsq \ndh_installexamples -pmlx-nsq \ndh_installman -pmlx-nsq  \ndh_installinfo -pmlx-nsq  \ndh_installmenu -pmlx-nsq \ndh_installcron -pmlx-nsq \ndh_installinit -pmlx-nsq  \ndh_installdebconf -pmlx-nsq \ndh_installemacsen -pmlx-nsq   \ndh_installcatalogs -pmlx-nsq \ndh_installpam -pmlx-nsq \ndh_installlogrotate -pmlx-nsq \ndh_installlogcheck -pmlx-nsq \ndh_installchangelogs -pmlx-nsq  \ndh_installudev -pmlx-nsq \ndh_lintian -pmlx-nsq \ndh_bugfiles -pmlx-nsq \ndh_install -pmlx-nsq  \ndh_systemd_enable -pmlx-nsq \ndh_systemd_start -pmlx-nsq \ndh_link -pmlx-nsq  \ndh_installmime -pmlx-nsq \ndh_installgsettings -pmlx-nsq \ndh_systemd_enable --name=mlx-nsqd -pmlx-nsq  \ndh_systemd_enable --name=mlx-nsqlookupd -pmlx-nsq  \ndh_systemd_enable --name=mlx-nsqadmin -pmlx-nsq  \ndh_systemd_start --name=mlx-nsqd -pmlx-nsq  \ndh_systemd_start --name=mlx-nsqlookupd -pmlx-nsq  \ndh_systemd_start --name=mlx-nsqadmin -pmlx-nsq  \ndh_installinit --name=mlx-nsqd -pmlx-nsq  \ndh_installinit --name=mlx-nsqlookupd -pmlx-nsq  \ndh_installinit --name=mlx-nsqadmin -pmlx-nsq  \ndh_strip -pmlx-nsq  \ndh_compress -pmlx-nsq  \ndh_fixperms -pmlx-nsq  \ndh_makeshlibs -pmlx-nsq  \ndh_installdeb -pmlx-nsq \ndh_perl -pmlx-nsq \ndh_shlibdeps -pmlx-nsq    \ndh_gencontrol -pmlx-nsq  \n# only call dh_scour for packages in main\nif grep -q &#39;^Component:[[:space:]]*main&#39; /CurrentlyBuilding 2&gt;/dev/null; then dh_scour -pmlx-nsq ; fi\ndh_md5sums -pmlx-nsq \ndh_builddeb -pmlx-nsq \ndpkg-deb: building package &#39;mlx-nsq&#39; in &#39;../mlx-nsq_0.3.6-5_all.deb&#39;.\nmake[1]: Leaving directory &#39;/nullunit/nsq&#39;\n dpkg-genchanges -b &gt;../mlx-nsq_0.3.6-5_amd64.changes\ndpkg-genchanges: binary-only upload (no source code included)\n dpkg-source --after-build nsq\ndpkg-buildpackage: binary-only upload (no source included)\ntouch dpkg\n=== File \&quot;mlx-nsq_0.3.6-5_all.deb\&quot; uploaded.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>dpkg</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>538</td>
+                                <td>trusty</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 658, &quot;results&quot;: &quot;mkdir -p dpkg-files/var/lib/plato/templates/\nmkdir -p dpkg-files/usr/share/opentsdb/plugins/\ncp -a templates/opentsdb dpkg-files/var/lib/plato/templates/\ndpkg -b dpkg-files msg-opentsdb_2.1.3-1trusty1_all.deb\ndpkg-deb: building package `msg-opentsdb&#39; in `msg-opentsdb_2.1.3-1trusty1_all.deb&#39;.\ntouch dpkg\n=== File \&quot;msg-opentsdb_2.1.3-1trusty1_all.deb\&quot; skipped.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>dpkg</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>539</td>
+                                <td>trusty</td>
+                                <td>acknowledged</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Ran&quot;, &quot;config&quot;: 640, &quot;results&quot;: &quot;uildpackage: source changed by Peter &lt;peter@blueboy&gt;\n dpkg-source --before-build hbase\ndpkg-buildpackage: host architecture amd64\n debian/rules clean\nmake[1]: Entering directory `/nullunit/hbase&#39;\ntest -x debian/rules\ndh_clean \nmake[1]: Leaving directory `/nullunit/hbase&#39;\n debian/rules build\nmake[1]: Entering directory `/nullunit/hbase&#39;\ntest -x debian/rules\nmkdir -p \&quot;.\&quot;\nmake[1]: Leaving directory `/nullunit/hbase&#39;\n debian/rules binary\nmake[1]: Entering directory `/nullunit/hbase&#39;\ntest -x debian/rules\ndh_testroot\ndh_prep \ndh_installdirs -A \nmkdir -p \&quot;.\&quot;\nAdding cdbs dependencies to debian/msg-hbase.substvars\ndh_installdirs -pmsg-hbase \ndh_installdocs -pmsg-hbase \ndh_installexamples -pmsg-hbase \ndh_installman -pmsg-hbase  \ndh_installinfo -pmsg-hbase  \ndh_installmenu -pmsg-hbase \ndh_installcron -pmsg-hbase \ndh_installinit -pmsg-hbase  \ndh_installdebconf -pmsg-hbase \ndh_installemacsen -pmsg-hbase   \ndh_installcatalogs -pmsg-hbase \ndh_installpam -pmsg-hbase \ndh_installlogrotate -pmsg-hbase \ndh_installlogcheck -pmsg-hbase \ndh_installchangelogs -pmsg-hbase  \ndh_installudev -pmsg-hbase \ndh_lintian -pmsg-hbase \ndh_bugfiles -pmsg-hbase \ndh_install -pmsg-hbase  \ndh_link -pmsg-hbase  \ndh_installmime -pmsg-hbase \ndh_installgsettings -pmsg-hbase \ndh_strip -pmsg-hbase  \ndh_compress -pmsg-hbase  \ndh_fixperms -pmsg-hbase  \ndh_makeshlibs -pmsg-hbase  \ndh_installdeb -pmsg-hbase \ndh_perl -pmsg-hbase \ndh_shlibdeps -pmsg-hbase    \ndh_gencontrol -pmsg-hbase  \n# only call dh_scour for packages in main\nif grep -q &#39;^Component:[[:space:]]*main&#39; /CurrentlyBuilding 2&gt;/dev/null; then dh_scour -pmsg-hbase ; fi\ndh_md5sums -pmsg-hbase \ndh_builddeb -pmsg-hbase \ndpkg-deb: building package `msg-hbase&#39; in `../msg-hbase_1.0.2-4_all.deb&#39;.\nmake[1]: Leaving directory `/nullunit/hbase&#39;\n dpkg-genchanges -b &gt;../msg-hbase_1.0.2-4_amd64.changes\ndpkg-genchanges: binary-only upload - not including any source code\n dpkg-source --after-build hbase\ndpkg-buildpackage: binary only upload (no source included)\ntouch dpkg\n=== File \&quot;msg-hbase_1.0.2-4_all.deb\&quot; skipped.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>dpkg</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>540</td>
+                                <td>trusty</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 652, &quot;results&quot;: &quot; -x debian/rules\nmkdir -p \&quot;.\&quot;\nmake[1]: Leaving directory `/nullunit/kafka&#39;\n debian/rules binary\nmake[1]: Entering directory `/nullunit/kafka&#39;\ntest -x debian/rules\ndh_testroot\ndh_prep \ndh_installdirs -A \nmkdir -p \&quot;.\&quot;\nAdding cdbs dependencies to debian/msg-kafka.substvars\ndh_installdirs -pmsg-kafka \ndh_installdocs -pmsg-kafka \ndh_installexamples -pmsg-kafka \ndh_installman -pmsg-kafka  \ndh_installinfo -pmsg-kafka  \ndh_installmenu -pmsg-kafka \ndh_installcron -pmsg-kafka \ndh_installinit -pmsg-kafka  \ndh_installdebconf -pmsg-kafka \ndh_installemacsen -pmsg-kafka   \ndh_installcatalogs -pmsg-kafka \ndh_installpam -pmsg-kafka \ndh_installlogrotate -pmsg-kafka \ndh_installlogcheck -pmsg-kafka \ndh_installchangelogs -pmsg-kafka  \ndh_installudev -pmsg-kafka \ndh_lintian -pmsg-kafka \ndh_bugfiles -pmsg-kafka \ndh_install -pmsg-kafka  \ndh_link -pmsg-kafka  \ndh_installmime -pmsg-kafka \ndh_installgsettings -pmsg-kafka \ndh_installinit --name=zookeeper -pmsg-kafka  \nUse of uninitialized value $filename in concatenation (.) or string at /usr/share/perl5/Debian/Debhelper/Dh_Lib.pm line 410.\ndh_installinit --name=kafka -pmsg-kafka  \nUse of uninitialized value $filename in concatenation (.) or string at /usr/share/perl5/Debian/Debhelper/Dh_Lib.pm line 410.\ndh_strip -pmsg-kafka  \ndh_compress -pmsg-kafka  \ndh_fixperms -pmsg-kafka  \ndh_makeshlibs -pmsg-kafka  \ndh_installdeb -pmsg-kafka \ndh_perl -pmsg-kafka \ndh_shlibdeps -pmsg-kafka    \ndh_gencontrol -pmsg-kafka  \n# only call dh_scour for packages in main\nif grep -q &#39;^Component:[[:space:]]*main&#39; /CurrentlyBuilding 2&gt;/dev/null; then dh_scour -pmsg-kafka ; fi\ndh_md5sums -pmsg-kafka \ndh_builddeb -pmsg-kafka \ndpkg-deb: building package `msg-kafka&#39; in `../msg-kafka_0.9.0.0-4_all.deb&#39;.\nmake[1]: Leaving directory `/nullunit/kafka&#39;\n dpkg-genchanges -b &gt;../msg-kafka_0.9.0.0-4_amd64.changes\ndpkg-genchanges: binary-only upload - not including any source code\n dpkg-source --after-build kafka\ndpkg-buildpackage: binary only upload (no source included)\ntouch dpkg\n=== File \&quot;msg-kafka_0.9.0.0-4_all.deb\&quot; skipped.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>dpkg</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>541</td>
+                                <td>precise</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 679, &quot;results&quot;: &quot;make: Nothing to be done for `lint&#39;.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>542</td>
+                                <td>trusty</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 537, &quot;results&quot;: &quot;linter&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>543</td>
+                                <td>precise</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 677, &quot;results&quot;: &quot;make: Nothing to be done for `lint&#39;.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>544</td>
+                                <td>centos6</td>
+                                <td>released</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Released&quot;, &quot;config&quot;: 651, &quot;results&quot;: &quot;make: Nothing to be done for `lint&#39;.&quot;, &quot;success&quot;: true}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>Feb. 9, 2016, 2:24 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>545</td>
+                                <td>trusty</td>
+                                <td>built</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Built&quot;, &quot;config&quot;: 525}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>test</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>546</td>
+                                <td>xenial</td>
+                                <td>built</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Built&quot;, &quot;config&quot;: 670}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>dpkg</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>547</td>
+                                <td>xenial</td>
+                                <td>built</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Built&quot;, &quot;config&quot;: 671}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>dpkg</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>548</td>
+                                <td>centos6</td>
+                                <td>built</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Built&quot;, &quot;config&quot;: 654}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>549</td>
+                                <td>trusty</td>
+                                <td>built</td>
+                                <td>{&quot;target&quot;: [{&quot;status&quot;: &quot;Built&quot;, &quot;config&quot;: 655}]}</td>
+                                <td>False</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="queued-jobs">
+                    <table class="table table-striped table-condensed">
+                        <thead>
+                            <tr>
+                                <th>Queue Id</th>
+                                <th>Priority</th>
+                                <th>Manual</th>
+                                <th>Build</th>
+                                <th>Status</th>
+                                <th>Updated</th>
+                                <th>Target</th>
+                                <th>Branch</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr>
+                                <td>533</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>installcheck</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-xenial&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>installcheck</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:33 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>514</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>trusty</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-trusty&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>515</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>trusty</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-trusty&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>516</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>trusty</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-trusty&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>517</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>precise</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-precise&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>520</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>trusty</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-trusty&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>521</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>trusty</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-trusty&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>522</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>precise</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-precise&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>523</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>centos6</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-centos6&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>524</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>trusty</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-trusty&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>lint</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>531</td>
+                                <td>100</td>
+                                <td>False</td>
+                                <td>precise</td>
+                                <td>{&quot;compute&quot;: {&quot;small-generic-precise&quot;: &quot;Not Available&quot;}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>test</td>
+                                <td>master</td>
+                                <td>Feb. 9, 2016, 2:30 p.m.</td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="promotion-jobs">
+                    <table class="table table-striped table-condensed">
+                        <thead>
+                            <tr>
+                                <th>Promotion Id</th>
+                                <th>Packages/Versions</th>
+                                <th>To State</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr>
+                                <td>31</td>
+                                <td> mlx-nsq(0.3.6-5)</td>
+                                <td>stage</td>
+                                <td>Feb. 9, 2016, 2:33 p.m.</td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+                <div class="tab-pane fade" id="commit-list">
+                    <table class="table table-striped table-condensed">
+                        <thead>
+                            <tr>
+                                <th>Commit Id</th>
+                                <th>Repository</th>
+                                <th>Branch</th>
+                                <th>Commit</th>
+                                <th>Lint At</th>
+                                <th>Lint Status</th>
+                                <th>Test At</th>
+                                <th>Test Status</th>
+                                <th>Build At</th>
+                                <th>Build Status</th>
+                                <th>Last Updated</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <tr>
+                                <td>151</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>8f2d0d6</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                                <td>{}</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                                <td>{}</td>
+                                <td>None</td>
+                                <td>{&quot;dpkg&quot;: {&quot;xenial&quot;: {&quot;status&quot;: &quot;building&quot;}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>152</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>2db060e</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                                <td>{}</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                                <td>{}</td>
+                                <td>None</td>
+                                <td>{&quot;dpkg&quot;: {&quot;xenial&quot;: {&quot;status&quot;: &quot;building&quot;}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>155</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>0424444</td>
+                                <td>Feb. 9, 2016, 2:30 p.m.</td>
+                                <td>{&quot;precise&quot;: {&quot;status&quot;: &quot;done&quot;, &quot;results&quot;: &quot;make: Nothing to be done for `lint&#39;.&quot;, &quot;success&quot;: true}}</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;dpkg&quot;: {&quot;precise&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>156</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>0a7e637</td>
+                                <td>Feb. 9, 2016, 2:30 p.m.</td>
+                                <td>{&quot;trusty&quot;: {&quot;status&quot;: &quot;done&quot;, &quot;results&quot;: &quot;linter&quot;, &quot;success&quot;: true}}</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;dpkg&quot;: {&quot;trusty&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>157</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>0d79107</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {&quot;status&quot;: &quot;done&quot;, &quot;results&quot;: &quot;make: Nothing to be done for `lint&#39;.&quot;, &quot;success&quot;: true}, &quot;centos6&quot;: {&quot;status&quot;: &quot;done&quot;, &quot;results&quot;: &quot;make: Nothing to be done for `lint&#39;.&quot;, &quot;success&quot;: true}, &quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {}, &quot;centos6&quot;: {}, &quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;rpm&quot;: {&quot;centos6&quot;: {}}, &quot;dpkg&quot;: {&quot;precise&quot;: {}, &quot;trusty&quot;: {}, &quot;xenial&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>158</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>7632f8c</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;rpm&quot;: {&quot;centos6&quot;: {}}, &quot;dpkg&quot;: {&quot;precise&quot;: {}, &quot;trusty&quot;: {}, &quot;xenial&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>159</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>7c8df2c</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;rpm&quot;: {&quot;centos6&quot;: {}}, &quot;dpkg&quot;: {&quot;precise&quot;: {}, &quot;trusty&quot;: {}, &quot;xenial&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>161</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>65ec893</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {&quot;status&quot;: &quot;building&quot;}, &quot;centos6&quot;: {&quot;status&quot;: &quot;building&quot;}, &quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {}, &quot;centos6&quot;: {}, &quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;rpm&quot;: {&quot;centos6&quot;: {}}, &quot;dpkg&quot;: {&quot;precise&quot;: {}, &quot;trusty&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>162</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>7e12e40</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;rpm&quot;: {&quot;centos6&quot;: {}}, &quot;dpkg&quot;: {&quot;trusty&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>163</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>367cbb8</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;resource&quot;: {&quot;trusty&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>164</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>95ca661</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {&quot;status&quot;: &quot;building&quot;}, &quot;centos6&quot;: {&quot;status&quot;: &quot;building&quot;}, &quot;trusty&quot;: {&quot;status&quot;: &quot;building&quot;}}</td>
+                                <td>None</td>
+                                <td>{&quot;precise&quot;: {}, &quot;centos6&quot;: {}, &quot;trusty&quot;: {}}</td>
+                                <td>None</td>
+                                <td>{&quot;rpm&quot;: {&quot;centos6&quot;: {}}, &quot;dpkg&quot;: {&quot;precise&quot;: {}, &quot;trusty&quot;: {}, &quot;xenial&quot;: {}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                            <tr>
+                                <td>165</td>
+                                <td></td>
+                                <td>master</td>
+                                <td>c9d65f2</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                                <td>{}</td>
+                                <td>Feb. 9, 2016, 2:18 p.m.</td>
+                                <td>{}</td>
+                                <td>None</td>
+                                <td>{&quot;dpkg&quot;: {&quot;trusty&quot;: {&quot;status&quot;: &quot;done&quot;, &quot;results&quot;: &quot;uildpackage: source changed by Peter &lt;peter@blueboy&gt;\n dpkg-source --before-build hbase\ndpkg-buildpackage: host architecture amd64\n debian/rules clean\nmake[1]: Entering directory `/nullunit/hbase&#39;\ntest -x debian/rules\ndh_clean \nmake[1]: Leaving directory `/nullunit/hbase&#39;\n debian/rules build\nmake[1]: Entering directory `/nullunit/hbase&#39;\ntest -x debian/rules\nmkdir -p \&quot;.\&quot;\nmake[1]: Leaving directory `/nullunit/hbase&#39;\n debian/rules binary\nmake[1]: Entering directory `/nullunit/hbase&#39;\ntest -x debian/rules\ndh_testroot\ndh_prep \ndh_installdirs -A \nmkdir -p \&quot;.\&quot;\nAdding cdbs dependencies to debian/msg-hbase.substvars\ndh_installdirs -pmsg-hbase \ndh_installdocs -pmsg-hbase \ndh_installexamples -pmsg-hbase \ndh_installman -pmsg-hbase  \ndh_installinfo -pmsg-hbase  \ndh_installmenu -pmsg-hbase \ndh_installcron -pmsg-hbase \ndh_installinit -pmsg-hbase  \ndh_installdebconf -pmsg-hbase \ndh_installemacsen -pmsg-hbase   \ndh_installcatalogs -pmsg-hbase \ndh_installpam -pmsg-hbase \ndh_installlogrotate -pmsg-hbase \ndh_installlogcheck -pmsg-hbase \ndh_installchangelogs -pmsg-hbase  \ndh_installudev -pmsg-hbase \ndh_lintian -pmsg-hbase \ndh_bugfiles -pmsg-hbase \ndh_install -pmsg-hbase  \ndh_link -pmsg-hbase  \ndh_installmime -pmsg-hbase \ndh_installgsettings -pmsg-hbase \ndh_strip -pmsg-hbase  \ndh_compress -pmsg-hbase  \ndh_fixperms -pmsg-hbase  \ndh_makeshlibs -pmsg-hbase  \ndh_installdeb -pmsg-hbase \ndh_perl -pmsg-hbase \ndh_shlibdeps -pmsg-hbase    \ndh_gencontrol -pmsg-hbase  \n# only call dh_scour for packages in main\nif grep -q &#39;^Component:[[:space:]]*main&#39; /CurrentlyBuilding 2&gt;/dev/null; then dh_scour -pmsg-hbase ; fi\ndh_md5sums -pmsg-hbase \ndh_builddeb -pmsg-hbase \ndpkg-deb: building package `msg-hbase&#39; in `../msg-hbase_1.0.2-4_all.deb&#39;.\nmake[1]: Leaving directory `/nullunit/hbase&#39;\n dpkg-genchanges -b &gt;../msg-hbase_1.0.2-4_amd64.changes\ndpkg-genchanges: binary-only upload - not including any source code\n dpkg-source --after-build hbase\ndpkg-buildpackage: binary only upload (no source included)\ntouch dpkg\n=== File \&quot;msg-hbase_1.0.2-4_all.deb\&quot; skipped.&quot;, &quot;success&quot;: true}}}</td>
+                                <td>Feb. 9, 2016, 2:34 p.m.</td>
+                                <td>Feb. 9, 2016, 2:17 p.m.</td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <div class="col-md-2 col-md-pull-10" id="project-panel">
+        <div class="sidebar">
+            <div class="input-group">
+                <input type="text" class="form-control" placeholder="Search projects...">
+                <span class="input-group-btn">
+                    <button class="btn btn-default" type="button"><i class="fa fa-search"></i> </button>
+                </span>
+            </div>
+            <div class="page-header projects">
+                <h4>my projects &nbsp;<a href="#">+</a></h4>
+            </div>
+
+            <div id="project-list" />
+
+        </div>
+    </div>
+</div>
+
+        </div><!-- /.container -->
+
+        <footer class="footer">
+    <div class="container-fluid">
+        <p class="text-muted text-center">You've enjoyed all the power you've been given, haven't you? I wonder how
+        you'd take to working in a pocket calculator.</p>
+    </div>
+</footer>
+
+<!-- Bootstrap core JavaScript
+================================================== -->
+<!-- Placed at the end of the document so the pages load faster -->
+<script src="ui/js/jquery.min.js"></script>
+<script src="ui/js/cinp.js"></script>
+<script src="ui/js/mcp.js"></script>
+<script src="ui/js/ui.js"></script>
+<script>window.jQuery || document.write('<script src="../../assets/js/vendor/jquery.min.js"><\/script>')</script>
+<script src="ui/js/bootstrap.min.js"></script>
+<!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+<script src="ui/js/ie10-viewport-bug-workaround.js"></script>
+
+    </body>
+</html>

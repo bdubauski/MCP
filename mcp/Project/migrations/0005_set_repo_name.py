@@ -11,7 +11,7 @@ class Migration(SchemaMigration):
         for gh in orm.Githubproject.objects.all():
           parts = gh.git_url.split( '/' )
           gh.org = parts[3]
-          gh.repo = parts[4]
+          gh.repo = parts.split( '.' )[0]  # strip the .git
           gh.save()
 
     def backwards(self, orm):

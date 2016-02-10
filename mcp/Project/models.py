@@ -23,6 +23,36 @@ This is a Generic Project
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
+  def type( self ):
+    try:
+      self.gitproject
+      return 'GitProject'
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      self.githubproject
+      return 'GitHubProject'
+    except ObjectDoesNotExist:
+      pass
+
+    return 'Project'
+
+  @property
+  def org( self ):
+    try:
+      return self.githubproject.org
+    except ObjectDoesNotExist:
+      return None
+
+  @property
+  def repo( self ):
+    try:
+      return self.githubproject.repo
+    except ObjectDoesNotExist:
+      return None
+
+  @property
   def busy( self ): # ie. can it be updated, and scaned for new things to do
     not_busy = True
     for build in self.build_set.all():
@@ -35,8 +65,22 @@ This is a Generic Project
     return not not_busy
 
   @property
-  def git_url( self ):
+  def internal_git_url( self ):
     return '%s%s' % ( settings.GIT_HOST, self.local_path )
+
+  @property
+  def upstream_git_url( self ):
+    try:  # for now we only support git based projects
+      return '%s/%s/%s.git' % ( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo )
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      return self.gitproject.git_url
+    except ObjectDoesNotExist:
+      pass
+
+    return None
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
@@ -58,6 +102,8 @@ This is a Generic Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    properties = ( 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url' )
+    hide_fields = ( 'local_path', )
 
 
 class GitProject( Project ):
@@ -81,7 +127,7 @@ This is a GitHub Project
   repo = models.CharField( max_length=50 )
 
   def __unicode__( self ):
-    return 'GitHub Project "%s"(%s)' % ( self.name, self.repo_name )
+    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self.org, self.repo )
 
   def postResults( self, commit, lint, test, build ):
     gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
