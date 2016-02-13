@@ -60,7 +60,7 @@ This is a Generic Project
         not_busy &= item.manual
 
       for job in build.buildjob_set.all():
-        not_busy &= item.manual
+        not_busy &= job.manual
 
     return not not_busy
 
