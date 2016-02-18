@@ -254,6 +254,14 @@ A Single Commit of a Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    list_filters = { 'project': { 'project': Project } }
+
+    @staticmethod
+    def buildQS( qs, filter, values ):
+      if filter == 'project':
+        return qs.filter( project=values[ 'project' ] )
+
+      raise Exception( 'Invalid filter "%s"' % filter )
 
 
 class Build( models.Model ):
