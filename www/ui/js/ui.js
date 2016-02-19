@@ -81,25 +81,81 @@ function hashChange( event )
   {
     $( '#project-panel' ).show();
     loadProjects();
-    if( id !== undefined )
+    if( id )
     {
       $( '#project-tab' ).addClass( 'active' );
+      var jobEntries = $( '#build-jobs table tbody' );
+      var queueEntries = $( '#queued-jobs table tbody' );
+      var commitEntries = $( '#commit-list table tbody' );
+      jobEntries.empty();
+      queueEntries.empty();
+      commitEntries.empty();
+
       $.when( mcp.getObject( id ) ).then(
         function( data )
         {
           data = data.detail;
           if( data.type == 'GitHubProject' )
-            mainTitle.append( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/> <img src="ui/image/build-pass.svg" />' );
+            mainTitle.append( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/> <img src="/ui/image/build-pass.svg" />' );
           else if( data.type == 'GitProject' )
-            mainTitle.append( '<a href="' + data.upstream_git_url + '" target="_blank">' + data.upstream_git_url + '</a> <img src="ui/image/build-pass.svg" />' );
+            mainTitle.append( '<a href="' + data.upstream_git_url + '" target="_blank">' + data.upstream_git_url + '</a> <img src="/ui/image/build-pass.svg" />' );
           else
-            mainTitle.append( data.name + ' <img src="ui/image/build-pass.svg" />' );
+            mainTitle.append( data.name + ' <img src="/ui/image/build-pass.svg" />' );
+
+          $.when( mcp.getBuildJobs( id ) ).then(
+            function( data )
+            {
+              for( var uri in data )
+              {
+                var item = data[ uri ];
+                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+              }
+            }
+          ).fail(
+            function( reason )
+            {
+              window.alert( "failed to get Build Jobs: (" + reason.code + "): " + reason.msg  );
+            }
+          );
+
+          $.when( mcp.getQueueItems( id ) ).then(
+            function( data )
+            {
+              for( var uri in data )
+              {
+                var item = data[ uri ];
+                queueEntries.append( '<tr><td>' + item.priority + '</td><td>' + item.build + '</td><td>' + item.branch + '</td><td>' + item.target + '</td><td>' + item.resource_status + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+              }
+            }
+          ).fail(
+            function( reason )
+            {
+              window.alert( "failed to get Queue Items: (" + reason.code + "): " + reason.msg  );
+            }
+          );
+
+          $.when( mcp.getCommits( id ) ).then(
+            function( data )
+            {
+              for( var uri in data )
+              {
+                var item = data[ uri ];
+                commitEntries.append( '<tr><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+              }
+            }
+          ).fail(
+            function( reason )
+            {
+              window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
+            }
+          );
+
         }
       ).fail(
-        function( reason )
-        {
-          window.alert( "failed to get project: (" + reason.code + "): " + reason.msg  );
-        }
+      function( reason )
+      {
+        window.alert( "failed to get Project: (" + reason.code + "): " + reason.msg  );
+      }
       );
     }
   }
@@ -133,14 +189,14 @@ function loadProjects()
     {
       for( var uri in data )
       {
-        item = data[ uri ];
+        var item = data[ uri ];
         if( item.name == '_builtin_' )
           continue;
 
+        var busy = '<i class="fa fa-check fa-fw"/>';
+
         if( item.busy )
           busy = '<i class="fa fa-tasks fa-fw"/>';
-        else
-          busy = '<i class="fa fa-check fa-fw"/>';
 
         projectList.append( '<div class="project passed"><dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;' + item.name + '</dt><dd><i class="fa fa-clock-o fa-fw"/>&nbsp; Updated: ' + item.updated + '</dd><dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + item.created + '</dd></dl></div>' );
       }
@@ -148,7 +204,7 @@ function loadProjects()
       $( '#project-list [id="project-entry"]' ).on( 'click',
         function( event )
         {
-          cur = $( this );
+          var cur = $( this );
           event.preventDefault();
           $( '#project-list [id="project-entry"]' ).removeClass( 'active' );
           cur.addClass( 'active' );

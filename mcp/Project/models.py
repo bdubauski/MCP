@@ -60,7 +60,7 @@ This is a Generic Project
         not_busy &= item.manual
 
       for job in build.buildjob_set.all():
-        not_busy &= item.manual
+        not_busy &= job.manual
 
     return not not_busy
 
@@ -254,6 +254,14 @@ A Single Commit of a Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    list_filters = { 'project': { 'project': Project } }
+
+    @staticmethod
+    def buildQS( qs, filter, values ):
+      if filter == 'project':
+        return qs.filter( project=values[ 'project' ] )
+
+      raise Exception( 'Invalid filter "%s"' % filter )
 
 
 class Build( models.Model ):

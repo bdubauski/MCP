@@ -82,6 +82,117 @@ var mcpBuilder = {};
       return deferred.promise();
     };
 
+    mcp.getBuildJobs = function( project )
+    {
+      var deferred = $.Deferred();
+      var filter;
+      var values;
+
+      if( project )
+      {
+        filter = 'project';
+        values = { project: project };
+      }
+
+      $.when( cinp.list( '/api/v1/Processor/BuildJob', filter, values ) ).then(
+        function( data )
+        {
+          $.when( cinp.getObjects( data.list, null, 100 ) ).then(
+            function( data )
+            {
+              deferred.resolve( data );
+            }
+          ).fail(
+            function( reason )
+            {
+              deferred.reject( reason );
+            }
+          );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
+    mcp.getQueueItems = function( project )
+    {
+      var deferred = $.Deferred();
+      var filter;
+      var values;
+
+      if( project )
+      {
+        filter = 'project';
+        values = { project: project };
+      }
+
+      $.when( cinp.list( '/api/v1/Processor/QueueItem', filter, values ) ).then(
+        function( data )
+        {
+          $.when( cinp.getObjects( data.list, null, 100 ) ).then(
+            function( data )
+            {
+              deferred.resolve( data );
+            }
+          ).fail(
+            function( reason )
+            {
+              deferred.reject( reason );
+            }
+          );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
+    mcp.getCommits = function( project )
+    {
+      var deferred = $.Deferred();
+      var filter;
+      var values;
+
+      if( project )
+      {
+        filter = 'project';
+        values = { project: project };
+      }
+
+      $.when( cinp.list( '/api/v1/Project/Commit', filter, values ) ).then(
+        function( data )
+        {
+          $.when( cinp.getObjects( data.list, null, 100 ) ).then(
+            function( data )
+            {
+              deferred.resolve( data );
+            }
+          ).fail(
+            function( reason )
+            {
+              deferred.reject( reason );
+            }
+          );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
     return mcp;
   };
 } )();
