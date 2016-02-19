@@ -82,6 +82,15 @@ This is a Generic Project
 
     return None
 
+  @property
+  def status( self ):
+    try:
+      commit = self.commit_set.filter( done_at__isnull=False ).order_by( '-created' )[0]
+    except IndexError:
+      return { 'passed': False, 'built': False }
+
+    return { 'passed': commit.passed, 'built': commit.built }
+
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
       raise ValidationError( 'Invalid name' )
@@ -102,7 +111,7 @@ This is a Generic Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    properties = ( 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url' )
+    properties = ( 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' )
     hide_fields = ( 'local_path', )
 
 
@@ -192,6 +201,8 @@ A Single Commit of a Project
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
+  passed = models.BooleanField( editable=False, default=False )
+  built = models.BooleanField( editable=False, default=False )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -254,12 +265,15 @@ A Single Commit of a Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    list_filters = { 'project': { 'project': Project } }
+    list_filters = { 'project': { 'project': Project }, 'in_process': {} }
 
     @staticmethod
     def buildQS( qs, filter, values ):
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
+
+      if filter == 'in_process':
+        return qs.filter( done_at__isnull=True )
 
       raise Exception( 'Invalid filter "%s"' % filter )
 

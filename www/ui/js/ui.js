@@ -77,16 +77,23 @@ function hashChange( event )
     id = atob( hash.substr( pos + 1 ) );
   }
 
+  var jobEntries;
+  var queueEntries;
+  var promotionJobs;
+  var commitEntries;
+
   if( type == 'project' )
   {
     $( '#project-panel' ).show();
+    $( '#project-detail' ).show();
+    $( '#global-detail' ).hide();
+    $( '#project-tab' ).addClass( 'active' );
     loadProjects();
     if( id )
     {
-      $( '#project-tab' ).addClass( 'active' );
-      var jobEntries = $( '#build-jobs table tbody' );
-      var queueEntries = $( '#queued-jobs table tbody' );
-      var commitEntries = $( '#commit-list table tbody' );
+      jobEntries = $( '#project-build-jobs table tbody' );
+      queueEntries = $( '#project-queued-jobs table tbody' );
+      commitEntries = $( '#project-commit-list table tbody' );
       jobEntries.empty();
       queueEntries.empty();
       commitEntries.empty();
@@ -95,12 +102,23 @@ function hashChange( event )
         function( data )
         {
           data = data.detail;
-          if( data.type == 'GitHubProject' )
-            mainTitle.append( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/> <img src="/ui/image/build-pass.svg" />' );
-          else if( data.type == 'GitProject' )
-            mainTitle.append( '<a href="' + data.upstream_git_url + '" target="_blank">' + data.upstream_git_url + '</a> <img src="/ui/image/build-pass.svg" />' );
+          var buildPass = '';
+          if( data.status.passed )
+            buildPass += '<img src="/ui/image/test-pass.svg" />';
           else
-            mainTitle.append( data.name + ' <img src="/ui/image/build-pass.svg" />' );
+            buildPass += '<img src="/ui/image/test-error.svg" />';
+
+          if( data.status.built )
+            buildPass += '<img src="/ui/image/build-pass.svg" />';
+          else
+            buildPass += '<img src="/ui/image/build-error.svg" />';
+
+          if( data.type == 'GitHubProject' )
+            mainTitle.append( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/>' + buildPass );
+          else if( data.type == 'GitProject' )
+            mainTitle.append( '<a href="' + data.upstream_git_url + '" target="_blank">' + data.upstream_git_url + '</a>' + buildPass );
+          else
+            mainTitle.append( data.name + buildPass );
 
           $.when( mcp.getBuildJobs( id ) ).then(
             function( data )
@@ -140,7 +158,7 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                commitEntries.append( '<tr><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+                commitEntries.append( '<tr><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
               }
             }
           ).fail(
@@ -162,18 +180,98 @@ function hashChange( event )
   else if( type == 'global' )
   {
     $( '#project-panel' ).hide();
+    $( '#project-detail' ).hide();
+    $( '#global-detail' ).show();
     $( '#global-tab' ).addClass( 'active' );
     mainTitle.append( 'Global stuff' );
+    jobEntries = $( '#global-build-jobs table tbody' );
+    queueEntries = $( '#global-queued-jobs table tbody' );
+    promotionJobs= $( '#global-promotion-jobs table tbody' );
+    commitEntries = $( '#global-commit-list table tbody' );
+    jobEntries.empty();
+    queueEntries.empty();
+    promotionJobs.empty();
+    commitEntries.empty();
+
+
+    $.when( mcp.getBuildJobs() ).then(
+      function( data )
+      {
+        for( var uri in data )
+        {
+          var item = data[ uri ];
+          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+        }
+      }
+    ).fail(
+      function( reason )
+      {
+        window.alert( "failed to get Build Jobs: (" + reason.code + "): " + reason.msg  );
+      }
+    );
+
+    $.when( mcp.getQueueItems() ).then(
+      function( data )
+      {
+        for( var uri in data )
+        {
+          var item = data[ uri ];
+          queueEntries.append( '<tr><td>' + item.project + '</td><td>' + item.priority + '</td><td>' + item.build + '</td><td>' + item.branch + '</td><td>' + item.target + '</td><td>' + item.resource_status + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+        }
+      }
+    ).fail(
+      function( reason )
+      {
+        window.alert( "failed to get Queue Items: (" + reason.code + "): " + reason.msg  );
+      }
+    );
+
+    $.when( mcp.getPromotions() ).then(
+      function( data )
+      {
+        for( var uri in data )
+        {
+          var item = data[ uri ];
+          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+        }
+      }
+    ).fail(
+      function( reason )
+      {
+        window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
+      }
+    );
+
+    $.when( mcp.getCommits() ).then(
+      function( data )
+      {
+        for( var uri in data )
+        {
+          var item = data[ uri ];
+          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.to_state + '</td><td>' + item.created + '</td></tr>' );
+        }
+      }
+    ).fail(
+      function( reason )
+      {
+        window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
+      }
+    );
+
   }
   else if( type == 'help' )
   {
     $( '#project-panel' ).hide();
+    $( '#project-detail' ).hide();
+    $( '#global-detail' ).hide();
     $( '#help-tab' ).addClass( 'active' );
     mainTitle.append( 'Help stuff' );
   }
   else
   {
     $( '#project-panel' ).hide();
+    $( '#project-detail' ).hide();
+    $( '#global-detail' ).hide();
     $( '#home-tab' ).addClass( 'active' );
     mainTitle.append( 'Home' );
   }

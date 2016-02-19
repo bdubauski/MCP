@@ -167,8 +167,42 @@ var mcpBuilder = {};
         filter = 'project';
         values = { project: project };
       }
+      else
+      {
+        filter = 'in_process';
+        values = {};
+      }
 
       $.when( cinp.list( '/api/v1/Project/Commit', filter, values ) ).then(
+        function( data )
+        {
+          $.when( cinp.getObjects( data.list, null, 100 ) ).then(
+            function( data )
+            {
+              deferred.resolve( data );
+            }
+          ).fail(
+            function( reason )
+            {
+              deferred.reject( reason );
+            }
+          );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
+    mcp.getPromotions = function( project )
+    {
+      var deferred = $.Deferred();
+
+      $.when( cinp.list( '/api/v1/Processor/Promotion' ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(
