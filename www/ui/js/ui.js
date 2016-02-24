@@ -232,7 +232,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.to_state + '</td><td>' + item.created + '</td></tr>' );
         }
       }
     ).fail(
@@ -248,7 +248,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.to_state + '</td><td>' + item.created + '</td></tr>' );
+          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
         }
       }
     ).fail(

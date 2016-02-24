@@ -41,14 +41,14 @@ This is a Generic Project
   @property
   def org( self ):
     try:
-      return self.githubproject.org
+      return self.githubproject._org
     except ObjectDoesNotExist:
       return None
 
   @property
   def repo( self ):
     try:
-      return self.githubproject.repo
+      return self.githubproject._repo
     except ObjectDoesNotExist:
       return None
 
@@ -81,6 +81,21 @@ This is a Generic Project
       pass
 
     return None
+
+  @property
+  def clone_git_url( self ):
+    try:  # for now we only support git based projects
+      return ( '%s%s/%s.git' % ( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://%s:%s@' % ( settings.GITHUB_USER, settings.GITHUB_PASS ) )
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      return self.gitproject.git_url
+    except ObjectDoesNotExist:
+      pass
+
+    return None
+
 
   @property
   def status( self ):
@@ -132,15 +147,29 @@ class GitHubProject( Project ):
   """
 This is a GitHub Project
   """
-  org = models.CharField( max_length=50 )
-  repo = models.CharField( max_length=50 )
+  _org = models.CharField( max_length=50 )
+  _repo = models.CharField( max_length=50 )
+
+  @property
+  def org( self ):
+    try:
+      return self.githubproject._org
+    except ObjectDoesNotExist:
+      return None
+
+  @property
+  def repo( self ):
+    try:
+      return self.githubproject._repo
+    except ObjectDoesNotExist:
+      return None
 
   def __unicode__( self ):
-    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self.org, self.repo )
+    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self._org, self._repo )
 
   def postResults( self, commit, lint, test, build ):
-    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
-    gh.postComment( self.org, self.repo, commit, 'Lint Results:\n`%s`\nTest Results:\n`%s`\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
+    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS )
+    gh.postComment( self.org, self.repo, commit, 'Lint Results:\n`%s`\n\nTest Results:\n`%s`\n\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

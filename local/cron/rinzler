@@ -16,7 +16,6 @@ from datetime import datetime
 from logging.handlers import SysLogHandler
 from django.utils.timezone import utc
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
 
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
@@ -129,7 +128,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
   if not ready:
     continue
 
-  url = project.upstream_git_url
+  url = project.clone_git_url
 
   if url is None: # for now we only support Git based projects
     continue
