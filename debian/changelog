@@ -1,3 +1,10 @@
+mcp (0.10-1) precise; urgency=medium
+
+  * UI cleanup
+  * More APIs for UI to use
+
+ -- Peter <peter@blueboy>  Thu, 25 Feb 2016 14:07:18 -0700
+
 mcp (0.9-4) precise; urgency=medium
 
   * Adding AJAX like UI
