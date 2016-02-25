@@ -72,7 +72,6 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'mcp.urls'
 
 TEMPLATE_DIRS = (
-    '/usr/share/pyshared/mcp/templates'
 )
 
 from plato.settings import PROVISIONING_PROFILES, PLATO_HOST_NAME # noqa

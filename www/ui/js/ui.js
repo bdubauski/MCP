@@ -81,6 +81,7 @@ function hashChange( event )
   var queueEntries;
   var promotionJobs;
   var commitEntries;
+  var buildEntries;
 
   if( type == 'project' )
   {
@@ -94,9 +95,11 @@ function hashChange( event )
       jobEntries = $( '#project-build-jobs table tbody' );
       queueEntries = $( '#project-queued-jobs table tbody' );
       commitEntries = $( '#project-commit-list table tbody' );
+      buildEntries = $( '#project-builds table tbody' );
       jobEntries.empty();
       queueEntries.empty();
       commitEntries.empty();
+      buildEntries.empty();
 
       $.when( mcp.getObject( id ) ).then(
         function( data )
@@ -165,6 +168,22 @@ function hashChange( event )
             function( reason )
             {
               window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
+            }
+          );
+
+          $.when( mcp.getBuilds( id ) ).then(
+            function( data )
+            {
+              for( var uri in data )
+              {
+                var item = data[ uri ];
+                buildEntries.append( '<tr><td>' + item.name + '</td><td><button url="' + uri + '">Build</button></td></tr>' );
+              }
+            }
+          ).fail(
+            function( reason )
+            {
+              window.alert( "failed to get Builds: (" + reason.code + "): " + reason.msg  );
             }
           );
 

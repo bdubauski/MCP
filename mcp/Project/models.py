@@ -330,7 +330,7 @@ This is a type of Build that can be done
     except ValueError:
       raise ValidationError( 'networks must be valid JSON' )
 
-    self.key = '%s:%s' % ( self.project.name, self.name )
+    self.key = '%s_%s' % ( self.project.name, self.name )
 
     super( Build, self ).save( *args, **kwargs )
 
@@ -342,6 +342,14 @@ This is a type of Build that can be done
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    list_filters = { 'project': { 'project': Project } }
+
+    @staticmethod
+    def buildQS( qs, filter, values ):
+      if filter == 'project':
+        return qs.filter( project=values[ 'project' ] )
+
+      raise Exception( 'Invalid filter "%s"' % filter )
 
 
 class BuildDependancy( models.Model ):
@@ -351,7 +359,7 @@ class BuildDependancy( models.Model ):
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.key, self.package.name )
+    self.key = '%s_%s' % ( self.build.key, self.package.name )
 
     super( BuildDependancy, self ).save( *args, **kwargs )
 
@@ -373,7 +381,7 @@ class BuildResource( models.Model ):
   quanity = models.IntegerField( default=1 )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s:%s' % ( self.build.key, self.name, self.resource.name )
+    self.key = '%s_%s_%s' % ( self.build.key, self.name, self.resource.name )
 
     super( BuildResource, self ).save( *args, **kwargs )
 

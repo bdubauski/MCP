@@ -57,7 +57,7 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.list( '/api/v1/Project/Project' ) ).then(
+      $.when( cinp.list( '/api/v1/Project/Project', null, null, 0, 100 ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(
@@ -198,11 +198,48 @@ var mcpBuilder = {};
       return deferred.promise();
     };
 
-    mcp.getPromotions = function( project )
+    mcp.getPromotions = function()
     {
       var deferred = $.Deferred();
 
       $.when( cinp.list( '/api/v1/Processor/Promotion' ) ).then(
+        function( data )
+        {
+          $.when( cinp.getObjects( data.list, null, 100 ) ).then(
+            function( data )
+            {
+              deferred.resolve( data );
+            }
+          ).fail(
+            function( reason )
+            {
+              deferred.reject( reason );
+            }
+          );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
+    mcp.getBuilds = function( project )
+    {
+      var deferred = $.Deferred();
+      var filter;
+      var values;
+
+      if( project )
+      {
+        filter = 'project';
+        values = { project: project };
+      }
+
+      $.when( cinp.list( '/api/v1/Project/Build', filter, values ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(
