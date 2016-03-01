@@ -264,6 +264,52 @@ var mcpBuilder = {};
       return deferred.promise();
     };
 
+    mcp.acknowledge = function( uri )
+    {
+      var deferred = $.Deferred();
+
+      $.when( cinp.call( uri + '(acknowledge)', {} ) ).then(
+        function( data )
+        {
+          if( data.result )
+            deferred.resolve( true );
+          else
+            deferred.resolve( false );
+        }
+      ).fail(
+        function( reason )
+        {
+          alert( 'Error Acknowledging "' + uri + '"' );
+          cinp.on_server_error( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
+    mcp.queue = function( uri )
+    {
+      var deferred = $.Deferred();
+
+      $.when( cinp.call( '/api/v1/Processor/QueueItem(queue)', { 'build': uri} ) ).then(
+        function( data )
+        {
+          if( data.result )
+            deferred.resolve( true );
+          else
+            deferred.resolve( false );
+        }
+      ).fail(
+        function( reason )
+        {
+          alert( 'Error Queueing "' + uri + '"' );
+          cinp.on_server_error( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+
     return mcp;
   };
 } )();

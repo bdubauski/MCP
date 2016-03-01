@@ -169,7 +169,40 @@ This is a GitHub Project
 
   def postResults( self, commit, lint, test, build ):
     gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS )
-    gh.postComment( self.org, self.repo, commit, 'Lint Results:\n`%s`\n\nTest Results:\n`%s`\n\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
+    comment = ''
+    if lint:
+      lint = simplejson.loads( lint )
+    if test:
+      test = simplejson.loads( test )
+    if build:
+      build = simplejson.loads( build )
+
+    if lint:
+      comment += 'Lint Results:\n\n'
+      for distro in lint:
+        comment += '**%s**\n' % distro
+        comment += '  Success: **%s**\n' % lint[ distro ][ 'success' ]
+        comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if test:
+      comment += 'Test Results:\n\n'
+      for distro in test:
+        comment += '**%s**\n' % distro
+        comment += '  Success: **%s**\n' % test[ distro ][ 'success' ]
+        comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if build:
+      comment += 'Build Results:\n\n'
+      for target in build:
+        for distro in build[ target ]:
+          comment += '**%s** - **%s**\n' % ( target, distro )
+          comment += '  Success: **%s**\n' % build[ target ][ distro ][ 'success' ]
+          comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if not comment:
+      comment = '**Nothing To Do**'
+
+    gh.postComment( self.org, self.repo, commit, comment )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

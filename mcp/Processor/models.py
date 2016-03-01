@@ -160,6 +160,10 @@ QueueItem
 
     return item
 
+  @staticmethod
+  def queue( build ):
+    QueueItem.inQueueBuild( build, 'master', True, 100 )
+
   def save( self, *args, **kwargs ):
     try:
       simplejson.loads( self.resource_status )
@@ -174,6 +178,9 @@ QueueItem
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
     list_filters = { 'project': { 'project': Project } }
+    actions = {
+                'queue': [ { 'type': 'Model', 'model': Build } ],
+              }
 
     @staticmethod
     def buildQS( qs, filter, values ):
@@ -243,6 +250,13 @@ BuildJob
       self.built_at = datetime.utcnow().replace( tzinfo=utc )
 
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
+    self.save()
+
+  def acknowledge( self ):
+    if self.reported_at is None:
+      raise ValidationError( 'Can not Acknoledge un-reported jobs' )
+
+    self.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
     self.save()
 
   def updateResourceState( self, name, index, status ):
@@ -390,6 +404,8 @@ BuildJob
                  'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'setConfigValues': [ { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'getNetworkInfo': [ { 'type': 'String' } ],
+                 # these are normal
+                 'acknowledge': [],
               }
     properties = ( 'state', 'suceeded' )
     list_filters = { 'project': { 'project': Project } }

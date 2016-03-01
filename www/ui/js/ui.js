@@ -129,7 +129,11 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+                var buttons = '';
+                if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
+                  buttons = '<button uri="' + uri + '" action="acknowledge">Acknowledge</button>';
+
+                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</tr>' );
               }
             }
           ).fail(
@@ -177,7 +181,7 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                buildEntries.append( '<tr><td>' + item.name + '</td><td><button url="' + uri + '">Build</button></td></tr>' );
+                buildEntries.append( '<tr><td>' + item.name + '</td><td><button uri="' + uri + '" action="queue">Queue</button></td></tr>' );
               }
             }
           ).fail(
@@ -195,6 +199,21 @@ function hashChange( event )
       }
       );
     }
+    $( '#project-detail' ).on( 'click', 'button',
+    function( event )
+    {
+      event.preventDefault();
+      var self = $( this );
+      $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
+        function( data )
+        {
+          if( data )
+            alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
+          else
+            alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+        }
+      );
+    });
   }
   else if( type == 'global' )
   {
@@ -212,14 +231,17 @@ function hashChange( event )
     promotionJobs.empty();
     commitEntries.empty();
 
-
     $.when( mcp.getBuildJobs() ).then(
       function( data )
       {
         for( var uri in data )
         {
           var item = data[ uri ];
-          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+          var buttons = '';
+          if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
+            buttons = '<button uri="' + uri + '" action="acknowledge">Acknowledge</button>';
+
+          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
         }
       }
     ).fail(
@@ -276,7 +298,13 @@ function hashChange( event )
         window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
       }
     );
-
+    $( '#global-detail' ).on( 'click', 'button',
+    function( event )
+    {
+      event.preventDefault();
+      var self = $( this );
+      mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) );
+    });
   }
   else if( type == 'help' )
   {

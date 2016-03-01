@@ -35,13 +35,13 @@ class Git( object ):
 
     return result
 
-  def setup( self, url, parent_path ):  # use ~/.netrc file for auth.... for now
+  def setup( self, url, parent_path ):
     self._execute( [ 'clone', '--bare', url ], cwd=parent_path )
     self._execute( [ 'update-server-info' ] )
     os.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
 
   def update( self ):
-    self._execute( [ 'fetch', 'origin', 'master:master', '--force' ] )
+    self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
   #http://gitready.com/intermediate/2009/02/13/list-remote-branches.html
@@ -49,7 +49,9 @@ class Git( object ):
     result = {}
     branch_list = self._execute( [ 'branch', '--list', '--verbose' ] )
     for item in branch_list:
-      ( name, hash, _ ) = item[2:].split( ' ', 2 )
+      if item[0] == '*':
+        item  = item[1:]
+      ( name, hash, _ ) = item.split( None, 2 )
       result[ name ] = hash
 
     return result

@@ -51,6 +51,11 @@ project distros:
   respkg-requires: -> respkg build dependancies (see dpkg-depends)
   resource-requires -> plato disk build dependancies (see dpkg-depends)
 
+  dpkg-setup:
+  rpm-setup:
+  respkg-setup:
+  resource-setup:
+
   lint: -> lint (run before test on test distros)
   test: -> unit tests (run on distros)
   dpkg: -> make debian package (if builds for multiple version add the version number to the package name) (runs on distros), NOTE: make clean and make dpkg-setup are called before make dpkg, for cleaning and optional setup
@@ -116,15 +121,6 @@ clean up the build VMs
 
 Future thoughts and todos:
 --------------------------
-
-Makefile tells what other projects it depends on
-
-Makefile tells what resources are needed to build/test
-  ie... if the test is to build a cluster it needs to say it needs a vcenter with X compute resources and describe the vcenter config
-
-Have utilities avaible to the Makefile to build a plato-master and load it with X files, etc
-
-monitor for branches starting with "pr-" and pull and run the lint and unittests, make commit message with the results
 
 monitor for changes on devel branch, auto merge to master after full test suite has passed, make commite message wih the results, incrament the build number in the changelog on the devel branch after merging to master
   No.... not going to mess with merging, only going to build off of master, should do some kind of test to make sure the version incramented, otherwise packrat won't take the new files

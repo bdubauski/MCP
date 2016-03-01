@@ -31,5 +31,4 @@ while job.reported_at is None:
 
 
 print 'Setting job to Acknoledged....'
-job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
-job.save()
+job.acknowledge()

@@ -27,3 +27,12 @@ class GitHub( object ):
       result.append( item.name )
 
     return result
+
+  def getPullRequests( self, org, repo ):
+    result = []
+    repo = self.conn.get_repo( '%s/%s' % ( org, repo ) )
+    pull_list = list( repo.get_pulls() )
+    for pull in pull_list:
+      result.append( pull.get_commits[-1].sha[0:7] )
+
+    return result

@@ -22,7 +22,7 @@ from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
 
 # in Hours
-CLEANUP_DELAY = 0.25
+CLEANUP_DELAY = 0.05
 AUTO_ACKNOLEDGE_DELAY = 24.0
 
 PID_FILE = '/var/run/sark.pid'
