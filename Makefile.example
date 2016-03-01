@@ -1,0 +1,309 @@
+
+# These template Items would be added to an existing makefile or used to generate a new Makefile
+# These are the Targets MCP uses to know what to do with the project.  The targets
+# are are examples, and sill probably need to be tweeked depending on the charistics of your
+# project
+
+# any local changes for targets executed on MCP should be avoided, and will not be saved
+# nor passed to the target distros, these targets are executed in a tmp dir which is removed
+# after the target has been executed
+
+# for packaging targets (dpkg, rpm, respkg, resource)
+# the targets are executed as follows.  Only <target> and <target>-file is required
+# (where <target> is the target, ie rpm, so <target>-requires is rpm-requires)
+#   <target>-config
+#   <target>-requires
+#   clean
+#   <target>-setup
+#   <target>
+#   <target>-file
+
+# for all other targets, (test, lint, targets from auto/manual-builds )
+# the targets are executed as follows, only <target> is required
+# (where <target> is the target, ie lint, so <target>-requires is lint-requires)
+#   <target>-config
+#   <target>-requires
+#   <target>-setup
+#   <target>
+# NOTE: the argumests RESOURCE_NAME and RESROUCE_INDEX are passed with the
+#       name and index inside that named group to all targets, in the case of
+#       test and lint, these values will not be of much use
+#
+#       <target>-config is called for test/lint, but offers nothing usfull, can
+#       safely be ignored
+
+# curently avliable distros:
+# precise (Ubuntu LTS 12.04)
+# trusty  (Ubuntu LTS 14.04)
+# xenial  (Ubuntu LTS 16.04)
+# centos6
+
+# at times it is nessacary to make decisions depending on the distro/distro version of the system
+# these macros are handy in getting that information
+DISTRO := $(shell lsb_release -si | tr A-Z a-z)
+DISTRO_MAJOR_VERSION := $(shell lsb_release -sr | cut -d. -f1)
+DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
+
+# most of these targets will need to be listed in the .PHONY, as they do not have any
+# real targets created on the file system.... Some targets such as dpkg, rpm, repkg, and resrouce
+# do produce something and it is acceptable to touch a file to prevent the make system from
+# building it again, be sure to have the clean target clean up any files touched so
+# other users can use your Makefile sanily
+
+### The Following targets are a part of the lint/test/packaging stages ###
+## The Following targets are exected on the MCP server ##
+
+# This is exected to know what distro(s) to run the "test" target on
+test-distros:
+	echo trusty
+
+# This is exected to know what distro(s) to run the "dpkg" target on
+dpkg-distros:
+	echo trusty precise xenial
+
+# This is exected to know what distro(s) to run the "rpm" target on
+rpm-distros:
+	echo centos6
+
+# This is exected to know what distro(s) to run the "respkg" target on
+respkg-distros:
+	echo trusty
+
+# This is exected to know what distro(s) to run the "resource" target on
+resource-distros:
+	echo precise
+
+## The Following targets are executed on the target distro system ##
+
+# This is exected to know what package dependancies should be installed prior to the "lint" target
+# in this case we are only linting on trusty, so we put in some logic to protect us against
+# linting on the wrong distro, and just ignore the wrong distro
+lint-requires:
+ifeq (trusty, $(DISTRO_NAME))
+	echo linter
+endif
+
+# This is exected to know what package dependancies should be installed prior to the "test" target
+# in this case the package name has changed distro to distro, so we detect and return the corect name
+test-requires:
+ifeq (centos, $(DISTRO))
+	echo pytest
+else ifeq (precise, $(DISTRO_NAME))
+	echo python-py
+else
+	echo python-pytest
+endif
+
+# This is executed to know what package dependancies should be installed prior to the "dpkg" target
+# this example package has diferent dependancies depending on the the system OS, but a common for all
+# distros, NOTE: it is acceptable to output more than one line
+dpkg-requires:
+	echo dpkg-dev debhelper cdbs
+ifeq ($(DISTRO_NAME),$(filter $(DISTRO_NAME), precise trusty))
+	echo python-ctypeslib python-support
+else ifeq (xenial, $(DISTRO_NAME))
+	echo python-ctypeslib
+endif
+
+# This is executed to know what package dependancies should be installed prior to the "rpm" target
+rpm-requires:
+	echo rpm-build gcc-c++
+
+# This is executed to know what package dependancies should be installed prior to the "respkg" target
+respkg-requires:
+	echo respkg
+
+# This is executed to know what package dependancies should be installed prior to the "respkg" target
+resource-requires:
+	echo docker
+
+# these targets are for setting up the enviornment for the target, usually lint and test are not used
+lint-setup:
+test-setup:
+
+# This is exected prior to "dpkg" to configure the package build system for the correct distro
+# we are touching a file to prevent the setup from being run again
+dpkg-setup:
+	./debian-setup
+	touch dpkg-setup
+
+# This is exected prior to "rpm" to configure the package build system for the correct distro
+# we are touching a file to prevent the setup from being run again
+rpm-setup:
+	./rpmbuild-setup
+	touch rpm-setup
+
+# This is exected prior to "rpm" to configure the package build system for the correct distro
+respkg-setup:
+	./genconfig
+	touch respkg-setup
+
+# This is exected prior to "resource" to configure the package build system for the correct distro
+# we are touching a file to prevent the setup from being run again
+resource-setup:
+	./dockerfile-generate
+	touch resource-setup
+
+# this is executed to do the linting
+# if the return code is non-sero the test is considered a failure
+# once again with distro protection
+lint:
+ifeq (trusty, $(DISTRO_NAME))
+	linter -i platoclient/markupsafe -i platoclient/jinja2
+endif
+
+# this is executed to do the unit testing
+# if the return code is non-zero the test is considered a failure
+test:
+	cd tests && py.test
+
+# this is executed to do the dpkg build
+# if the return code is non-zero the test is considered a failure
+# we touch dpkg to keep make from rebuilding, this isn't nessacary for all situations
+dpkg:
+	dpkg-buildpackage -b -us -ucdpkg-buildpackage -b -us -uc
+	touch dpkg
+
+# this is executed to do the rpm build
+# if the return code is non-zero the test is considered a failure
+rpm:
+	rpmbuild -v -bb rpmbuild/config.spec
+	touch rpm
+
+# this is executed to do the respkg build
+# if the return code is non-zero the test is considered a failure
+# in this case we are pulling some values from a "settings" file for the version numbers
+# and such
+respkg:
+	respkg -b ecs2_$(shell /bin/bash -c '. settings ; echo "$$RESOURCE_PKG_VERSION-$$RESOURCE_PKG_BUILD"').respkg -n ecs2 -e $(shell /bin/bash -c '. settings ; echo "$$RESOURCE_PKG_VERSION-$$RESOURCE_PKG_BUILD"') -c "ECS2 Resources" -t load_plato_data.sh -d resources -f base-os -p base-os
+	touch respkg
+
+# this is executed to do the resource build
+# if the return code is non-zero the test is considered a failure
+resource:
+	docker build - < DockerFile
+	touch resource
+
+# these 4 targets return the filename of the package that was just built, this file
+# is then checked to see if the filename is allready in use on packrat, if not the file
+# is uploaded
+dpkg-file:
+	echo $(shell ls ../nullunit_*.deb)
+
+rpm-file:
+	echo $(shell ls rpmbuild/RPMS/*/nullunit-*.rpm)
+
+respkg-file:
+	echo $(shell ls *.respkg)
+
+resource-file:
+	echo $(shell ls *.img)
+
+
+### These targets are for Builds ###
+## These targets are executed on MCP ##
+
+# this target is executed to retrieve the names of the automatically build builds.
+auto-builds:
+	echo installcheck
+
+# this target is executed to retrive the names of other builds that are defined in this makefile
+manual-builds:
+	echo 4-node 2-plus-2
+
+# for following targets, <target> is the build name from auto-builds or manual-builds
+# these target is called immeditally after the auto/manual-builds to get the details
+# of the builds
+
+# <target>-depends is only called for auto-builds, this returns the packages and the
+# release level that this build gates
+<target>-depends:
+	echo msg-hbase:stage
+	echo msg-opentsdb:stage
+	echo bus-ma-bridge:stage
+	echo mlx-nsq:dev
+	echo mlx-router:dev
+
+# this target is execute to retireve the resources required by this build
+# the format is <Resource Name>:<Number of this Reqource>:<resource type required by this resource>
+<target>-resources:
+	echo tsdb:1:medium-generic-trusty
+	echo nsq:2:small-generic-xenial
+	echo bridge:1:small-generic-xenial
+	echo plato-master:1:small-generic-precise
+	echo atmos:4:ecs-gen4-6t-blank
+
+# this target is exectued to retrieve any networks (in plato subnets) required by this build
+<target>-networks:
+
+## These targets are executed on target distro system ##
+
+# this target is executed to retrieve any config values needed to be injected into plato
+# in this case we are using nullunitInterface to get ip-address information about the various
+# nodes so they can communicate
+<target>-config:
+ifeq (nsq, $(RESOURCE_NAME))
+	echo mlx_nsqd_enable:1
+ifeq (0, $(RESOURCE_INDEX))
+	echo mlx_nsqlookupd_enable:1
+	echo mlx_nsqadmin_enable:1
+endif
+endif
+ifeq (router-int, $(RESOURCE_NAME))
+	echo xml_router_udm_enable:1
+endif
+ifeq (router-ext, $(RESOURCE_NAME))
+	echo xml_router_enable:1
+endif
+	echo mlx_nsqd_nodes:'$(shell nullunitInterface -r nsq --primary-ip --json)'
+	echo mlx_nsqlookupd_hosts:[ \"$(shell nullunitInterface -r nsq -i 0 -c 1 --primary-ip)\" ]
+	echo mlx_bridge_nsqlookups:[ \"$(shell nullunitInterface -r nsq -i 0 -c 1 --primary-ip)\" ]
+	echo mlx_bridge_ma_topic:udm
+	echo mlx_bridge_ma_chanel:ma
+	echo mlx_bridge_ma_tsd_nodes:[ \"$(shell nullunitInterface -r tsdb -i 0 -c 1 --primary-ip)\" ]
+	echo router_internal:$(shell nullunitInterface -r router-int -i 0 -c 1 --primary-ip)
+	echo router_external:$(shell nullunitInterface -r router-ext -i 0 -c 1 --primary-ip)
+
+# this target outputs the required packages, note, the config values have allready
+# been pushed into plato, so the packages can auto configure when installed
+<target>-requires:
+ifeq (tsdb, $(RESOURCE_NAME))
+	echo msg-hbase msg-opentsdb gnuplot
+else ifeq (nsq, $(RESOURCE_NAME))
+	echo mlx-nsq
+else ifeq (bridge, $(RESOURCE_NAME))
+	echo bus-ma-bridge
+else ifeq (router-int, $(RESOURCE_NAME))
+	echo mlx-router
+else ifeq (router-ext, $(RESOURCE_NAME))
+	echo mlx-router
+else ifeq (client, $(RESOURCE_NAME))
+	echo curl wget
+endif
+
+# this target is called just before <target> to do any needed setup
+# usually this is not needed due to the target setting it's self up, but for
+# completness and just incase it is called
+<target>-setup:
+
+# and now we execute the actuall target
+# two notes, one we again touch the target (in this case it was installcheck)
+# and two, one of the resources needs to run "nullunitInterface --signal-ran" indicate
+# the build is done.... when --signal-ran is called, MCP looks to see if the exit codes
+# of all nodes are sucessfull, if one is missing or is non-zero, the build fails
+<target>:
+ifeq (tsdb, $(RESOURCE_NAME))
+	cd tests && ./installcheck.tsdb
+else ifeq (nsq, $(RESOURCE_NAME))
+	cd tests && ./installcheck.nsq $(RESOURCE_INDEX)
+else ifeq (bridge, $(RESOURCE_NAME))
+	cd tests && ./installcheck.bridge
+else ifeq (router-ext, $(RESOURCE_NAME))
+	cd tests && ./installcheck.router-ext
+else ifeq (router-int, $(RESOURCE_NAME))
+	cd tests && ./installcheck.router-int
+else ifeq (client, $(RESOURCE_NAME))
+	cd tests && ./installcheck.client
+	nullunitInterface --signal-ran
+endif
+	touch installcheck

@@ -81,6 +81,7 @@ function hashChange( event )
   var queueEntries;
   var promotionJobs;
   var commitEntries;
+  var buildEntries;
 
   if( type == 'project' )
   {
@@ -94,9 +95,11 @@ function hashChange( event )
       jobEntries = $( '#project-build-jobs table tbody' );
       queueEntries = $( '#project-queued-jobs table tbody' );
       commitEntries = $( '#project-commit-list table tbody' );
+      buildEntries = $( '#project-builds table tbody' );
       jobEntries.empty();
       queueEntries.empty();
       commitEntries.empty();
+      buildEntries.empty();
 
       $.when( mcp.getObject( id ) ).then(
         function( data )
@@ -126,7 +129,11 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+                var buttons = '';
+                if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
+                  buttons = '<button uri="' + uri + '" action="acknowledge">Acknowledge</button>';
+
+                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</tr>' );
               }
             }
           ).fail(
@@ -168,6 +175,22 @@ function hashChange( event )
             }
           );
 
+          $.when( mcp.getBuilds( id ) ).then(
+            function( data )
+            {
+              for( var uri in data )
+              {
+                var item = data[ uri ];
+                buildEntries.append( '<tr><td>' + item.name + '</td><td><button uri="' + uri + '" action="queue">Queue</button></td></tr>' );
+              }
+            }
+          ).fail(
+            function( reason )
+            {
+              window.alert( "failed to get Builds: (" + reason.code + "): " + reason.msg  );
+            }
+          );
+
         }
       ).fail(
       function( reason )
@@ -176,6 +199,21 @@ function hashChange( event )
       }
       );
     }
+    $( '#project-detail' ).on( 'click', 'button',
+    function( event )
+    {
+      event.preventDefault();
+      var self = $( this );
+      $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
+        function( data )
+        {
+          if( data )
+            alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
+          else
+            alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+        }
+      );
+    });
   }
   else if( type == 'global' )
   {
@@ -193,14 +231,17 @@ function hashChange( event )
     promotionJobs.empty();
     commitEntries.empty();
 
-
     $.when( mcp.getBuildJobs() ).then(
       function( data )
       {
         for( var uri in data )
         {
           var item = data[ uri ];
-          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+          var buttons = '';
+          if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
+            buttons = '<button uri="' + uri + '" action="acknowledge">Acknowledge</button>';
+
+          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
         }
       }
     ).fail(
@@ -232,7 +273,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.to_state + '</td><td>' + item.created + '</td></tr>' );
         }
       }
     ).fail(
@@ -248,7 +289,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.to_state + '</td><td>' + item.created + '</td></tr>' );
+          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
         }
       }
     ).fail(
@@ -257,7 +298,13 @@ function hashChange( event )
         window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
       }
     );
-
+    $( '#global-detail' ).on( 'click', 'button',
+    function( event )
+    {
+      event.preventDefault();
+      var self = $( this );
+      mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) );
+    });
   }
   else if( type == 'help' )
   {

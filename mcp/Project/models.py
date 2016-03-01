@@ -41,14 +41,14 @@ This is a Generic Project
   @property
   def org( self ):
     try:
-      return self.githubproject.org
+      return self.githubproject._org
     except ObjectDoesNotExist:
       return None
 
   @property
   def repo( self ):
     try:
-      return self.githubproject.repo
+      return self.githubproject._repo
     except ObjectDoesNotExist:
       return None
 
@@ -81,6 +81,21 @@ This is a Generic Project
       pass
 
     return None
+
+  @property
+  def clone_git_url( self ):
+    try:  # for now we only support git based projects
+      return ( '%s%s/%s.git' % ( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://%s:%s@' % ( settings.GITHUB_USER, settings.GITHUB_PASS ) )
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      return self.gitproject.git_url
+    except ObjectDoesNotExist:
+      pass
+
+    return None
+
 
   @property
   def status( self ):
@@ -132,15 +147,62 @@ class GitHubProject( Project ):
   """
 This is a GitHub Project
   """
-  org = models.CharField( max_length=50 )
-  repo = models.CharField( max_length=50 )
+  _org = models.CharField( max_length=50 )
+  _repo = models.CharField( max_length=50 )
+
+  @property
+  def org( self ):
+    try:
+      return self.githubproject._org
+    except ObjectDoesNotExist:
+      return None
+
+  @property
+  def repo( self ):
+    try:
+      return self.githubproject._repo
+    except ObjectDoesNotExist:
+      return None
 
   def __unicode__( self ):
-    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self.org, self.repo )
+    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self._org, self._repo )
 
   def postResults( self, commit, lint, test, build ):
-    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_USER, settings.GITHUB_PASSWORD )
-    gh.postComment( self.org, self.repo, commit, 'Lint Results:\n`%s`\nTest Results:\n`%s`\nBuild Results:\n`%s`\n' % ( lint, test, build ) )
+    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS )
+    comment = ''
+    if lint:
+      lint = simplejson.loads( lint )
+    if test:
+      test = simplejson.loads( test )
+    if build:
+      build = simplejson.loads( build )
+
+    if lint:
+      comment += 'Lint Results:\n\n'
+      for distro in lint:
+        comment += '**%s**\n' % distro
+        comment += '  Success: **%s**\n' % lint[ distro ][ 'success' ]
+        comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if test:
+      comment += 'Test Results:\n\n'
+      for distro in test:
+        comment += '**%s**\n' % distro
+        comment += '  Success: **%s**\n' % test[ distro ][ 'success' ]
+        comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if build:
+      comment += 'Build Results:\n\n'
+      for target in build:
+        for distro in build[ target ]:
+          comment += '**%s** - **%s**\n' % ( target, distro )
+          comment += '  Success: **%s**\n' % build[ target ][ distro ][ 'success' ]
+          comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if not comment:
+      comment = '**Nothing To Do**'
+
+    gh.postComment( self.org, self.repo, commit, comment )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -301,7 +363,7 @@ This is a type of Build that can be done
     except ValueError:
       raise ValidationError( 'networks must be valid JSON' )
 
-    self.key = '%s:%s' % ( self.project.name, self.name )
+    self.key = '%s_%s' % ( self.project.name, self.name )
 
     super( Build, self ).save( *args, **kwargs )
 
@@ -313,6 +375,14 @@ This is a type of Build that can be done
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    list_filters = { 'project': { 'project': Project } }
+
+    @staticmethod
+    def buildQS( qs, filter, values ):
+      if filter == 'project':
+        return qs.filter( project=values[ 'project' ] )
+
+      raise Exception( 'Invalid filter "%s"' % filter )
 
 
 class BuildDependancy( models.Model ):
@@ -322,7 +392,7 @@ class BuildDependancy( models.Model ):
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s' % ( self.build.key, self.package.name )
+    self.key = '%s_%s' % ( self.build.key, self.package.name )
 
     super( BuildDependancy, self ).save( *args, **kwargs )
 
@@ -344,7 +414,7 @@ class BuildResource( models.Model ):
   quanity = models.IntegerField( default=1 )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s:%s:%s' % ( self.build.key, self.name, self.resource.name )
+    self.key = '%s_%s_%s' % ( self.build.key, self.name, self.resource.name )
 
     super( BuildResource, self ).save( *args, **kwargs )
 

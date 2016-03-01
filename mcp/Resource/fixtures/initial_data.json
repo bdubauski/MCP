@@ -40,6 +40,46 @@
     }
   },
   {
+    "pk": "medium-generic-precise",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "precise-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Precise",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-trusty",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "trusty-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Trusty",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-xenial",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "xenial-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Xenial",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-centos6",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "centos6-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Centos6",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
     "pk": "small-generic-precise",
     "model": "Resource.vmresource",
     "fields": {
@@ -68,6 +108,38 @@
     "model": "Resource.vmresource",
     "fields": {
       "vm_template": "small-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-precise",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-trusty",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-xenial",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-centos6",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
       "build_ahead_count": 2
     }
   },

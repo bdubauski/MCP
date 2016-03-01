@@ -127,6 +127,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   else:
     done = True
+    success = True
 
   if done:
     logging.info( 'Commit "%s" of "%s" branch "%s" Complete' % ( commit.commit, commit.project.name, commit.branch ) )

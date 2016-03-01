@@ -5,6 +5,9 @@ GITHUB_API_HOST = 'https://github/api/v3'
 GITHUB_HOST = 'https://github/'
 GITHUB_USER = 'mcp'
 GITHUB_PASS = 'mcp'
+GITHUB_PROXY = None
+# to set a http_proxy for git use `git config --system http.proxy <http proxy>`
+
 
 PACKRAT_HOST = 'http://packrat/'
 PACKRAT_PROXY = None
@@ -69,7 +72,6 @@ MIDDLEWARE_CLASSES = (
 ROOT_URLCONF = 'mcp.urls'
 
 TEMPLATE_DIRS = (
-    '/usr/share/pyshared/mcp/templates'
 )
 
 from plato.settings import PROVISIONING_PROFILES, PLATO_HOST_NAME # noqa
