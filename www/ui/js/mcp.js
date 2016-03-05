@@ -264,11 +264,32 @@ var mcpBuilder = {};
       return deferred.promise();
     };
 
-    mcp.acknowledge = function( uri )
+
+    mcp.getProvisioningInfo = function( job, name )
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.call( uri + '(acknowledge)', {} ) ).then(
+      $.when( cinp.call( job + '(getProvisioningInfo)', { name: name } ) ).then(
+        function( data )
+        {
+          deferred.resolve( data.result );
+        }
+      ).fail(
+        function( reason )
+        {
+          deferred.reject( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
+    
+
+    mcp.acknowledge = function( build )
+    {
+      var deferred = $.Deferred();
+
+      $.when( cinp.call( build + '(acknowledge)', {} ) ).then(
         function( data )
         {
           if( data.result )
@@ -279,7 +300,7 @@ var mcpBuilder = {};
       ).fail(
         function( reason )
         {
-          alert( 'Error Acknowledging "' + uri + '"' );
+          alert( 'Error Acknowledging "' + build + '"' );
           cinp.on_server_error( reason );
         }
       );
@@ -291,7 +312,7 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.call( '/api/v1/Processor/QueueItem(queue)', { 'build': uri} ) ).then(
+      $.when( cinp.call( '/api/v1/Processor/QueueItem(queue)', { 'build': uri } ) ).then(
         function( data )
         {
           if( data.result )

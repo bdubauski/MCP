@@ -401,11 +401,11 @@ BuildJob
                  'setResourceSuccess': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ],
                  'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
                  'getConfigStatus': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
-                 'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
+                 'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ], # called by UI
                  'setConfigValues': [ { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'getNetworkInfo': [ { 'type': 'String' } ],
                  # these are normal
-                 'acknowledge': [],
+                 'acknowledge': []
               }
     properties = ( 'state', 'suceeded' )
     list_filters = { 'project': { 'project': Project } }
