@@ -131,9 +131,34 @@ function hashChange( event )
                 var item = data[ uri ];
                 var buttons = '';
                 if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
-                  buttons = '<button uri="' + uri + '" action="acknowledge">Acknowledge</button>';
+                  buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
 
-                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</tr>' );
+                var status = '<ul>';
+                var resources = jQuery.parseJSON( item.resources )
+                for( var key in resources )
+                {
+                  status += '<li><span class="label label-default">' + key + '</span><button uri="' + uri + '" name="' + key + '" do="detail">Detail</button><ul>';
+                  for( var index in resources[ key ] )
+                  {
+                    status += '<li>';
+                    if( resources[ key ][ index ].success )
+                      status += '<span class="label label-success">Success</span>';
+                    
+                    if( resources[ key ][ index ].status.match( '^Exception:' ) )
+                      status += '<span class="label label-danger">' + resources[ key ][ index ].status + '</span>';
+                    else if( resources[ key ][ index ].status == 'Ran' )
+                      status += '<span class="label label-primary">Ran</span>';
+                    else
+                      status += '<span class="label label-info">' + resources[ key ][ index ].status + '</span>';
+                    if( resources[ key ][ index ].results )
+                      status += '<pre>' + resources[ key ][ index ].results + '</pre>';
+                    status += '</li>';
+                  }
+                  status += '</ul></li>';
+                }
+                status += '<ul>';
+
+                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + status + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</tr>' );
               }
             }
           ).fail(
@@ -181,7 +206,7 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                buildEntries.append( '<tr><td>' + item.name + '</td><td><button uri="' + uri + '" action="queue">Queue</button></td></tr>' );
+                buildEntries.append( '<tr><td>' + item.name + '</td><td><button uri="' + uri + '" action="queue" do="action">Queue</button></td></tr>' );
               }
             }
           ).fail(
@@ -199,7 +224,8 @@ function hashChange( event )
       }
       );
     }
-    $( '#project-detail' ).on( 'click', 'button',
+    
+    $( '#project-detail' ).on( 'click', 'button[do="action"]', 
     function( event )
     {
       event.preventDefault();
@@ -211,6 +237,29 @@ function hashChange( event )
             alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
           else
             alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+        }
+      );
+    });
+    
+    $( '#project-detail' ).on( 'click', 'button[do="detail"]', 
+    function( event )
+    {
+      event.preventDefault();
+      var self = $( this );
+      $.when( mcp.getProvisioningInfo( self.attr( 'uri' ), self.attr( 'name' ) ) ).then(
+        function( data )
+        {
+          if( data )
+          {
+            var tmp = '';
+            for( index in data.value )
+            {
+              tmp += index + ' - ' + data.value[ index ].address_primary.address + '\n';
+            }
+            alert( tmp );
+          }
+          else
+            alert( 'Unable to get Resource details for "' + self.attr( 'uri' ) + '" "' + self.attr( 'name' ) + '"' );
         }
       );
     });
@@ -239,7 +288,7 @@ function hashChange( event )
           var item = data[ uri ];
           var buttons = '';
           if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
-            buttons = '<button uri="' + uri + '" action="acknowledge">Acknowledge</button>';
+            buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
 
           jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
         }
@@ -298,12 +347,21 @@ function hashChange( event )
         window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
       }
     );
-    $( '#global-detail' ).on( 'click', 'button',
+    
+    $( '#global-detail' ).on( 'click', 'button[do="action"]',
     function( event )
     {
       event.preventDefault();
       var self = $( this );
-      mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) );
+      $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
+        function( data )
+        {
+          if( data )
+            alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
+          else
+            alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+        }
+      );
     });
   }
   else if( type == 'help' )
