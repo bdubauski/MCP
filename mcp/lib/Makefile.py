@@ -14,7 +14,7 @@ class Makefile( object ):
     logging.info( 'makefile: executing target "%s"' % target )
 
     try:
-      args = [ MAKE_CMD, '-s', '-C', self.dir, target ]
+      args = [ MAKE_CMD, 'MCP=1', '-s', '-C', self.dir, target ]
       logging.debug( 'makefile: executing "%s"' % args )
       proc = subprocess.Popen( args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT )
       ( stdout, _ ) = proc.communicate()
