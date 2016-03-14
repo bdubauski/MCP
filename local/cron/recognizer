@@ -54,8 +54,13 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
   for distro in status:
     if not status[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Lint job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
-      item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'lint', QUEUE_PRIORITY, commit )
-      status[ distro ][ 'status' ] = 'building'
+      try:
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'lint', QUEUE_PRIORITY, commit )
+        status[ distro ][ 'status' ] = 'building'
+      except Exception as e:
+        status[ distro ][ 'status' ] = 'done'
+        status[ distro ][ 'results' ] = 'Exception Queuing: "%s"' % e
+
 
     done &= status[ distro ][ 'status' ] == 'done'
     success &= status[ distro ].get( 'success', False )
@@ -84,8 +89,12 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   for distro in status:
     if not status[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Test job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
-      item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit )
-      status[ distro ][ 'status' ] = 'building'
+      try:
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit )
+        status[ distro ][ 'status' ] = 'building'
+      except Exception as e:
+        status[ distro ][ 'status' ] = 'done'
+        status[ distro ][ 'results' ] = 'Exception Queuing: "%s"' % e
 
     done &= status[ distro ][ 'status' ] == 'done'
     success &= status[ distro ].get( 'success', False )
@@ -117,8 +126,12 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       for distro in status[ target ]:
         if not status[ target ][ distro ].get( 'status', None ):
           logging.info( 'Queuing up "%s" job for "%s", branch "%s", distro "%s"' % ( target, commit.project.name, commit.branch, distro ) )
-          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit )
-          status[ target ][ distro ][ 'status' ] = 'building'
+          try:
+            item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit )
+            status[ target ][ distro ][ 'status' ] = 'building'
+          except Exception as e:
+            status[ target ][ distro ][ 'status' ] = 'done'
+            status[ target ][ distro ][ 'results' ] = 'Exception Queuing: "%s"' % e
 
         done &= status[ target ][ distro ][ 'status' ] == 'done'
         success &= status[ target ][ distro ].get( 'success', False )
