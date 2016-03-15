@@ -19,7 +19,7 @@ class Makefile( object ):
       proc = subprocess.Popen( args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT )
       ( stdout, _ ) = proc.communicate()
     except Exception as e:
-      raise Exception( 'Exception %s while makeing target "%s"' % ( e, target ) )
+      raise MakeException( 'Exception %s while makeing target "%s"' % ( e, target ) )
 
     logging.debug( 'make: rc: %s' % proc.returncode )
     logging.debug( 'make: output:\n----------\n%s\n---------' % stdout )
@@ -29,7 +29,7 @@ class Makefile( object ):
         return []
 
     if proc.returncode != 0:
-      raise Exception( 'make returned "%s"' % proc.returncode )
+      raise MakeException( 'make returned "%s"' % proc.returncode )
 
     result = []
     for line in stdout.strip().splitlines():
