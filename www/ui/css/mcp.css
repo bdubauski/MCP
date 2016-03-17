@@ -175,3 +175,70 @@ h1 > a:hover {
 code {
     font-size: 80%;
 }
+
+ol {
+  font-family: "Source Code Pro", monospace;
+  overflow:auto;
+
+}
+
+ol li {
+  background-color: transparent;
+  border-left: 1px solid #888;
+  padding-left: 10px;
+}
+
+
+ol li:hover {
+  background: #f5f5f5;
+}
+
+.list-group-item {
+  background-color: transparent;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  margin-bottom: 0;
+}
+.list-group-item pre {
+    border: none;
+    margin: 0;
+    padding: 0;
+
+}
+
+#project-build-jobs li{
+  min-width:175px;
+}
+
+#project-queued-jobs li{
+  min-width:150px;
+}
+
+#project-queued-jobs .list-group-item {
+  border: 1px solid #ddd
+}
+
+#project-commit-list li{
+  min-width:175px;
+}
+
+#project-builds li{
+  min-width:150px;
+}
+
+#project-builds .list-group-item {
+  border: 1px solid #ddd
+}
+
+.text-success {
+  color: #44a662
+}
+
+.text-warn {
+  color: #d98f41
+}
+
+.text-danger {
+  color: #d94341
+}
