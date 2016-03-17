@@ -1,3 +1,10 @@
+mcp (0.11-1) precise; urgency=medium
+
+  * Even better UI
+  * Better handeling of Makefiles in mcp
+
+ -- Peter <peter@blueboy>  Thu, 17 Mar 2016 15:01:22 -0600
+
 mcp (0.10-1) precise; urgency=medium
 
   * UI cleanup

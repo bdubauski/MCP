@@ -167,7 +167,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
       except KeyError:
         pass
 
-  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, results ), slack.INFO )
+  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, results[:500] ), slack.INFO )
 
 
 # iterate over the Reported jobs that are not manual and look to see if the resources are all released

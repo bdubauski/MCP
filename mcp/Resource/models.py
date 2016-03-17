@@ -136,7 +136,7 @@ class VMResource( Resource ):
 
   @staticmethod
   def _preallocList( pod, profile, vmtemplate ):
-    return Config.objects.filter( pod=pod, profile=profile, configured__isnull=False, hostname__startswith='mcp-preallocate-' )
+    return Config.objects.filter( pod=pod, profile=profile, configured__isnull=False, hostname__startswith='mcp-preallocate-', configurable__device__vmdevice__template=vmtemplate ).order_by( 'pk' )
 
   @staticmethod
   def _takeOver( config, job, name, index ):
@@ -175,6 +175,7 @@ class VMResource( Resource ):
       profile = Profile.objects.get( pk=self.config_profile )
     except Profile.DoesNotExist:
       raise Exception( 'Profile "%s" not found' % self.config_profile )
+
     try:
       vmtemplate = VMTemplate.objects.get( pk=self.vm_template )
     except VMTemplate.DoesNotExist:

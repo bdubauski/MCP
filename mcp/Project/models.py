@@ -181,14 +181,14 @@ This is a GitHub Project
       comment += 'Lint Results:\n\n'
       for distro in lint:
         comment += '**%s**\n' % distro
-        comment += '  Success: **%s**\n' % lint[ distro ][ 'success' ]
+        comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
         comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
 
     if test:
       comment += 'Test Results:\n\n'
       for distro in test:
         comment += '**%s**\n' % distro
-        comment += '  Success: **%s**\n' % test[ distro ][ 'success' ]
+        comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
         comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
 
     if build:
@@ -196,7 +196,7 @@ This is a GitHub Project
       for target in build:
         for distro in build[ target ]:
           comment += '**%s** - **%s**\n' % ( target, distro )
-          comment += '  Success: **%s**\n' % build[ target ][ distro ][ 'success' ]
+          comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
           comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
 
     if not comment:
