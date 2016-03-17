@@ -67,12 +67,12 @@ function hashChange( event )
   if( pos == -1 )
   {
     if( hash === '' )
+    {
       type = 'home';
-    else
+    } else {
       type = hash.substr( 1 );
-  }
-  else
-  {
+    }
+  } else {
     type = hash.substr( 1, pos - 1 );
     id = atob( hash.substr( pos + 1 ) );
   }
@@ -92,10 +92,10 @@ function hashChange( event )
     loadProjects();
     if( id )
     {
-      jobEntries = $( '#project-build-jobs table tbody' );
-      queueEntries = $( '#project-queued-jobs table tbody' );
-      commitEntries = $( '#project-commit-list table tbody' );
-      buildEntries = $( '#project-builds table tbody' );
+      jobEntries = $( '#project-build-jobs' );
+      queueEntries = $( '#project-queued-jobs' );
+      commitEntries = $( '#project-commit-list' );
+      buildEntries = $( '#project-builds' );
       jobEntries.empty();
       queueEntries.empty();
       commitEntries.empty();
@@ -107,21 +107,26 @@ function hashChange( event )
           data = data.detail;
           var buildPass = '';
           if( data.status.passed )
-            buildPass += '<img src="/ui/image/test-pass.svg" />';
-          else
-            buildPass += '<img src="/ui/image/test-error.svg" />';
+          {
+            buildPass += '<img src="/ui/image/test-pass.svg" /> ';
+          } else {
+            buildPass += '<img src="/ui/image/test-error.svg" /> ';
+          }
 
           if( data.status.built )
+          {
             buildPass += '<img src="/ui/image/build-pass.svg" />';
-          else
+          } else {
             buildPass += '<img src="/ui/image/build-error.svg" />';
-
+          }
           if( data.type == 'GitHubProject' )
+          {
             mainTitle.append( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/>' + buildPass );
-          else if( data.type == 'GitProject' )
+          } else if( data.type == 'GitProject' ) {
             mainTitle.append( '<a href="' + data.upstream_git_url + '" target="_blank">' + data.upstream_git_url + '</a>' + buildPass );
-          else
+          } else {
             mainTitle.append( data.name + buildPass );
+          }
 
           $.when( mcp.getBuildJobs( id ) ).then(
             function( data )
@@ -130,35 +135,47 @@ function hashChange( event )
               {
                 var item = data[ uri ];
                 var buttons = '';
+                var jobEntry = ''
                 if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
-                  buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
+                {
+                  buttons = '<button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
+                }
+                jobEntry += '<div class="panel panel-default"><div class="panel-body" id="' + item.target + '"><ul class="list-inline"><li><i class="fa fa-dot-circle-o fa-lg fa-fw"></i> ' + item.target + '</li><li>state: ' + item.state + '</li><li>manual: ' + item.manual + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
 
-                var status = '<ul>';
                 var resources = jQuery.parseJSON( item.resources )
                 for( var key in resources )
                 {
-                  status += '<li><span class="label label-default">' + key + '</span><button uri="' + uri + '" name="' + key + '" do="detail">Detail</button><ul>';
                   for( var index in resources[ key ] )
                   {
-                    status += '<li>';
-                    if( resources[ key ][ index ].success )
-                      status += '<span class="label label-success">Success</span>';
-                    
-                    if( resources[ key ][ index ].status.match( '^Exception:' ) )
-                      status += '<span class="label label-danger">' + resources[ key ][ index ].status + '</span>';
-                    else if( resources[ key ][ index ].status == 'Ran' )
-                      status += '<span class="label label-primary">Ran</span>';
-                    else
-                      status += '<span class="label label-info">' + resources[ key ][ index ].status + '</span>';
-                    if( resources[ key ][ index ].results )
-                      status += '<pre>' + resources[ key ][ index ].results + '</pre>';
-                    status += '</li>';
-                  }
-                  status += '</ul></li>';
-                }
-                status += '<ul>';
+                    var jobConfig = resources[key][index].config
+                    jobEntry += '<a class="list-group-item" data-toggle="collapse" data-target="#job-' + key + jobConfig + '" data-parent="#' + item.target + '"><ul class="list-inline">';
 
-                jobEntries.append( '<tr><td>' + item.target + '</td><td>' + item.state + '</td><td>' + status + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</tr>' );
+                    if( resources[ key ][ index ].success )
+                    {
+                      jobEntry += '<li class="text-success"><strong>' + key + '</strong></li>'
+                    } else {
+                      jobEntry += '<li class="text-danger"><strong>' + key + '</strong></li>'
+                    }
+                    jobEntry += '<li>config #' + jobConfig + '</li>'
+                    if( resources[ key ][ index ].status.match( '^Exception:' ) )
+                    {
+                      jobEntry += '<li class="text-danger">' + resources[ key ][ index ].status + '</li>'
+                    } else if( resources[ key ][ index ].status == 'Ran' ) {
+                      jobEntry += '<li class="text-primary text-lowercase">status: ' + resources[ key ][ index ].status + '</li>'
+                    } else {
+                      jobEntry += '<li class="text-info">' + resources[ key ][ index ].status + '</li>'
+                    }
+                    jobEntry += '<li><button type="button" class="btn btn-info btn-xs" uri="' + uri + '" name="' + key + '" do="detail">Detail</button></li></ul></a>'
+                    jobEntry += '<div class="sublinks collapse" id="job-' + key + jobConfig +'"><ol class="small">';
+                    if( resources[ key ][ index ].results )
+                    {
+                      jobEntry += '<li>' + resources[ key ][ index ].results.replace(/\n/g, "</li><li>") + '</li>';
+                    }
+                    jobEntry += '</ol></div>'
+                  }
+                }
+                jobEntry += '</ul></div>'
+                jobEntries.append(jobEntry)
               }
             }
           ).fail(
@@ -171,11 +188,15 @@ function hashChange( event )
           $.when( mcp.getQueueItems( id ) ).then(
             function( data )
             {
+              var queueEntry = ''
+              queueEntry += '<ul class="list-group">'
               for( var uri in data )
               {
                 var item = data[ uri ];
-                queueEntries.append( '<tr><td>' + item.priority + '</td><td>' + item.build + '</td><td>' + item.branch + '</td><td>' + item.target + '</td><td>' + item.resource_status + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+                queueEntry += '<a class="list-group-item"><ul class="list-inline"><li>priority: ' + item.priority + '<li>build: ' + item.build + '</li><li>branch: ' + item.branch + '</li><li>target: ' + item.target + '</li><li>status: ' + item.resource_status + '</li><li>manual: ' + item.manual + '</li><li>created: ' + item.created + '</li><li>updated: ' + item.updated + '</li></ul></a>'
               }
+              queueEntry += '</ul>'
+              queueEntries.append(queueEntry)
             }
           ).fail(
             function( reason )
@@ -190,7 +211,106 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                commitEntries.append( '<tr><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+                var commit = item.commit
+                var buildResult = ''
+                commitEntry = ""
+                if( item.passed === 'true' && item.built === 'true' )
+                {
+                  commitEntry += '<div class="panel panel-success"><div class="panel-body" id="commit-' + commit + '"><ul class="list-inline"><li class="text-success"><strong><i class="fa fa-code-fork fa-fw"></i> ' + commit + '</strong></li>'
+                } else {
+                  commitEntry += '<div class="panel panel-danger"><div class="panel-body" id="commit-' + commit + '"><ul class="list-inline"><li class="text-danger"><strong><i class="fa fa-code-fork fa-fw"></i> ' + commit + '</strong></li>'
+                }
+                commitEntry += '<li>Build Created: ' + new Date(item.created).toLocaleString() + '</li></ul></div><ul class="list-group"><a class="list-group-item" data-toggle="collapse" data-target="#build-' + commit + key + subkey + '" data-parent="#commit-' + commit + '"><ul class="list-inline text-muted"><li>branch: ' + item.branch + '</li>'
+                if( item.passed === 'true' )
+                {
+                  commitEntry += '<li>passed: <span class="text-success">' + item.passed + '</span></li>'
+                } else if( item.passed === 'false') {
+                  commitEntry += '<li>passed: <span class="text-danger">' + item.passed + '</span></li>'
+                } else {
+                  commitEntry += '<li>passed: <span>' + item.passed + '</span></li>'
+                }
+                if( item.built === 'true' )
+                {
+                  commitEntry += '<li>built: <span class="text-success">' + item.built + '</span></li>'
+                } else if( item.built === 'false') {
+                  commitEntry += '<li>built: <span class="text-danger">' + item.built + '</span></li>'
+                } else {
+                  commitEntry += '<li>built: <span>' + item.passed + '</span></li>'
+                }
+                commitEntry += '</ul></a><div id="build-' + commit + key + subkey + '" class="sublinks collapse"><div class="list-group-item"><ol class="small">'
+                var lintResults = ( item.lint_results )
+                if( !jQuery.isEmptyObject( lintResults ) )
+                {
+                  var lintResults = jQuery.parseJSON( lintResults )
+                  for(var key in lintResults)
+                  {
+                    var lintResult = lintResults[ key ].results
+                    var lintSuccess = lintResults[ key ].success
+                    if( lintResult )
+                    var lintAt = new Date(item.lint_at).toLocaleString()
+                    {
+                      if(lintSuccess)
+                      {
+                        commitEntry += '<li><span class="text-success"><strong>Lint: ' + key + ' passed</strong><span></li><li><span class="text-info">Lint At: ' + lintAt + '</span></li>'
+                      } else {
+                        commitEntry += '<li><span class="text-danger"><strong>Lint: ' + key + ' failed</strong></span></li><li><span class="text-info">Lint At: ' + lintAt + '</span></li>'
+                      }
+                      commitEntry += '<li>' + lintResult.replace(/\n/g, "</li><li>") + '</li><li></li>';
+                    }
+                  }
+                }
+                var testResults = ( item.test_results )
+                if( !jQuery.isEmptyObject( testResults ) )
+                {
+
+                  var testResults = jQuery.parseJSON( testResults )
+                  for(var key in testResults)
+                  {
+                    var testResult = testResults[ key ].results
+                    var testSuccess = testResults[ key ].success
+                    if( testResult )
+                    var testAt = new Date(item.test_at).toLocaleString()
+                    {
+                      if(testSuccess)
+                      {
+                        commitEntry += '<li><span class="text-success"><strong>Test: ' + key + ' passed</strong></span></li><li><span class="text-info">Lint At: ' + testAt + '</span></li>'
+                      } else {
+                        commitEntry += '<li><span class="text-danger"><strong>Test: ' + key + ' failed</strong></span></li><li><span class="text-info">Lint At: ' + testAt + '</span></li>'
+                      }
+                      commitEntry += '<li>' + testResult.replace(/\n/g, "</li><li>") + '</li><li></li>';
+                    }
+                  }
+
+                }
+                var buildResults = ( item.build_results )
+                if( !jQuery.isEmptyObject( buildResults ) )
+                {
+                  var buildResults = jQuery.parseJSON( buildResults )
+
+                  for( var key in buildResults )
+                  {
+                    for( var subkey in buildResults[ key ] )
+                    {
+                      var result = buildResults[key][subkey].results
+                      var success = buildResults[key][subkey].success
+                      if( result )
+                      {
+                        var buildAt = new Date(item.build_at).toLocaleString()
+                        if( success )
+                        {
+                          commitEntry += '<li><span class="text-success"><strong>Build: ' + subkey+ '::' + key + '</strong></span></li><li><span class="text-info">Build At: ' + buildAt + '</span></li>'
+                        } else {
+                          commitEntry += '<li><span class="text-danger"><strong>Build: ' + subkey+ '::' + key + '</strong></span></li><li><span class="text-info">Build At: ' + buildAt + '</span></li>'
+                        }
+
+                        var buildResult = '<li>' + result.replace(/\n/g, "</li><li>") + '</li><li></li>';
+                        commitEntry += buildResult
+                      }
+                    }
+                  }
+                }
+                commitEntry += '</ol></div></div></ul></div>'
+                commitEntries.append(commitEntry);
               }
             }
           ).fail(
@@ -203,11 +323,15 @@ function hashChange( event )
           $.when( mcp.getBuilds( id ) ).then(
             function( data )
             {
+              var buildEntry = ''
+              buildEntry += '<ul class="list-group">'
               for( var uri in data )
               {
                 var item = data[ uri ];
-                buildEntries.append( '<tr><td>' + item.name + '</td><td><button uri="' + uri + '" action="queue" do="action">Queue</button></td></tr>' );
+                buildEntry += '<a class="list-group-item"><ul class="list-inline"><li><strong>' + item.name + '</strong></li><li><button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" action="queue" do="action">Queue</button></li></ul></a>'
               }
+              buildEntry += '</ul>'
+              buildEntries.append(buildEntry)
             }
           ).fail(
             function( reason )
@@ -218,14 +342,14 @@ function hashChange( event )
 
         }
       ).fail(
-      function( reason )
-      {
-        window.alert( "failed to get Project: (" + reason.code + "): " + reason.msg  );
-      }
+        function( reason )
+        {
+          window.alert( "failed to get Project: (" + reason.code + "): " + reason.msg  );
+        }
       );
     }
-    
-    $( '#project-detail' ).on( 'click', 'button[do="action"]', 
+
+    $( '#project-detail' ).on( 'click', 'button[do="action"]',
     function( event )
     {
       event.preventDefault();
@@ -234,14 +358,16 @@ function hashChange( event )
         function( data )
         {
           if( data )
+          {
             alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
-          else
+          } else {
             alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+          }
         }
       );
     });
-    
-    $( '#project-detail' ).on( 'click', 'button[do="detail"]', 
+
+    $( '#project-detail' ).on( 'click', 'button[do="detail"]',
     function( event )
     {
       event.preventDefault();
@@ -257,9 +383,9 @@ function hashChange( event )
               tmp += index + ' - ' + data.value[ index ].address_primary.address + '\n';
             }
             alert( tmp );
-          }
-          else
+          } else {
             alert( 'Unable to get Resource details for "' + self.attr( 'uri' ) + '" "' + self.attr( 'name' ) + '"' );
+          }
         }
       );
     });
@@ -288,7 +414,7 @@ function hashChange( event )
           var item = data[ uri ];
           var buttons = '';
           if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
-            buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
+          buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
 
           jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
         }
@@ -347,7 +473,7 @@ function hashChange( event )
         window.alert( "failed to get Commit Items: (" + reason.code + "): " + reason.msg  );
       }
     );
-    
+
     $( '#global-detail' ).on( 'click', 'button[do="action"]',
     function( event )
     {
@@ -357,9 +483,9 @@ function hashChange( event )
         function( data )
         {
           if( data )
-            alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
+          alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
           else
-            alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+          alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
         }
       );
     });
@@ -394,31 +520,34 @@ function loadProjects()
       {
         var item = data[ uri ];
         if( item.name == '_builtin_' )
+        {
           continue;
+        }
 
         var busy = '<i class="fa fa-check fa-fw"/>';
 
         if( item.busy )
-          busy = '<i class="fa fa-tasks fa-fw"/>';
-
+        {
+          busy = '<i class="fa fa-spinner fa-spin fa-fw"/>';
+        }
         projectList.append( '<div class="project passed"><dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;' + item.name + '</dt><dd><i class="fa fa-clock-o fa-fw"/>&nbsp; Updated: ' + item.updated + '</dd><dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + item.created + '</dd></dl></div>' );
       }
 
       $( '#project-list [id="project-entry"]' ).on( 'click',
-        function( event )
-        {
-          var cur = $( this );
-          event.preventDefault();
-          $( '#project-list [id="project-entry"]' ).removeClass( 'active' );
-          cur.addClass( 'active' );
-          location.hash = 'project/' + btoa( cur.attr( 'uri' ) );
-        }
-      );
-    }
-  ).fail(
-    function( reason )
-    {
-      window.alert( "failed to load Project List (" + reason.code + "): " + reason.msg );
-    }
-  );
+      function( event )
+      {
+        var cur = $( this );
+        event.preventDefault();
+        $( '#project-list [id="project-entry"]' ).removeClass( 'active' );
+        cur.addClass( 'active' );
+        location.hash = 'project/' + btoa( cur.attr( 'uri' ) );
+      }
+    );
+  }
+).fail(
+  function( reason )
+  {
+    window.alert( "failed to load Project List (" + reason.code + "): " + reason.msg );
+  }
+);
 }
