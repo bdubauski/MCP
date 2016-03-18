@@ -138,7 +138,7 @@ function hashChange( event )
                 var jobEntry = ''
                 if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
                 {
-                  buttons = '<button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
+                  buttons = '<button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" kind="' + item.target + ' job" action="acknowledge" do="action">Acknowledge</button>';
                 }
                 jobEntry += '<div class="panel panel-default"><div class="panel-body" id="' + item.target + '"><ul class="list-inline"><li><i class="fa fa-dot-circle-o fa-lg fa-fw"></i> ' + item.target + '</li><li>state: ' + item.state + '</li><li>manual: ' + item.manual + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
 
@@ -328,7 +328,7 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                buildEntry += '<a class="list-group-item"><ul class="list-inline"><li><strong>' + item.name + '</strong></li><li><button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" action="queue" do="action">Queue</button></li></ul></a>'
+                buildEntry += '<a class="list-group-item"><ul class="list-inline"><li><strong>' + item.name + '</strong></li><li><button type="button" class="btn btn-primary btn-sm" kind="' + item.name + ' build" uri="' + uri + '" action="queue" do="action">Queue</button></li></ul></a>'
               }
               buildEntry += '</ul>'
               buildEntries.append(buildEntry)
@@ -352,24 +352,29 @@ function hashChange( event )
     $( '#project-detail' ).on( 'click', 'button[do="action"]',
     function( event )
     {
+      event.stopImmediatePropagation();
       event.preventDefault();
       var self = $( this );
-      $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
-        function( data )
-        {
-          if( data )
+      if(confirm(self.attr( 'action' ) + ' the ' + self.attr( 'kind' ) + '?' ))
+      {
+        $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
+          function( data )
           {
-            alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
-          } else {
-            alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+            if( data )
+            {
+              alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
+            } else {
+              alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+            }
           }
-        }
-      );
+        );
+      }
     });
 
     $( '#project-detail' ).on( 'click', 'button[do="detail"]',
     function( event )
     {
+      event.stopImmediatePropagation();
       event.preventDefault();
       var self = $( this );
       $.when( mcp.getProvisioningInfo( self.attr( 'uri' ), self.attr( 'name' ) ) ).then(
