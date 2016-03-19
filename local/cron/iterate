@@ -1,7 +1,14 @@
-#!/bin/sh
+#!/bin/bash
 
-set -x
 set -e
+
+if [ "x$1" == "xi" ]
+then
+  set -x
+  ARGS=""
+else
+  ARGS="-c"
+fi
 
 if [ -e /var/run/mcpIterate.lock ];
 then
@@ -12,10 +19,10 @@ fi
 touch /var/run/mcpIterate.lock
 
 # check the commits
-/usr/local/mcp/cron/recognizer
+/usr/local/mcp/cron/recognizer $ARGS
 
 # run thoes jobs
-/usr/local/mcp/cron/sark
+/usr/local/mcp/cron/sark $ARGS
 
 rm /var/run/mcpIterate.lock
 exit 0

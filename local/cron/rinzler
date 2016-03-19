@@ -36,6 +36,8 @@ logger.addHandler( handler )
 logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
+elif '-c' in sys.argv:
+  logger.setLevel( logging.WARN )
 else:
   logger.setLevel( logging.INFO )
 
@@ -161,6 +163,24 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
     git = Git( path )
 
   git.update()
+
+  if project.type == 'GitHubProject':
+    pull_list = project.githubproject.github.getPullRequests()
+    for branch in git.branch_map():
+      if branch.startswith( '_PR' ):
+        number = int( branch[3:] )
+        if number not in pull_list:
+          logging.debug( 'Cleaning up branch "%s"' % branch )
+          git.remove_branch( branch )
+
+    for pull in pull_list:
+      branch_name = '_PR%s' % pull
+      if project.commit_set.filter( branch=branch_name ):
+        logging.debug( 'PR %s allready processed' % pull )
+        continue
+
+      logging.info( '  Pulling PR #%s' % pull )
+      git.pull_branch( 'pull/%s/head' % pull, branch_name )
 
   branch_map = git.branch_map()
 

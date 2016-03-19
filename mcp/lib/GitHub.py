@@ -3,7 +3,7 @@ import os
 from github import Github
 
 class GitHub( object ):
-  def __init__( self, host, proxy, user, password ):
+  def __init__( self, host, proxy, user, password, org=None, repo=None ):
     if proxy is not None:
       proxy_save = os.getenv( 'http_proxy' )
       os.environ[ 'http_proxy' ] = proxy
@@ -16,8 +16,13 @@ class GitHub( object ):
     if proxy_save is not None:
       os.environ[ 'http_proxy' ] = proxy_save
 
-  def postComment( self, org, repo, commit_hash, comment ):
-    repo = self.conn.get_repo( '%s/%s' % ( org, repo ) )
+    self.org = org
+    self.repo = repo
+
+  def postComment( self, commit_hash, comment ):
+    if self.org is None or self.repo is None:
+      raise Exception( 'repo and org must be set' )
+    repo = self.conn.get_repo( '%s/%s' % ( self.org, self.repo ) )
     commit = repo.get_commit( commit_hash )
     commit.create_comment( comment )
 
@@ -28,11 +33,9 @@ class GitHub( object ):
 
     return result
 
-  def getPullRequests( self, org, repo ):
-    result = []
-    repo = self.conn.get_repo( '%s/%s' % ( org, repo ) )
-    pull_list = list( repo.get_pulls() )
-    for pull in pull_list:
-      result.append( pull.get_commits[-1].sha[0:7] )
+  def getPullRequests( self ):
+    if self.org is None or self.repo is None:
+      raise Exception( 'repo and org must be set' )
 
-    return result
+    repo = self.conn.get_repo( '%s/%s' % ( self.org, self.repo ) )
+    return [ i.number for i in repo.get_pulls() ]

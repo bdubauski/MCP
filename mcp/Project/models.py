@@ -96,13 +96,12 @@ This is a Generic Project
 
     return None
 
-
   @property
   def status( self ):
     try:
-      commit = self.commit_set.filter( done_at__isnull=False ).order_by( '-created' )[0]
+      commit = self.commit_set.filter( branch='master', done_at__isnull=False ).order_by( '-created' )[0]
     except IndexError:
-      return { 'passed': False, 'built': False }
+      return { 'passed': None, 'built': None }
 
     return { 'passed': commit.passed, 'built': commit.built }
 
@@ -164,11 +163,21 @@ This is a GitHub Project
     except ObjectDoesNotExist:
       return None
 
+  @property
+  def github( self ):
+    try:
+      if self._github:
+        return self._github
+    except AttributeError:
+      pass
+
+    self._github = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS, self.org, self.repo )
+    return self._github
+
   def __unicode__( self ):
     return 'GitHub Project "%s"(%s/%s)' % ( self.name, self._org, self._repo )
 
   def postResults( self, commit, lint, test, build ):
-    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS )
     comment = ''
     if lint:
       lint = simplejson.loads( lint )
@@ -180,29 +189,32 @@ This is a GitHub Project
     if lint:
       comment += 'Lint Results:\n\n'
       for distro in lint:
-        comment += '**%s**\n' % distro
-        comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
-        comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
+        if lint[ distro ][ 'results' ] is not None:
+          comment += '**%s**\n' % distro
+          comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
+          comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
 
     if test:
       comment += 'Test Results:\n\n'
       for distro in test:
-        comment += '**%s**\n' % distro
-        comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
-        comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
+        if test[ distro ][ 'results' ] is not None:
+          comment += '**%s**\n' % distro
+          comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
+          comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
 
     if build:
       comment += 'Build Results:\n\n'
       for target in build:
         for distro in build[ target ]:
-          comment += '**%s** - **%s**\n' % ( target, distro )
-          comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
-          comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
+          if build[ target ][ distro ][ 'results' ] is not None:
+            comment += '**%s** - **%s**\n' % ( target, distro )
+            comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
+            comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
 
     if not comment:
       comment = '**Nothing To Do**'
 
-    gh.postComment( self.org, self.repo, commit, comment )
+    self.github.postComment( commit, comment )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -263,8 +275,8 @@ A Single Commit of a Project
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  passed = models.BooleanField( editable=False, default=False )
-  built = models.BooleanField( editable=False, default=False )
+  passed = models.NullBooleanField( editable=False, default=False, null=True )
+  built = models.NullBooleanField( editable=False, default=False, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -291,7 +303,7 @@ A Single Commit of a Project
       return
 
     sucess = resources[ 'target' ][0].get( 'success', False )
-    results = resources[ 'target' ][0].get( 'results', '<not specified>' )
+    results = resources[ 'target' ][0].get( 'results', None )
 
     if target == 'lint':
       status = simplejson.loads( self.lint_results )
@@ -323,7 +335,7 @@ A Single Commit of a Project
     return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
 
   class Meta:
-      unique_together = ( 'project', 'commit' )
+      unique_together = ( 'project', 'commit', 'branch' )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

@@ -44,13 +44,23 @@ class Git( object ):
     self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
+  def pull_branch( self, remote_name, local_name ):
+    self._execute( [ 'fetch', 'origin', '%s:%s' % ( remote_name, local_name ) ] )
+    self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
+
+  def remove_branch( self, branch ):
+    if branch == 'master':
+      raise Exception( 'Master Branch is not Deleteable' )
+
+    self._execute( [ 'branch', '-D', branch ] )
+
   #http://gitready.com/intermediate/2009/02/13/list-remote-branches.html
   def branch_map( self ):
     result = {}
     branch_list = self._execute( [ 'branch', '--list', '--verbose' ] )
     for item in branch_list:
       if item[0] == '*':
-        item  = item[1:]
+        item = item[1:]
       ( name, hash, _ ) = item.split( None, 2 )
       result[ name ] = hash
 
