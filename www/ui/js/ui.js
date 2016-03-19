@@ -566,7 +566,18 @@ function loadProjects()
         } else {
           var projUpdated = new Date(item.updated).toLocaleString()
         }
-        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '<span>&nbsp;' + item.repo + '</span></dt><dd><i class="fa fa-github-square fa-lg fa-fw"></i>&nbsp; ' + item.org + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
+
+        var gitRepo = item.repo
+        var gitOrg = item.org
+        var gitIcon = '<i class="fa fa-github-square fa-lg fa-fw"></i>'
+        if( item.type === 'GitProject' )
+        {
+          var internalGit = item.internal_git_url.split('/')
+          gitOrg = internalGit[3]
+          gitRepo = internalGit[4].split('.')[0]
+          gitIcon = '<i class="fa fa-code-fork fa-lg fa-fw"></i>'
+        }
+        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '<span>&nbsp;' + gitRepo + '</span></dt><dd>' + gitIcon + '&nbsp; ' + gitOrg + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
         projectList.append(projList);
       }
 
