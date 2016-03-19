@@ -50,6 +50,11 @@ function errorHandler( msg, stack_trace )
   openModalBox( msg, '<pre>' + stack_trace + '</pre>', '' );
 }
 
+function isToday(dt) {
+  var today = new Date();
+  return today.toDateString() == new Date(dt).toDateString();
+}
+
 function hashChange( event )
 {
   var mainTitle = $( '#main-title' );
@@ -529,13 +534,40 @@ function loadProjects()
           continue;
         }
 
-        var busy = '<i class="fa fa-check fa-fw"/>';
+        var busy = '<i class="fa fa-check fa-lg fa-fw"/>';
+        var projList = ''
+
+        if( item.status.passed && item.status.built )
+        {
+          projList += '<div class="project passed">'
+        } else if( ( item.status.passed && !item.status.built ) || ( !item.status.passed && item.status.built ) )
+        {
+          busy = '<i class="fa fa-exclamation fa-lg fa-fw"></i>'
+          projList += '<div class="project warn">'
+        } else {
+          busy = '<i class="fa fa-times fa-lg fa-fw"></i>'
+          projList += '<div class="project failed">'
+        }
 
         if( item.busy )
         {
-          busy = '<i class="fa fa-spinner fa-spin fa-fw"/>';
+          busy = '<i class="fa fa-spinner fa-spin fa-lg fa-fw"/>';
         }
-        projectList.append( '<div class="project passed"><dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;' + item.name + '</dt><dd><i class="fa fa-clock-o fa-fw"/>&nbsp; Updated: ' + item.updated + '</dd><dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + item.created + '</dd></dl></div>' );
+
+        if( isToday( item.created ))
+        {
+          var projCreated = new Date(item.created).toLocaleTimeString()
+        } else {
+          var projCreated = new Date(item.created).toLocaleDateString()
+        }
+        if( isToday( item.updated ))
+        {
+          var projUpdated = 'Today at ' + new Date(item.updated).toLocaleTimeString()
+        } else {
+          var projUpdated = new Date(item.updated).toLocaleString()
+        }
+        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '<span>&nbsp;' + item.repo + '</span></dt><dd><i class="fa fa-github-square fa-lg fa-fw"></i>&nbsp; ' + item.org + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
+        projectList.append(projList);
       }
 
       $( '#project-list [id="project-entry"]' ).on( 'click',
