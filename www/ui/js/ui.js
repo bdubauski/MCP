@@ -50,6 +50,11 @@ function errorHandler( msg, stack_trace )
   openModalBox( msg, '<pre>' + stack_trace + '</pre>', '' );
 }
 
+function isToday(dt) {
+  var today = new Date();
+  return today.toDateString() == new Date(dt).toDateString();
+}
+
 function hashChange( event )
 {
   var mainTitle = $( '#main-title' );
@@ -138,7 +143,7 @@ function hashChange( event )
                 var jobEntry = ''
                 if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
                 {
-                  buttons = '<button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
+                  buttons = '<button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" kind="' + item.target + ' job" action="acknowledge" do="action">Acknowledge</button>';
                 }
                 jobEntry += '<div class="panel panel-default"><div class="panel-body" id="' + item.target + '"><ul class="list-inline"><li><i class="fa fa-dot-circle-o fa-lg fa-fw"></i> ' + item.target + '</li><li>state: ' + item.state + '</li><li>manual: ' + item.manual + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
 
@@ -328,7 +333,7 @@ function hashChange( event )
               for( var uri in data )
               {
                 var item = data[ uri ];
-                buildEntry += '<a class="list-group-item"><ul class="list-inline"><li><strong>' + item.name + '</strong></li><li><button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" action="queue" do="action">Queue</button></li></ul></a>'
+                buildEntry += '<a class="list-group-item"><ul class="list-inline"><li><strong>' + item.name + '</strong></li><li><button type="button" class="btn btn-primary btn-sm" kind="' + item.name + ' build" uri="' + uri + '" action="queue" do="action">Queue</button></li></ul></a>'
               }
               buildEntry += '</ul>'
               buildEntries.append(buildEntry)
@@ -352,24 +357,29 @@ function hashChange( event )
     $( '#project-detail' ).on( 'click', 'button[do="action"]',
     function( event )
     {
+      event.stopImmediatePropagation();
       event.preventDefault();
       var self = $( this );
-      $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
-        function( data )
-        {
-          if( data )
+      if(confirm(self.attr( 'action' ) + ' the ' + self.attr( 'kind' ) + '?' ))
+      {
+        $.when( mcp[ self.attr( 'action' ) ]( self.attr( 'uri' ) ) ).then(
+          function( data )
           {
-            alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
-          } else {
-            alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+            if( data )
+            {
+              alert( 'Job Action "' + self.attr( 'action' ) + '" Suceeded' );
+            } else {
+              alert( 'Job Action "' + self.attr( 'action' ) + '" Failed' );
+            }
           }
-        }
-      );
+        );
+      }
     });
 
     $( '#project-detail' ).on( 'click', 'button[do="detail"]',
     function( event )
     {
+      event.stopImmediatePropagation();
       event.preventDefault();
       var self = $( this );
       $.when( mcp.getProvisioningInfo( self.attr( 'uri' ), self.attr( 'name' ) ) ).then(
@@ -524,13 +534,51 @@ function loadProjects()
           continue;
         }
 
-        var busy = '<i class="fa fa-check fa-fw"/>';
+        var busy = '<i class="fa fa-check fa-lg fa-fw"/>';
+        var projList = ''
+
+        if( item.status.passed && item.status.built )
+        {
+          projList += '<div class="project passed">'
+        } else if( ( item.status.passed && !item.status.built ) || ( !item.status.passed && item.status.built ) )
+        {
+          busy = '<i class="fa fa-exclamation fa-lg fa-fw"></i>'
+          projList += '<div class="project warn">'
+        } else {
+          busy = '<i class="fa fa-times fa-lg fa-fw"></i>'
+          projList += '<div class="project failed">'
+        }
 
         if( item.busy )
         {
-          busy = '<i class="fa fa-spinner fa-spin fa-fw"/>';
+          busy = '<i class="fa fa-spinner fa-spin fa-lg fa-fw"/>';
         }
-        projectList.append( '<div class="project passed"><dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;' + item.name + '</dt><dd><i class="fa fa-clock-o fa-fw"/>&nbsp; Updated: ' + item.updated + '</dd><dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + item.created + '</dd></dl></div>' );
+
+        if( isToday( item.created ))
+        {
+          var projCreated = new Date(item.created).toLocaleTimeString()
+        } else {
+          var projCreated = new Date(item.created).toLocaleDateString()
+        }
+        if( isToday( item.updated ))
+        {
+          var projUpdated = 'Today at ' + new Date(item.updated).toLocaleTimeString()
+        } else {
+          var projUpdated = new Date(item.updated).toLocaleString()
+        }
+
+        var gitRepo = item.repo
+        var gitOrg = item.org
+        var gitIcon = '<i class="fa fa-github-square fa-lg fa-fw"></i>'
+        if( item.type === 'GitProject' )
+        {
+          var internalGit = item.internal_git_url.split('/')
+          gitOrg = internalGit[3]
+          gitRepo = internalGit[4].split('.')[0]
+          gitIcon = '<i class="fa fa-code-fork fa-lg fa-fw"></i>'
+        }
+        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '<span>&nbsp;' + gitRepo + '</span></dt><dd>' + gitIcon + '&nbsp; ' + gitOrg + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
+        projectList.append(projList);
       }
 
       $( '#project-list [id="project-entry"]' ).on( 'click',
