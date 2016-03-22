@@ -12,7 +12,10 @@ fi
 
 if [ -e /var/run/mcpIterate.lock ];
 then
-  echo "Iterate lock exists, bailing"
+  if [ "x$1" == "xi" ]
+  then
+    echo "Iterate lock exists, bailing"
+  fi
   exit 1
 fi
 

@@ -8,11 +8,16 @@ then
   ARGS=""
 else
   ARGS="-c"
+  #  give fullIterate a chance to take presidence, sence the cron starts both at the same time
+  sleep 5
 fi
 
 if [ -e /var/run/mcpIterate.lock ];
 then
-  echo "Iterate lock exists, bailing"
+  if [ "x$1" == "xi" ]
+  then
+    echo "Iterate lock exists, bailing"
+  fi
   exit 1
 fi
 

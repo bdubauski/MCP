@@ -101,9 +101,9 @@ This is a Generic Project
     try:
       commit = self.commit_set.filter( branch='master', done_at__isnull=False ).order_by( '-created' )[0]
     except IndexError:
-      return { 'passed': None, 'built': None }
+      return { 'passed': None, 'built': None, 'at': None }
 
-    return { 'passed': commit.passed, 'built': commit.built }
+    return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
@@ -113,12 +113,6 @@ This is a Generic Project
       self.local_path = None
 
     super( Project, self ).save( *args, **kwargs )
-
-  def postResults( self, commit, lint, test, build ):
-    try:
-      self.githubproject.postResults( commit, lint, test, build )
-    except ObjectDoesNotExist:
-      pass
 
   def __unicode__( self ):
     return 'Project "%s"' % self.name
@@ -176,45 +170,6 @@ This is a GitHub Project
 
   def __unicode__( self ):
     return 'GitHub Project "%s"(%s/%s)' % ( self.name, self._org, self._repo )
-
-  def postResults( self, commit, lint, test, build ):
-    comment = ''
-    if lint:
-      lint = simplejson.loads( lint )
-    if test:
-      test = simplejson.loads( test )
-    if build:
-      build = simplejson.loads( build )
-
-    if lint:
-      comment += 'Lint Results:\n\n'
-      for distro in lint:
-        if lint[ distro ][ 'results' ] is not None:
-          comment += '**%s**\n' % distro
-          comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
-          comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if test:
-      comment += 'Test Results:\n\n'
-      for distro in test:
-        if test[ distro ][ 'results' ] is not None:
-          comment += '**%s**\n' % distro
-          comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
-          comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if build:
-      comment += 'Build Results:\n\n'
-      for target in build:
-        for distro in build[ target ]:
-          if build[ target ][ distro ][ 'results' ] is not None:
-            comment += '**%s** - **%s**\n' % ( target, distro )
-            comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
-            comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if not comment:
-      comment = '**Nothing To Do**'
-
-    self.github.postComment( commit, comment )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -275,8 +230,8 @@ A Single Commit of a Project
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  passed = models.NullBooleanField( editable=False, default=False, null=True )
-  built = models.NullBooleanField( editable=False, default=False, null=True )
+  passed = models.NullBooleanField( editable=False, blank=True, null=True )
+  built = models.NullBooleanField( editable=False, blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -331,6 +286,79 @@ A Single Commit of a Project
 
     self.save()
 
+  def postResults( self ):
+    if self.project.type != 'GitHubProject':
+      return
+
+    gh = self.project.githubproject.github
+
+    comment = ''
+    summary = ''
+
+    if self.lint_results:
+      lint = simplejson.loads( self.lint_results )
+    else:
+      lint = None
+
+    if self.test_results:
+      test = simplejson.loads( self.test_results )
+    else:
+      test = None
+
+    if self.build_results:
+      build = simplejson.loads( self.build_results )
+    else:
+      build = None
+
+    if lint:
+      comment += 'Lint Results:\n\n'
+      for distro in lint:
+        if lint[ distro ].get( 'results', None ) is not None:
+          comment += '**%s**\n' % distro
+          comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
+          comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if test:
+      comment += 'Test Results:\n\n'
+      for distro in test:
+        if test[ distro ].get( 'results', None ) is not None:
+          comment += '**%s**\n' % distro
+          comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
+          comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if build:
+      comment += 'Build Results:\n\n'
+      for target in build:
+        for distro in build[ target ]:
+          if build[ target ][ distro ].get( 'results', None ) is not None:
+            comment += '**%s** - **%s**\n' % ( target, distro )
+            comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
+            comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
+
+    if self.passed is not None:
+      if self.passed:
+        summary += 'Passed: True\n'
+      else:
+        summary += 'Passed: False\n'
+
+    if self.built is not None:
+      if self.built:
+        summary += 'Built: True\n'
+      else:
+        summary += 'Built: False\n'
+
+    if not comment:
+      comment = '**Nothing To Do**'
+
+    if not summary:
+      summary = '**Nothing To Do**'
+
+    gh.postCommitComment( self.commit, comment )
+
+    if self.branch.startswith( '_PR' ):
+      number = int( self.branch[3:] )
+      gh.postPRComment( number, summary )
+
   def __unicode__( self ):
     return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
 
@@ -344,7 +372,7 @@ A Single Commit of a Project
     @staticmethod
     def buildQS( qs, filter, values ):
       if filter == 'project':
-        return qs.filter( project=values[ 'project' ] )
+        return qs.filter( project=values[ 'project' ] ).order_by( '-created' )
 
       if filter == 'in_process':
         return qs.filter( done_at__isnull=True )

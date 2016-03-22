@@ -19,12 +19,27 @@ class GitHub( object ):
     self.org = org
     self.repo = repo
 
-  def postComment( self, commit_hash, comment ):
+  @property
+  def ghRepo( self ):
     if self.org is None or self.repo is None:
       raise Exception( 'repo and org must be set' )
-    repo = self.conn.get_repo( '%s/%s' % ( self.org, self.repo ) )
-    commit = repo.get_commit( commit_hash )
+
+    try:
+      if self._ghRepo:
+        return self._ghRepo
+    except AttributeError:
+      pass
+
+    self._ghRepo = self.conn.get_repo( '%s/%s' % ( self.org, self.repo ) )
+    return self._ghRepo
+
+  def postCommitComment( self, commit_hash, comment ):
+    commit = self.ghRepo.get_commit( commit_hash )
     commit.create_comment( comment )
+
+  def postPRComment( self, id, comment ):
+    pr = self.ghRepo.get_pull( id )
+    pr.create_issue_comment( comment )
 
   def getRepos( self ):
     result = []
@@ -34,8 +49,4 @@ class GitHub( object ):
     return result
 
   def getPullRequests( self ):
-    if self.org is None or self.repo is None:
-      raise Exception( 'repo and org must be set' )
-
-    repo = self.conn.get_repo( '%s/%s' % ( self.org, self.repo ) )
-    return [ i.number for i in repo.get_pulls() ]
+    return [ i.number for i in self.ghRepo.get_pulls() ]

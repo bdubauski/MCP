@@ -83,7 +83,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
       logging.info( 'Lint for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
       commit.done_at = datetime.utcnow().replace( tzinfo=utc )
       slack.post_message( 'Lint for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
-      commit.project.postResults( commit.commit, commit.lint_results, None, None )
+      commit.postResults()
       commit.passed = False
     else:
       slack.post_message( 'Lint for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
@@ -124,7 +124,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       logging.info( 'Test for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
       commit.done_at = datetime.utcnow().replace( tzinfo=utc )
       slack.post_message( 'Test for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
-      commit.project.postResults( commit.commit, commit.lint_results, commit.test_results, None )
+      commit.postResults()
       commit.passed = False
     else:
       slack.post_message( 'Test for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
@@ -137,7 +137,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   if commit.branch != 'master': # only build from master branch
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
     commit.done_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.project.postResults( commit.commit, commit.lint_results, commit.test_results, commit.build_results )
+    commit.postResults()
     commit.save()
     continue
 
@@ -146,6 +146,8 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   if not status:
     slack.post_message( 'No Build for "%s", branch "%s".' % ( commit.project.name, commit.branch ), slack.INFO )
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.postResults()
     commit.save()
     continue
 
@@ -179,7 +181,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       commit.built = True
 
     commit.done_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.project.postResults( commit.commit, commit.lint_results, commit.test_results, commit.build_results )
+    commit.postResults()
 
   commit.save()
 
