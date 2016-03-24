@@ -220,6 +220,7 @@ class Commit( models.Model ):
   """
 A Single Commit of a Project
   """
+  STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'done' )
   project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
@@ -234,6 +235,22 @@ A Single Commit of a Project
   built = models.NullBooleanField( editable=False, blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @property
+  def state( self ):
+    if self.done_at and self.build_at and self.test_at and self.lint_at:
+      return 'done'
+
+    if self.build_at and self.test_at and self.lint_at:
+      return 'built'
+
+    if self.test_at and self.lint_at:
+      return 'tested'
+
+    if self.lint_at:
+      return 'linted'
+
+    return 'new'
 
   def save( self, *args, **kwargs ):
     try:
@@ -367,6 +384,8 @@ A Single Commit of a Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    constants = ( 'STATE_LIST', )
+    properties = ( 'state', )
     list_filters = { 'project': { 'project': Project }, 'in_process': {} }
 
     @staticmethod

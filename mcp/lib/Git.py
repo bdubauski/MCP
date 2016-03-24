@@ -44,7 +44,7 @@ class Git( object ):
     self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
-  def pull_branch( self, remote_name, local_name ):
+  def fetch_branch( self, remote_name, local_name ):
     self._execute( [ 'fetch', 'origin', '%s:%s' % ( remote_name, local_name ) ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 

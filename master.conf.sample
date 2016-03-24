@@ -8,7 +8,6 @@ GITHUB_PASS = 'mcp'
 GITHUB_PROXY = None
 # to set a http_proxy for git use `git config --system http.proxy <http proxy>`
 
-
 PACKRAT_HOST = 'http://packrat/'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
@@ -19,6 +18,8 @@ TARGET_SUBNET = 1
 TARGET_POD = 'mcp'
 
 HARDWARE_PROFILE = 'mcp-resource'
+CONFIGURE_PRIORITY_NORMAL = 50
+CONFIGURE_PRIORITY_PREALLOC = 60
 
 SITE_NAME = None
 

@@ -193,6 +193,7 @@ class BuildJob( models.Model ):
   """
 BuildJob
   """
+  STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
   build = models.ForeignKey( Build, editable=False )
   project = models.ForeignKey( Project )
   branch = models.CharField( max_length=50 )
@@ -407,6 +408,7 @@ BuildJob
                  # these are normal
                  'acknowledge': []
               }
+    constants = ( 'STATE_LIST', )
     properties = ( 'state', 'suceeded' )
     list_filters = { 'project': { 'project': Project } }
 

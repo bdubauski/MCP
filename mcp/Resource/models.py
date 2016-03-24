@@ -149,7 +149,7 @@ class VMResource( Resource ):
   def _createNew( job, name, index, pod, profile, vmtemplate, subnet ):
     address_list = []
     address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-    config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), pod, profile, address_list )
+    config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_NORMAL )
     config.config_values = config_values( job, name, index )
     config.save()
     createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
@@ -165,7 +165,7 @@ class VMResource( Resource ):
       index += 1
       address_list = []
       address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-      config = createConfig( 'mcp-preallocate--%s-%s' % ( seed, index ), pod, profile, address_list ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
+      config = createConfig( 'mcp-preallocate--%s-%s' % ( seed, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_PREALLOC ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
       config.config_values = config_values_prealloc()
       config.save()
       createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
