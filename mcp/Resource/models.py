@@ -158,7 +158,7 @@ class VMResource( Resource ):
   @staticmethod
   def _replentishPreAllocate( goal_number, pod, profile, vmtemplate, subnet, seed ):
     index = 0
-    while Config.objects.filter( pod=pod, profile=profile, hostname__startswith='mcp-preallocate-' ).count() < goal_number:
+    while Config.objects.filter( pod=pod, profile=profile, hostname__startswith='mcp-preallocate-', configurable__device__vmdevice__template=vmtemplate ).count() < goal_number:
       if len( subnet.unused_list ) < 1:
         return # just bail, something else will complain about this, we are just making an effort for speed here
 
