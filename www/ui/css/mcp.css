@@ -109,6 +109,7 @@ h1 > a:hover {
     font-family: "Source Sans Pro", Helvetica, Arial, sans-serif;
     margin: 44px 0 20px;
     padding-bottom: 9px;
+    padding-left: 20px
 }
 
 .sidebar.page-header {
@@ -144,16 +145,24 @@ h1 > a:hover {
 }
 
 .project.passed {
-    background: rgba(0, 0, 0, 0) linear-gradient(to right, #44a662 0px, #44a662 8px, #fff 8px, #fff 100%) no-repeat scroll 0 0;
+    background: rgba(0, 0, 0, 0) linear-gradient(to right, #44a662 0px, #44a662 6px, #fff 6px, #fff 100%) no-repeat scroll 0 0;
 }
 
 .project.failed {
-    background: rgba(0, 0, 0, 0) linear-gradient(to right, #d94341 0px, #d94341 8px, #fff 8px, #fff 100%) no-repeat scroll 0 0;
+    background: rgba(0, 0, 0, 0) linear-gradient(to right, #d94341 0px, #d94341 6px, #fff 6px, #fff 100%) no-repeat scroll 0 0;
+}
+
+.project.warn {
+    background: rgba(0, 0, 0, 0) linear-gradient(to right, #d98f41 0px, #d98f41 6px, #fff 6px, #fff 100%) no-repeat scroll 0 0;
 }
 
 .project dl {
     font-weight: 300;
-    padding-left: 20px;
+}
+
+.project dl dt span {
+    font-size: 110%;
+    font-weight: bolder;
 }
 
 .project.passed dl dt {
@@ -166,6 +175,16 @@ h1 > a:hover {
     color: #d94341;
     font-weight: 300;
     padding-bottom: 10px;
+}
+
+.project.warn dl dt {
+    color: #d98f41;
+    font-weight: 300;
+    padding-bottom: 10px;
+}
+
+.project dd {
+    line-height: 175%
 }
 
 .tab-content {
