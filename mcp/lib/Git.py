@@ -41,11 +41,11 @@ class Git( object ):
     os.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
 
   def update( self ):
-    self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*' ] )
+    self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*', '--force' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
   def fetch_branch( self, remote_name, local_name ):
-    self._execute( [ 'fetch', 'origin', '%s:%s' % ( remote_name, local_name ) ] )
+    self._execute( [ 'fetch', 'origin', '%s:%s' % ( remote_name, local_name ), '--force' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
   def remove_branch( self, branch ):

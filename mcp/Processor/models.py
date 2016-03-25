@@ -114,9 +114,10 @@ QueueItem
       name = buildresource.name
       quanity = buildresource.quanity
       resource = buildresource.resource.native
+      config_list = []
       if group_config_list: # should we have an option that prevents from allocating from outside the group_config_list?
         config_list = resource.allocate( job, name, quanity, config_id_list=group_config_list ) # first try to allocated from resource groups
-      config_list += resource.allocate( job, name, quanity - len( config_list ) ) # now allocated from general pool
+      config_list = resource.allocate( job, name, quanity - len( config_list ) ) # now allocated from general pool
       compute[ name ] = []
       for config in config_list:
         compute[ name ].append( { 'status': 'Allocated', 'config': config } )
