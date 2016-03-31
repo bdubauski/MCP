@@ -12,6 +12,7 @@ import sys
 import glob
 import json
 import shutil
+import socket
 from datetime import datetime
 from logging.handlers import SysLogHandler
 from django.utils.timezone import utc
@@ -37,7 +38,7 @@ logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
 elif '-c' in sys.argv:
-  logger.setLevel( logging.WARN )
+  logger.setLevel( logging.ERROR )
 else:
   logger.setLevel( logging.INFO )
 
@@ -111,8 +112,7 @@ def _makeBuild( build_name, project, manual ):
   build.save()
 
 # where project dosen't have any queue items
-for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last_checked' ):
-
+for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_checked' ):
   if project.name.startswith( '_' ):
     continue
 
@@ -120,12 +120,14 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
   if project.commit_set.filter( done_at__isnull=True ).count() > 0:
     continue
 
-  # not auto builds
-  # nor builds in pre "ran" state
+  # nor manual jobs that have not run
+  # nor auto jobs that have not reported
   ready = True
   for job in project.buildjob_set.all():
-    ready &= job.manual
-    ready &= job.state in ( 'released', 'acknowledged', 'reported' )
+    if job.manual:
+      ready &= job.state in ( 'ran', 'reported', 'acknowledged', 'released' )
+    else:
+      ready &= job.state in ( 'reported', 'acknowledged', 'released' )
 
   if not ready:
     continue
@@ -164,9 +166,19 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
 
   git.update()
 
+  github = None
+
   if project.type == 'GitHubProject':
-    pull_list = project.githubproject.github.getPullRequests()
-    for branch in git.branch_map():
+    github = project.githubproject.github
+
+  if github is not None:
+    try:
+      pull_list = github.getPullRequests()
+    except socket.timeout:
+      logging.warning( 'Connection Timedout connecting to github, will try again later.' )
+      continue
+
+    for branch in git.ref_map():
       if branch.startswith( '_PR' ):
         number = int( branch[3:] )
         if number not in pull_list:
@@ -175,10 +187,13 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
 
     for pull in pull_list:
       branch_name = '_PR%s' % pull
+      if project.commit_set.filter( branch=branch_name, done_at__isnull=True ).count() > 0:
+        continue
+
       logging.info( '  Pulling PR #%s' % pull )
       git.fetch_branch( 'refs/pull/%s/head' % pull, branch_name )
 
-  branch_map = git.branch_map()
+  branch_map = git.ref_map()
 
   logging.debug( 'Branches: "%s"' % branch_map )
 
@@ -199,6 +214,10 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
     commit.project = project
     commit.branch = branch
     commit.commit = branch_map[ branch ]
+
+    if branch.startswith( '_PR' ) and github is not None:
+      commit.owner_override = github.getPullRequestOwner( int( branch[3:] ) )
+
     try:
       distro_list = make.testDistros()
     except MakeException as e:
@@ -252,6 +271,8 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( '-last
     logging.debug( 'Cleaning up work dir.' )
     shutil.rmtree( WORK_DIR )
     commit.save()
+
+    commit.postInProcess()
 
   project.last_checked = datetime.utcnow().replace( tzinfo=utc )
   project.save()

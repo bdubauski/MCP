@@ -30,7 +30,7 @@ logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
 elif '-c' in sys.argv:
-  logger.setLevel( logging.WARN )
+  logger.setLevel( logging.ERROR )
 else:
   logger.setLevel( logging.INFO )
 
