@@ -41,33 +41,38 @@ MCP_PROXY = None
 # Application definition
 
 INSTALLED_APPS = (
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'south',
-    'cinp',
-    'mcp.Processor',
-    'mcp.Project',
-    'mcp.Resource',
-    'plato.Base',
-    'plato.Pod',
-    'plato.DataCenter',
-    'plato.Asset',
-    'plato.Config',
-    'plato.Device',
-    'plato.Network',
-    'plato.Power',
-    'plato.Storage',
-    'plato.Provisioner',
-    'plato.Report'
+  'django.contrib.admin',
+  'django.contrib.auth',
+  'django.contrib.contenttypes',
+  'django.contrib.sessions',
+  'south',
+  'cinp',
+  'mcp.Processor',
+  'mcp.Project',
+  'mcp.Resource',
+  'mcp.Auth',
+  'plato.Base',
+  'plato.Pod',
+  'plato.DataCenter',
+  'plato.Asset',
+  'plato.Config',
+  'plato.Device',
+  'plato.Network',
+  'plato.Power',
+  'plato.Storage',
+  'plato.Provisioner',
+  'plato.Report'
 )
 
 MIDDLEWARE_CLASSES = (
-    'django.middleware.common.CommonMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+  'django.middleware.common.CommonMiddleware',
+  'django.contrib.sessions.middleware.SessionMiddleware',
+  'django.contrib.messages.middleware.MessageMiddleware',
+  'django.contrib.auth.middleware.AuthenticationMiddleware',
+)
+
+AUTHENTICATION_BACKENDS = (
+  'mcp.Auth.backend.Backend',
 )
 
 ROOT_URLCONF = 'mcp.urls'

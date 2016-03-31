@@ -3,7 +3,7 @@ from datetime import datetime
 from django.utils.timezone import utc
 from django.utils import simplejson
 from django.db import models
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
 from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
@@ -163,7 +163,10 @@ QueueItem
     return item
 
   @staticmethod
-  def queue( build ):
+  def queue( _user_, build ):
+    if not _user_.has_perm( 'Processor.can_build' ):
+      raise PermissionDenied()
+
     QueueItem.inQueueBuild( build, 'master', True, 100 )
 
   def save( self, *args, **kwargs ):
@@ -176,6 +179,9 @@ QueueItem
 
   def __unicode__( self ):
     return 'QueueItem for "%s" of priority "%s"' % ( self.build.name, self.priority )
+
+  class Meta:
+    permissions = ( ( 'can_build', 'Can Queue Builds' ), )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -248,14 +254,26 @@ BuildJob
 
     return result
 
-  def jobRan( self ):
+  def jobRan( self, _user_ ):
+    if not _user_.is_anonymous() and not _user_.has_perm( 'Processor.can_ran' ):  # remove anonymous stuff when nullunit authencates
+      raise PermissionDenied()
+
+    if self.ran_at is not None: # been done, don't touch
+      return
+
     if not self.built_at:
       self.built_at = datetime.utcnow().replace( tzinfo=utc )
 
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
     self.save()
 
-  def acknowledge( self ):
+  def acknowledge( self, _user_ ):
+    if not _user_.has_perm( 'Processor.can_ack' ):
+      raise PermissionDenied()
+
+    if self.acknowledged_at is not None: # been done, don't touch
+      return
+
     if self.reported_at is None:
       raise ValidationError( 'Can not Acknoledge un-reported jobs' )
 
@@ -396,10 +414,12 @@ BuildJob
   def __unicode__( self ):
     return 'BuildJob "%s" for build "%s"' % ( self.pk, self.build.name )
 
+  class Meta:
+    permissions = ( ( 'can_ack', 'Can Acknowledge Builds' ), ( 'can_ran', 'Can Flag a Build as "ran"' ) )
+
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE' )
     actions = {  # TODO: these can only be called by jobs, need some kind of auth for them
-                 'jobRan': [],
                  'updateResourceState': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
                  'setResourceSuccess': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ],
                  'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
@@ -407,6 +427,8 @@ BuildJob
                  'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ], # called by UI
                  'setConfigValues': [ { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
                  'getNetworkInfo': [ { 'type': 'String' } ],
+                 # run by both
+                 'jobRan': [],
                  # these are normal
                  'acknowledge': []
               }

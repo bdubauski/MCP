@@ -6,7 +6,7 @@ api = DjangoAPI( '/api/v1/' )
 api.registerApp( 'Processor', 'v1' )
 api.registerApp( 'Project', 'v1' )
 api.registerApp( 'Resource', 'v1' )
-
+# Auth is not registered, #1 it is building in the the cinp django_plugin, and #2 it's tracked internally
 admin.autodiscover()
 
 urlpatterns = patterns('',
