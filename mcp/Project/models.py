@@ -222,6 +222,7 @@ A Single Commit of a Project
   """
   STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'done' )
   project = models.ForeignKey( Project )
+  owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
   lint_results = models.TextField( default='{}' )
@@ -303,11 +304,23 @@ A Single Commit of a Project
 
     self.save()
 
+  def postInProcess( self ):
+    if self.project.type != 'GitHubProject':
+      return
+
+    gh = self.project.githubproject.github
+    if self.owner_override:
+      gh.setOwner( self.owner_override )
+    gh.postCommitStatus( self.commit, 'pending' )
+    gh.setOwner()
+
   def postResults( self ):
     if self.project.type != 'GitHubProject':
       return
 
     gh = self.project.githubproject.github
+    if self.owner_override:
+      gh.setOwner( self.owner_override )
 
     comment = ''
     summary = ''
@@ -355,14 +368,17 @@ A Single Commit of a Project
     if self.passed is not None:
       if self.passed:
         summary += 'Passed: True\n'
+        gh.postCommitStatus( self.commit, 'success', description='Test/Lint Passed' )
       else:
         summary += 'Passed: False\n'
+        gh.postCommitStatus( self.commit, 'failure', description='Test/Lint Failure' )
 
     if self.built is not None:
       if self.built:
         summary += 'Built: True\n'
       else:
         summary += 'Built: False\n'
+        gh.postCommitStatus( self.commit, 'error', description='Package Build Error' )
 
     if not comment:
       comment = '**Nothing To Do**'
@@ -371,6 +387,8 @@ A Single Commit of a Project
       summary = '**Nothing To Do**'
 
     gh.postCommitComment( self.commit, comment )
+
+    gh.setOwner()
 
     if self.branch.startswith( '_PR' ):
       number = int( self.branch[3:] )
