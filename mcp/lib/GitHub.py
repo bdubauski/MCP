@@ -1,6 +1,7 @@
 import os
+import logging
 
-from github import Github, GithubObject, BadCredentialsException
+from github import Github, GithubObject, BadCredentialsException, UnknownObjectException
 
 class GitHubException( Exception ):
   pass
@@ -55,20 +56,26 @@ class GitHub( object ):
     self.getCommit( commit_hash ).create_comment( comment, line, path, position )
 
   def postCommitStatus( self, commit_hash, state, target_url=GithubObject.NotSet, description=GithubObject.NotSet ):
-    return # can't it to work yet
     if state not in ( 'pending', 'success', 'error', 'failure' ):
       raise GitHubException( 'Invalid state' )
 
-    self.getCommit( commit_hash ).create_status( state, target_url, description )
+    try:
+      self.getCommit( commit_hash ).create_status( state, target_url, description )
+    except UnknownObjectException:
+      logging.warning( 'Unable to set status on commit "%s" of "%s" in "%s", check permissions' % ( commit_hash, self.repo, self.org ) )
 
   def postPRComment( self, id, comment ):
     pr = self.ghRepo.get_pull( id )
     pr.create_issue_comment( comment )
 
   def getRepos( self ):
-    result = []
-    for item in self.user.get_repos():
-      result.append( item.name )
+    result = {}
+    for org in self.user.get_orgs():
+      wrk = []
+      for repo in org.get_repos():
+        wrk.append( repo.name )
+
+      result[ org.login ] = wrk
 
     return result
 

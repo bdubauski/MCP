@@ -21,6 +21,8 @@ HARDWARE_PROFILE = 'mcp-resource'
 CONFIGURE_PRIORITY_NORMAL = 50
 CONFIGURE_PRIORITY_PREALLOC = 60
 
+SELFREGISTER_USER_GROUP = 'mcp_user'
+
 SITE_NAME = None
 
 SLACK_PROXY = None
@@ -50,7 +52,7 @@ INSTALLED_APPS = (
   'mcp.Processor',
   'mcp.Project',
   'mcp.Resource',
-  'mcp.Auth',
+  'mcp.Users',
   'plato.Base',
   'plato.Pod',
   'plato.DataCenter',
@@ -72,7 +74,7 @@ MIDDLEWARE_CLASSES = (
 )
 
 AUTHENTICATION_BACKENDS = (
-  'mcp.Auth.backend.Backend',
+  'mcp.Users.backend.Backend',
 )
 
 ROOT_URLCONF = 'mcp.urls'

@@ -121,7 +121,14 @@ This is a Generic Project
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
     properties = ( 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' )
     hide_fields = ( 'local_path', )
+    list_filters = { 'my_projects': {} }
 
+    @staticmethod
+    def buildQS( qs, user, filter, values ):
+      if filter == 'my_projects':
+        return qs.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
+
+      raise Exception( 'Invalid filter "%s"' % filter )
 
 class GitProject( Project ):
   """

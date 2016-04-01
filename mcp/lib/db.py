@@ -1,4 +1,4 @@
-APP_LIST = ( 'Project', 'Processor', 'Resource', 'Auth', 'auth', 'sessions', 'contenttypes', 'admin', 'django', 'cinp', 'south' )
+APP_LIST = ( 'Project', 'Processor', 'Resource', 'Users', 'auth', 'sessions', 'contenttypes', 'admin', 'django', 'cinp', 'south' )
 
 class MCPRouter( object ):
   def db_for_read( self, model, **hints ):
