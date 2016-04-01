@@ -191,7 +191,7 @@ QueueItem
               }
 
     @staticmethod
-    def buildQS( qs, filter, values ):
+    def buildQS( qs, user, filter, values ):
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 
@@ -437,7 +437,7 @@ BuildJob
     list_filters = { 'project': { 'project': Project } }
 
     @staticmethod
-    def buildQS( qs, filter, values ):
+    def buildQS( qs, user, filter, values ):
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 

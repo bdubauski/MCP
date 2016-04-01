@@ -407,7 +407,7 @@ A Single Commit of a Project
     list_filters = { 'project': { 'project': Project }, 'in_process': {} }
 
     @staticmethod
-    def buildQS( qs, filter, values ):
+    def buildQS( qs, user, filter, values ):
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] ).order_by( '-created' )
 
@@ -455,7 +455,7 @@ This is a type of Build that can be done
     list_filters = { 'project': { 'project': Project } }
 
     @staticmethod
-    def buildQS( qs, filter, values ):
+    def buildQS( qs, user, filter, values ):
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 
