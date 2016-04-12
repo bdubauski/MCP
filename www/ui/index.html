@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
+<head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,279 +22,302 @@
 </head>
 
 <body>
-  <div id="modalbox">
-    <div class="devoops-modal">
-      <div class="devoops-modal-header">
-        <div class="modal-header-name"><span/></div>
-        <div class="box-icons">
-          <a class="close-link">
-            <i class="fa fa-times"></i>
-          </a>
+    <div class="modal fade bs-example-modal-lg" id="modalbox">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true"><i class="fa fa-times"></i></button>
+                    <h5 class="modal-title"></h5>
+                </div>
+                <div class="modal-body">
+                    <h3>Modal Body</h3>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary">Save changes</button>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="devoops-modal-inner">
-      </div>
-      <div class="devoops-modal-bottom">
-      </div>
     </div>
-  </div>
 
-        <!-- Fixed navbar -->
-<nav class="navbar navbar-default navbar-fixed-top">
-    <div class="container-fluid">
-        <div class="navbar-header">
-            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
-            aria-expanded="false" aria-controls="navbar">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <a class="navbar-brand text-muted" href="#">MCP CI/CD<!-- <i class="fa fa-retweet fa-rotate-90"></i> --></a>
-        </div>
-        <div id="navbar" class="collapse navbar-collapse">
-            <ul class="nav navbar-nav">
-                <li id="home-tab"><a href="#home">Home</a></li>
-                <li id="project-tab"><a href="#project">Projects</a></li>
-                <li id="global-tab"><a href="#global">Globals</a></li>
-                <li id="help-tab"> <a href="#help">Help</a></li>
-            </ul>
-            <ul class="nav navbar-nav navbar-right">
-                <li><p class="navbar-text">Already have an account?</p></li>
-                <li class="dropdown">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown"><b>Login</b> <span class="caret"></span></a>
-                    <ul id="login-dp" class="dropdown-menu">
-                        <li>
-                            <div class="row">
-                                <div class="col-md-12">
-                                    Login via
-                                    <div class="social-buttons">
-                                        <a href="#" class="btn btn-gh"><i class="fa fa-github-square"></i> Github</a>
+    <!-- navbar -->
+    <nav>
+    <section class="navbar navbar-default">
+        <div class="container-fluid">
+           <header>
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar"
+                aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <a class="navbar-brand text-muted" href="#">MCP CI/CD<!-- <i class="fa fa-retweet fa-rotate-90"></i> --></a>
+            </div>
+            </header>
+            <div id="navbar" class="collapse navbar-collapse">
+                <ul class="nav navbar-nav">
+                    <li id="home-tab"><a href="#home">Home</a></li>
+                    <li id="project-tab"><a href="#project">Projects</a></li>
+                    <li id="global-tab"><a href="#global">Globals</a></li>
+                    <li id="help-tab"> <a href="#help">Help</a></li>
+                </ul>
+                <ul class="nav navbar-nav navbar-right" id="user-logged-out">
+                    <li><p class="navbar-text">Already have an account?</p></li>
+                    <li class="dropdown">
+                        <a href="#" class="dropdown-toggle" data-toggle="dropdown"><b>Login</b> <span class="caret"></span></a>
+                        <ul id="login-dp" class="dropdown-menu">
+                            <li>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        Login via
+                                        <div class="social-buttons">
+                                            <a href="#" class="btn btn-gh"><i class="fa fa-github-square"></i> Github</a>
+                                        </div>
+                                        or
+                                        <form class="form" role="form" method="post" accept-charset="UTF-8" id="login-nav">
+                                            <div class="form-group">
+                                                <label class="sr-only" for="username">Username</label>
+                                                <input type="text" class="form-control" id="username" placeholder="Username" required>
+                                            </div>
+                                            <div class="form-group">
+                                                <label class="sr-only" for="password">Password</label>
+                                                <input type="password" class="form-control" id="password" placeholder="Password" required>
+                                                <div class="help-block text-right"><a href="">Forget your password ?</a></div>
+                                            </div>
+                                            <div class="form-group">
+                                                <button type="submit" class="btn btn-primary btn-block" id="login">Sign in</button>
+                                            </div>
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input type="checkbox"> keep me logged-in
+                                                </label>
+                                            </div>
+                                        </form>
                                     </div>
-                                    or
-                                    <form class="form" role="form" method="post" action="login" accept-charset="UTF-8" id="login-nav">
-                                        <div class="form-group">
-                                            <label class="sr-only" for="exampleInputEmail2">Email address</label>
-                                            <input type="email" class="form-control" id="exampleInputEmail2" placeholder="Email address" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="sr-only" for="exampleInputPassword2">Password</label>
-                                            <input type="password" class="form-control" id="exampleInputPassword2" placeholder="Password" required>
-                                            <div class="help-block text-right"><a href="">Forget your password ?</a></div>
-                                        </div>
-                                        <div class="form-group">
-                                            <button type="submit" class="btn btn-primary btn-block">Sign in</button>
-                                        </div>
-                                        <div class="checkbox">
-                                            <label>
-                                                <input type="checkbox"> keep me logged-in
-                                            </label>
-                                        </div>
-                                    </form>
+                                    <div class="bottom text-center">
+                                        New here ? <a href="#"><b>Create Account</b></a>
+                                    </div>
                                 </div>
-                                <div class="bottom text-center">
-                                    New here ? <a href="#"><b>Create Account</b></a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <ul class="nav navbar-nav navbar-right" id="user-logged-in">
+                    <li><p class="navbar-text"><span id="user"></span><a href="#" id="doLogout" data-toggle="tooltip" data-placement="bottom" title="" data-original-title="Logout"><i class="fa fa-sign-out fa-lg fa-fw"></i></a><p></li>
+                </ul>
+
+            </div><!--/.nav-collapse -->
+        </div>
+    </section>
+    </nav>
+
+    <aside>
+        <div class="span4" id="project-panel">
+            <div class="sidebar">
+                <section class="input-group">
+                    <span class="input-group-addon"><i class="fa fa-search fa-fw"></i></span>
+                    <input type="search" class="form-control" id="project-filter" autocomplete='off' placeholder="search projects...">
+                    <span class="form-control-clear fa fa-times-circle-o fa-fw form-control-feedback hidden"></span>
+                </section>
+                <section>
+                    <header class="page-header projects">
+                            <h4>my projects &nbsp;<a href="#">+</a></h4>
+                    </header>
+
+                    <div id="project-list">
+                    </div>
+                </section>
+            </div>
+        </div>
+    </aside>
+
+    <main>
+        <div class="container-fluid">
+            <div class="row-fluid">
+                <div class="span8">
+                    <div class="col-md-12">
+                        <header>
+                            <div class="page-header">
+                                <h1 id="main-title"/>
+                            </div>
+                        </header>
+                        <div id="project-detail">
+                            <!-- Nav tabs -->
+                            <nav>
+                                <ul class="nav nav-tabs" role="tablist">
+                                    <li class="active">
+                                        <a href="#project-latest-commit" role="tab" data-toggle="tab">
+                                            <i class="fa fa-clock-o fa-fw"></i> Latest Commit
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#project-commit-list" role="tab" data-toggle="tab">
+                                            <i class="fa fa-code-fork"></i> Commit History
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#project-build-jobs" role="tab" data-toggle="tab">
+                                            <i class="fa fa-cog fa-fw"></i> Running Jobs
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#project-queued-jobs" role="tab" data-toggle="tab">
+                                            <i class="fa fa-exchange fa-fw"></i> Queued Jobs
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#project-builds" role="tab" data-toggle="tab">
+                                            <i class="fa fa-wrench"></i> Job Builds
+                                        </a>
+                                    </li>
+                                </ul>
+                            </nav>
+
+                            <!-- Tab panes -->
+                            <div class="tab-content">
+                                <div class="tab-pane fade active in" id="project-latest-commit">
+
+                                </div>
+                                <div class="tab-pane fade" id="project-commit-list">
+
+                                </div>
+                                <div class="tab-pane fade" id="project-build-jobs">
+
+                                </div>
+                                <div class="tab-pane fade" id="project-queued-jobs">
+
+                                </div>
+                                <div class="tab-pane fade" id="project-builds">
+
                                 </div>
                             </div>
-                        </li>
-                    </ul>
-                </li>
-            </ul>
-        </div><!--/.nav-collapse -->
-    </div>
-</nav>
+                        </div>
 
+                        <div id="global-detail">
+                            <!-- Nav tabs -->
+                            <ul class="nav nav-tabs" role="tablist">
+                                <li class="active">
+                                    <a href="#global-build-jobs" role="tab" data-toggle="tab">
+                                        <i class="fa fa-wrench fa-fw"></i> Build Jobs
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#global-queued-jobs" role="tab" data-toggle="tab">
+                                         <i class="fa fa-exchange fa-fw"></i> Queued Jobs
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#global-promotion-jobs" role="tab" data-toggle="tab">
+                                        <i class="fa fa-cloud-upload fa-fw"></i> Promotion Jobs
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#global-commit-list" role="tab" data-toggle="tab">
+                                        <i class="fa fa-code-fork"></i> Commit List
+                                    </a>
+                                </li>
+                            </ul>
+                            <!-- Tab panes -->
+                            <div class="tab-content">
+                                <div class="tab-pane fade active in" id="global-build-jobs">
+                                    <table class="table table-condensed table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Project</th>
+                                                <th>Target</th>
+                                                <th>State</th>
+                                                <th>Status</th>
+                                                <th>Manual</th>
+                                                <th>Updated</th>
+                                                <th>Created</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody />
+                                    </table>
+                                </div>
+                                <div class="tab-pane fade" id="global-queued-jobs">
+                                    <table class="table table-striped table-condensed">
+                                        <thead>
+                                            <tr>
+                                                <th>Project</th>
+                                                <th>Priority</th>
+                                                <th>Build</th>
+                                                <th>Branch</th>
+                                                <th>Target</th>
+                                                <th>Status</th>
+                                                <th>Manual</th>
+                                                <th>Updated</th>
+                                                <th>Created</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody />
+                                    </table>
+                                </div>
+                                <div class="tab-pane fade" id="global-promotion-jobs">
+                                    <table class="table table-striped table-condensed">
+                                        <thead>
+                                            <tr>
+                                                <th>Promotion Id</th>
+                                                <th>Packages/Versions</th>
+                                                <th>To State</th>
+                                                <th>Created</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody/>
+                                    </table>
+                                </div>
+                                <div class="tab-pane fade" id="global-commit-list">
+                                    <table class="table table-striped table-condensed">
+                                        <thead>
+                                            <tr>
+                                                <th>Project</th>
+                                                <th>Branch</th>
+                                                <th>Commit</th>
+                                                <th>Lint At</th>
+                                                <th>Lint Status</th>
+                                                <th>Test At</th>
+                                                <th>Test Status</th>
+                                                <th>Passed</th>
+                                                <th>Build At</th>
+                                                <th>Build Status</th>
+                                                <th>Built</th>
+                                                <th>Last Updated</th>
+                                                <th>Created</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody />
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div> <!-- /.col-md-12 -->
+                </div> <!-- /.span8 -->
+            </div> <!-- /.row-fluid -->
+        </div> <!-- /.container-fluid -->
+    </main>
 
+    <footer>
         <div class="container-fluid">
-
-<div class="row">
-    <div class="col-md-10 col-md-push-2">
-        <div class="starter-template">
-            <div class="page-header">
-                <h1 id="main-title"/>
-            </div>
-            <div id="project-detail">
-              <!-- Nav tabs -->
-              <ul class="nav nav-tabs" role="tablist">
-                  <li class="active">
-                      <a href="#project-build-jobs" role="tab" data-toggle="tab">
-                          <i class="fa fa-wrench fa-fw"></i> Build Jobs
-                      </a>
-                  </li>
-                  <li>
-                      <a href="#project-queued-jobs" role="tab" data-toggle="tab">
-                          <i class="fa fa-exchange fa-fw"></i> Queued Jobs
-                      </a>
-                  </li>
-                  <li>
-                      <a href="#project-commit-list" role="tab" data-toggle="tab">
-                          <i class="fa fa-code-fork"></i> Commit List
-                      </a>
-                  </li>
-                  <li>
-                      <a href="#project-builds" role="tab" data-toggle="tab">
-                          <i class="fa fa-code-fork"></i> Builds
-                      </a>
-                  </li>
-              </ul>
-
-              <!-- Tab panes -->
-              <div class="tab-content">
-                  <div class="tab-pane fade active in" id="project-build-jobs">
-
-                  </div>
-                  <div class="tab-pane fade" id="project-queued-jobs">
-
-                  </div>
-                  <div class="tab-pane fade" id="project-commit-list">
-
-                  </div>
-                  <div class="tab-pane fade" id="project-builds">
-
-                  </div>
-                </div>
-            </div>
-
-            <div id="global-detail">
-              <!-- Nav tabs -->
-              <ul class="nav nav-tabs" role="tablist">
-                  <li class="active">
-                      <a href="#global-build-jobs" role="tab" data-toggle="tab">
-                          <i class="fa fa-wrench fa-fw"></i> Build Jobs
-                      </a>
-                  </li>
-                  <li>
-                      <a href="#global-queued-jobs" role="tab" data-toggle="tab">
-                          <i class="fa fa-exchange fa-fw"></i> Queued Jobs
-                      </a>
-                  </li>
-                  <li>
-                      <a href="#global-promotion-jobs" role="tab" data-toggle="tab">
-                          <i class="fa fa-cloud-upload fa-fw"></i> Promotion Jobs
-                      </a>
-                  </li>
-                  <li>
-                      <a href="#global-commit-list" role="tab" data-toggle="tab">
-                          <i class="fa fa-code-fork"></i> Commit List
-                      </a>
-                  </li>
-              </ul>
-              <!-- Tab panes -->
-              <div class="tab-content">
-                  <div class="tab-pane fade active in" id="global-build-jobs">
-                      <table class="table table-condensed table-hover">
-                          <thead>
-                              <tr>
-                                  <th>Project</th>
-                                  <th>Target</th>
-                                  <th>State</th>
-                                  <th>Status</th>
-                                  <th>Manual</th>
-                                  <th>Updated</th>
-                                  <th>Created</th>
-                                  <th></th>
-                              </tr>
-                          </thead>
-                          <tbody />
-                      </table>
-                  </div>
-                  <div class="tab-pane fade" id="global-queued-jobs">
-                      <table class="table table-striped table-condensed">
-                          <thead>
-                              <tr>
-                                  <th>Project</th>
-                                  <th>Priority</th>
-                                  <th>Build</th>
-                                  <th>Branch</th>
-                                  <th>Target</th>
-                                  <th>Status</th>
-                                  <th>Manual</th>
-                                  <th>Updated</th>
-                                  <th>Created</th>
-                              </tr>
-                          </thead>
-                          <tbody />
-                      </table>
-                  </div>
-                  <div class="tab-pane fade" id="global-promotion-jobs">
-                      <table class="table table-striped table-condensed">
-                          <thead>
-                              <tr>
-                                  <th>Promotion Id</th>
-                                  <th>Packages/Versions</th>
-                                  <th>To State</th>
-                                  <th>Created</th>
-                              </tr>
-                          </thead>
-                          <tbody/>
-                      </table>
-                  </div>
-                  <div class="tab-pane fade" id="global-commit-list">
-                      <table class="table table-striped table-condensed">
-                          <thead>
-                              <tr>
-                                  <th>Project</th>
-                                  <th>Branch</th>
-                                  <th>Commit</th>
-                                  <th>Lint At</th>
-                                  <th>Lint Status</th>
-                                  <th>Test At</th>
-                                  <th>Test Status</th>
-                                  <th>Passed</th>
-                                  <th>Build At</th>
-                                  <th>Build Status</th>
-                                  <th>Built</th>
-                                  <th>Last Updated</th>
-                                  <th>Created</th>
-                              </tr>
-                          </thead>
-                          <tbody />
-                      </table>
-                  </div>
-                </div>
-            </div>
+            <p class="text-muted text-center" id="mcp-quote"/>
         </div>
+    </footer>
 
-    </div>
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="/ui/js/jquery.min.js"></script>
+    <script src="/ui/js/cinp.js"></script>
+    <script src="/ui/js/mcp.js"></script>
+    <script src="/ui/js/bootstrap.min.js"></script>
+    <script src="/ui/js/jquery.cookie.js"></script>
+    <script src="/ui/js/ui.js"></script>
 
+    <!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
+    <script src="/ui/js/ie10-viewport-bug-workaround.js"></script>
 
-    <div class="col-md-2 col-md-pull-10" id="project-panel">
-        <div class="sidebar">
-            <div class="input-group">
-                <input type="text" class="form-control" placeholder="Search projects...">
-                <span class="input-group-btn">
-                    <button class="btn btn-default" type="button"><i class="fa fa-search"></i> </button>
-                </span>
-            </div>
-            <div class="page-header projects">
-                <h4>my projects &nbsp;<a href="#">+</a></h4>
-            </div>
-
-            <div id="project-list" />
-
-        </div>
-    </div>
-</div>
-
-        </div><!-- /.container -->
-
-        <footer class="footer">
-    <div class="container-fluid">
-        <p class="text-muted text-center">You've enjoyed all the power you've been given, haven't you? I wonder how
-        you'd take to working in a pocket calculator.</p>
-    </div>
-</footer>
-
-<!-- Bootstrap core JavaScript
-================================================== -->
-<!-- Placed at the end of the document so the pages load faster -->
-<script src="/ui/js/jquery.min.js"></script>
-<script src="/ui/js/cinp.js"></script>
-<script src="/ui/js/mcp.js"></script>
-<script src="/ui/js/ui.js"></script>
-<script src="/ui/js/bootstrap.min.js"></script>
-<!-- IE10 viewport hack for Surface/desktop Windows 8 bug -->
-<script src="/ui/js/ie10-viewport-bug-workaround.js"></script>
-
-    </body>
+</body>
 </html>
