@@ -25,14 +25,90 @@ var mcpBuilder = {};
       return deferred.promise();
     };
 
-    mcp.logout = function( username, token )
+    mcp.logout = function()
     {
-       cinp.call( '/api/v1/Auth(logout)', { 'username': username, 'token': token } );
+       cinp.call( '/api/v1/Auth(logout)', { 'token': cinp.auth_token } );
     };
 
     mcp.keepalive = function()
     {
        cinp.call( '/api/v1/Auth(keepalive)', {} );
+    };
+
+    mcp.permissions = function()
+    {
+       var deferred = $.Deferred();
+
+       $.when( cinp.call( '/api/v1/Auth(permissions)', {} ) ).then(
+         function( data )
+         {
+           deferred.resolve( data.result.value );
+         }
+       ).fail(
+         function( reason )
+         {
+           deferred.reject( reason );
+         }
+       );
+
+       return deferred.promise();
+    };
+
+    mcp.getProfile = function()
+    {
+       var deferred = $.Deferred();
+
+       $.when( cinp.call( '/api/v1/Users(getProfile)', {} ) ).then(
+         function( data )
+         {
+           deferred.resolve( data.result.value );
+         }
+       ).fail(
+         function( reason )
+         {
+           deferred.reject( reason );
+         }
+       );
+
+       return deferred.promise();
+    };
+
+    mcp.updateProfile = function( slack_handle )
+    {
+       var deferred = $.Deferred();
+
+       $.when( cinp.call( '/api/v1/Users(updateProfile)', { 'slack_handle': slack_handle } ) ).then(
+         function( data )
+         {
+           deferred.resolve( data.result.value );
+         }
+       ).fail(
+         function( reason )
+         {
+           deferred.reject( reason );
+         }
+       );
+
+       return deferred.promise();
+    };
+
+    mcp.selfRegister = function( github_username, github_password )
+    {
+       var deferred = $.Deferred();
+
+       $.when( cinp.call( '/api/v1/Users(selfRegister)', { 'github_username': github_username, 'github_password': github_password } ) ).then(
+         function( data )
+         {
+           deferred.resolve( data.result.value );
+         }
+       ).fail(
+         function( reason )
+         {
+           deferred.reject( reason );
+         }
+       );
+
+       return deferred.promise();
     };
 
     mcp.getObject = function( uri )
@@ -57,7 +133,7 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.list( '/api/v1/Project/Project', null, null, 0, 100 ) ).then(
+      $.when( cinp.list( '/api/v1/Project/Project', 'my_projects', null, 0, 100 ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(
@@ -283,7 +359,29 @@ var mcpBuilder = {};
 
       return deferred.promise();
     };
-    
+
+    mcp.jobRan = function( build )
+    {
+      var deferred = $.Deferred();
+
+      $.when( cinp.call( build + '(jobRan)', {} ) ).then(
+        function( data )
+        {
+          if( data.result )
+            deferred.resolve( true );
+          else
+            deferred.resolve( false );
+        }
+      ).fail(
+        function( reason )
+        {
+          alert( 'Error Setting to Ran "' + build + '"' );
+          cinp.on_server_error( reason );
+        }
+      );
+
+      return deferred.promise();
+    };
 
     mcp.acknowledge = function( build )
     {

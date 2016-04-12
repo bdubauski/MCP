@@ -8,7 +8,6 @@ GITHUB_PASS = 'mcp'
 GITHUB_PROXY = None
 # to set a http_proxy for git use `git config --system http.proxy <http proxy>`
 
-
 PACKRAT_HOST = 'http://packrat/'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
@@ -19,6 +18,10 @@ TARGET_SUBNET = 1
 TARGET_POD = 'mcp'
 
 HARDWARE_PROFILE = 'mcp-resource'
+CONFIGURE_PRIORITY_NORMAL = 50
+CONFIGURE_PRIORITY_PREALLOC = 60
+
+SELFREGISTER_USER_GROUP = 'mcp_user'
 
 SITE_NAME = None
 
@@ -40,33 +43,38 @@ MCP_PROXY = None
 # Application definition
 
 INSTALLED_APPS = (
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'south',
-    'cinp',
-    'mcp.Processor',
-    'mcp.Project',
-    'mcp.Resource',
-    'plato.Base',
-    'plato.Pod',
-    'plato.DataCenter',
-    'plato.Asset',
-    'plato.Config',
-    'plato.Device',
-    'plato.Network',
-    'plato.Power',
-    'plato.Storage',
-    'plato.Provisioner',
-    'plato.Report'
+  'django.contrib.admin',
+  'django.contrib.auth',
+  'django.contrib.contenttypes',
+  'django.contrib.sessions',
+  'south',
+  'cinp',
+  'mcp.Processor',
+  'mcp.Project',
+  'mcp.Resource',
+  'mcp.Users',
+  'plato.Base',
+  'plato.Pod',
+  'plato.DataCenter',
+  'plato.Asset',
+  'plato.Config',
+  'plato.Device',
+  'plato.Network',
+  'plato.Power',
+  'plato.Storage',
+  'plato.Provisioner',
+  'plato.Report'
 )
 
 MIDDLEWARE_CLASSES = (
-    'django.middleware.common.CommonMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
+  'django.middleware.common.CommonMiddleware',
+  'django.contrib.sessions.middleware.SessionMiddleware',
+  'django.contrib.messages.middleware.MessageMiddleware',
+  'django.contrib.auth.middleware.AuthenticationMiddleware',
+)
+
+AUTHENTICATION_BACKENDS = (
+  'mcp.Users.backend.Backend',
 )
 
 ROOT_URLCONF = 'mcp.urls'

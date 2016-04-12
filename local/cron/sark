@@ -32,9 +32,10 @@ logger = logging.getLogger()
 handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
 handler.setFormatter( logging.Formatter( fmt='sark[%(process)d]: %(message)s' ) )
 logger.addHandler( handler )
-logging.info( 'Starting...' )
 if '-v' in sys.argv:
   logger.setLevel( logging.DEBUG )
+elif '-c' in sys.argv:
+  logger.setLevel( logging.ERROR )
 else:
   logger.setLevel( logging.INFO )
 
@@ -145,7 +146,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     job.promotion.signalComplete( job.build )
 
   else:
-    logging.warning( 'Job has nothing to report to, hopfully that was intentional' )
+    logging.info( 'Job has nothing to report to, hopfully that was intentional' )
 
   logging.info( 'Setting job "%s" to Reported.' % job.id )
   job.reported_at = datetime.utcnow().replace( tzinfo=utc )
@@ -162,12 +163,14 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
         results += 'Sucess: *%s*\n' % tmp[ 'success' ]
       except KeyError:
         pass
+
       try:
-        results += '```%s```\n' % tmp[ 'results' ]
+        if tmp[ 'results' ] is not None:
+          results += '```%s```\n' % tmp[ 'results' ][-500:]
       except KeyError:
         pass
 
-  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, results[:500] ), slack.INFO )
+  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, results ), slack.INFO )
 
 
 # iterate over the Reported jobs that are not manual and look to see if the resources are all released

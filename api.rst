@@ -1,9 +1,9 @@
-===========================
-CInP API Documentation for
-===========================
+==============================
+CInP API Documentation for MCP
+==============================
 
 ------------
-Namespace -
+Namespace - 
 ------------
 URL: /api/v1/
 
@@ -152,11 +152,17 @@ Fields
 
 ::
 
+  - status(String)(R)
   - updated(DateTime)(R)
-  - local_path(String)(R)
+  - busy(String)(R)
   - name(String)(RC)(Req)
-  - last_checked(DateTime)(RW)(Req)
   - created(DateTime)(R)
+  - internal_git_url(String)(R)
+  - upstream_git_url(String)(R)
+  - repo(String)(R)
+  - last_checked(DateTime)(RW)(Req)
+  - org(String)(R)
+  - type(String)(R)
 
 
 
@@ -198,6 +204,12 @@ URL: /api/v1/Project/Build
 
 
 
+List Filters
+~~~~~~~~~~~~
+
+::
+
+  - project - project(Model)(Req) uri: /api/v1/Project/Project
 
 Fields
 ~~~~~~
@@ -210,9 +222,9 @@ Fields
   - manual(Boolean)(RW)
   - project(Model)(RW)(Req) uri: /api/v1/Project/Project
   - key(String)(R)(Req)
-  - dependancies(ModelList)(RW)(Req) uri: /api/v1/Project/Package
+  - dependancies(ModelList)(RW)(Req) uri: /api/v1/Project/Package - <django.utils.functional.__proxy__ object at 0x7f110d36fa90>
   - networks(String)(RW)(Req)
-  - resources(ModelList)(RW)(Req) uri: /api/v1/Resource/Resource
+  - resources(ModelList)(RW)(Req) uri: /api/v1/Resource/Resource - <django.utils.functional.__proxy__ object at 0x7f110d36fbd0>
 
 
 
@@ -227,7 +239,20 @@ URL: /api/v1/Project/Commit
   A Single Commit of a Project
 
 
+Constants
+~~~~~~~~
 
+::
+
+  - STATE_LIST
+
+List Filters
+~~~~~~~~~~~~
+
+::
+
+  - project - project(Model)(Req) uri: /api/v1/Project/Project
+  - in_process - 
 
 Fields
 ~~~~~~
@@ -241,11 +266,14 @@ Fields
   - updated(DateTime)(R)
   - test_results(String)(RW)(Req)
   - project(Model)(RW)(Req) uri: /api/v1/Project/Project
+  - state(String)(R)
   - test_at(DateTime)(R)
   - branch(String)(RW)(Req)
   - done_at(DateTime)(R)
   - build_at(DateTime)(R)
   - commit(String)(RW)(Req)
+  - passed(Boolean)(R)
+  - built(Boolean)(R)
 
 
 
@@ -270,7 +298,8 @@ Fields
   - updated(DateTime)(R)
   - name(String)(RC)(Req)
   - created(DateTime)(R)
-  - github_url(String)(RW)(Req)
+  - _org(String)(RW)(Req)
+  - _repo(String)(RW)(Req)
   - local_path(String)(R)
   - last_checked(DateTime)(RW)(Req)
 
@@ -299,6 +328,33 @@ Fields
   - created(DateTime)(R)
   - updated(DateTime)(R)
   - package(Model)(RW)(Req) uri: /api/v1/Project/Package
+
+
+
+Model - GitProject
+------------------
+
+URL: /api/v1/Project/GitProject
+
+
+::
+
+  This is a Git Project
+
+
+
+
+Fields
+~~~~~~
+
+::
+
+  - updated(DateTime)(R)
+  - name(String)(RC)(Req)
+  - created(DateTime)(R)
+  - local_path(String)(R)
+  - git_url(String)(RW)(Req)
+  - last_checked(DateTime)(RW)(Req)
 
 
 
@@ -359,6 +415,32 @@ Fields
   - created(DateTime)(R)
   - hardware_template(String)(RW)(Req)
   - config_profile(String)(RW)(Req)
+  - description(String)(RW)(Req)
+
+
+
+Model - Resource
+----------------
+
+URL: /api/v1/Resource/Resource
+
+
+::
+
+  Resource
+
+
+
+
+Fields
+~~~~~~
+
+::
+
+  - config_profile(String)(RW)(Req)
+  - created(DateTime)(R)
+  - updated(DateTime)(R)
+  - name(String)(RC)(Req)
   - description(String)(RW)(Req)
 
 
@@ -435,6 +517,12 @@ URL: /api/v1/Processor/QueueItem
 
 
 
+List Filters
+~~~~~~~~~~~~
+
+::
+
+  - project - project(Model)(Req) uri: /api/v1/Project/Project
 
 Fields
 ~~~~~~
@@ -443,7 +531,7 @@ Fields
 
   - priority(Integer)(RW)(Req)
   - updated(DateTime)(R)
-  - resource_groups(ModelList)(RW)(Req) uri: /api/v1/Resource/ResourceGroup
+  - resource_groups(ModelList)(RW)(Req) uri: /api/v1/Resource/ResourceGroup - <django.utils.functional.__proxy__ object at 0x7f110d3c3750>
   - target(String)(RW)(Req)
   - created(DateTime)(R)
   - manual(Boolean)(RW)
@@ -453,6 +541,25 @@ Fields
   - branch(String)(RW)(Req)
   - commit(Model)(RW) uri: /api/v1/Project/Commit
   - promotion(Model)(RW) uri: /api/v1/Processor/Promotion
+
+
+
+Action - queue
+~~~~~~~~~~~~~~
+
+URL: /api/v1/Processor/QueueItem(queue)
+
+Static: True
+
+
+
+Return Type::
+
+  None(String)(Req)
+
+Paramaters::
+
+  - build(Model)(Req) uri: /api/v1/Project/Build
 
 
 
@@ -474,9 +581,9 @@ Fields
 
 ::
 
-  - status(ModelList)(RW)(Req) uri: /api/v1/Project/Build
+  - status(ModelList)(RW)(Req) uri: /api/v1/Project/Build - <django.utils.functional.__proxy__ object at 0x7f110d380190>
   - updated(DateTime)(R)
-  - package_versions(ModelList)(RW)(Req) uri: /api/v1/Project/PackageVersion
+  - package_versions(ModelList)(RW)(Req) uri: /api/v1/Project/PackageVersion - <django.utils.functional.__proxy__ object at 0x7f110d380090>
   - to_state(String)(RW)(Req)
   - created(DateTime)(R)
 
@@ -541,13 +648,26 @@ URL: /api/v1/Processor/BuildJob
   BuildJob
 
 
+Constants
+~~~~~~~~
 
+::
+
+  - STATE_LIST
+
+List Filters
+~~~~~~~~~~~~
+
+::
+
+  - project - project(Model)(Req) uri: /api/v1/Project/Project
 
 Fields
 ~~~~~~
 
 ::
 
+  - suceeded(String)(R)
   - updated(DateTime)(R)
   - ran_at(DateTime)(R)
   - target(String)(RW)(Req)
@@ -557,12 +677,13 @@ Fields
   - acknowledged_at(DateTime)(R)
   - project(Model)(RW)(Req) uri: /api/v1/Project/Project
   - reported_at(DateTime)(R)
+  - state(String)(R)
   - build(Model)(R)(Req) uri: /api/v1/Project/Build
   - branch(String)(RW)(Req)
   - released_at(DateTime)(R)
   - commit(Model)(RW) uri: /api/v1/Project/Commit
   - promotion(Model)(RW) uri: /api/v1/Processor/Promotion
-  - networks(ModelList)(RW)(Req) uri: /api/v1/Resource/NetworkResource
+  - networks(ModelList)(RW)(Req) uri: /api/v1/Resource/NetworkResource - <django.utils.functional.__proxy__ object at 0x7f110d3d2c50>
   - resources(String)(RW)(Req)
 
 
@@ -626,6 +747,22 @@ Paramaters::
   - status(String)(Req)
   - index(Integer)(Req)
   - name(String)(Req)
+
+
+
+Action - acknowledge
+~~~~~~~~~~~~~~~~~~~~
+
+URL: /api/v1/Processor/BuildJob(acknowledge)
+
+Static: False
+
+
+
+Return Type::
+
+  None(String)(Req)
+
 
 
 

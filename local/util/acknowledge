@@ -18,4 +18,5 @@ if not job.reported_at:
   print 'Job %s not reported, can not acknowledge.' % job_id
   sys.exit( 1 )
 
-job.acknowledge()
+job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+job.save()

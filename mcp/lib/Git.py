@@ -41,18 +41,28 @@ class Git( object ):
     os.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
 
   def update( self ):
-    self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*' ] )
+    self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*', '--force' ] )
     self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
 
-  #http://gitready.com/intermediate/2009/02/13/list-remote-branches.html
-  def branch_map( self ):
+  def fetch_branch( self, remote_name, local_name ):
+    self._execute( [ 'fetch', 'origin', '%s:%s' % ( remote_name, local_name ), '--force' ] )
+    self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
+
+  def remove_branch( self, branch ):
+    if branch == 'master':
+      raise Exception( 'Master Branch is not Deleteable' )
+
+    self._execute( [ 'branch', '-D', branch ] )
+
+  def ref_map( self ):
     result = {}
-    branch_list = self._execute( [ 'branch', '--list', '--verbose' ] )
-    for item in branch_list:
-      if item[0] == '*':
-        item  = item[1:]
-      ( name, hash, _ ) = item.split( None, 2 )
-      result[ name ] = hash
+    ref_list = self._execute( [ 'show-ref' ] )
+    for item in ref_list:
+      ( ref_hash, ref ) = item.split()
+      if not ref.startswith( 'refs/heads/' ):
+        continue
+
+      result[ ref[11:] ] = ref_hash
 
     return result
 

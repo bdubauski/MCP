@@ -29,6 +29,6 @@ while job.reported_at is None:
   time.sleep( 5 )
   job = BuildJob.objects.get( pk=job_id )
 
-
 print 'Setting job to Acknoledged....'
-job.acknowledge()
+job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+job.save()

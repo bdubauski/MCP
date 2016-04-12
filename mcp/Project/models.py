@@ -1,4 +1,5 @@
 import re
+import difflib
 
 from django.utils import simplejson
 from django.db import models
@@ -11,6 +12,83 @@ from mcp.Resource.models import Resource
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5
 RELEASE_TYPE_CHOICES = ( ( 'ci', 'CI' ), ( 'dev', 'Development' ), ( 'stage', 'Staging' ), ( 'prod', 'Production' ), ( 'depr', 'Deprocated' ) )
+
+def _markdownBlockQuote( lines ):
+  return '>' + re.sub( r'([\\`\*_{}\+\-\.\!#\(\)\[\]])', r'\\\1', '\n>'.join( lines ) )
+
+def _diffMarkDown( a, b ):
+  result = ''
+  sm = difflib.SequenceMatcher( None, a, b )
+  for group in sm.get_grouped_opcodes( 3 ):
+    for tag, i1, i2, j1, j2 in group:
+      if tag == 'replace':
+        result += '\n\n---\n\n_Changed %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( a[ i1:i2 ] )
+        result += '\n\n_To %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( b[ j1:j2 ] )
+
+      elif tag == 'delete':
+        result += '\n\n---\n\n_Removed %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( a[ i1:i2 ] )
+
+      elif tag == 'insert':
+        result += '\n\n---\n\n_Added %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( b[ j1:j2 ] )
+
+  if not result:
+    return '\n_No Change_\n'
+  else:
+    return result
+
+def _markdownResults( valueCur, valuePrev=None ):
+  result = ''
+
+  for target in valueCur:
+    result += '%s Results:\n\n' % target.title()
+    try:
+      tmp_target = valuePrev[ target ]
+    except ( TypeError, KeyError ):
+      tmp_target = None
+
+    for group in valueCur[ target ]:
+      try:
+        tmp_group = tmp_target[ group ]
+      except ( TypeError, KeyError ):
+        tmp_group = None
+
+      if isinstance( valueCur[ target ][ group ], dict ):
+        for subgroup in valueCur[ target ][ group ]:
+          try:
+            tmp_subgroup = tmp_group[ subgroup ]
+          except ( TypeError, KeyError ):
+            tmp_subgroup = None
+
+          lines = valueCur[ target ][ group ][ subgroup ][1].splitlines()
+
+          result += '**%s** - **%s**\n' % ( group, subgroup )
+          if tmp_subgroup is None:
+            result += '  Success: **%s**\n' % valueCur[ target ][ group ][ subgroup ][0]
+            result += _markdownBlockQuote( lines )
+
+          else:
+            result += '  Success: **%s** -> **%s**\n' % ( tmp_subgroup[0], valueCur[ target ][ group ][ subgroup ][0] )
+            result += _diffMarkDown( tmp_subgroup[1].splitlines(), lines )
+
+      else:
+        lines = valueCur[ target ][ group ][1].splitlines()
+
+        result += '**%s**\n' % group
+        if tmp_group is None:
+          result += '  Success: **%s**\n' % valueCur[ target ][ group ][0]
+          result += _markdownBlockQuote( lines )
+
+        else:
+          result += '  Success: **%s** -> **%s**\n' % ( tmp_group[0], valueCur[ target ][ group ][0] )
+          result += _diffMarkDown( tmp_group[1].splitlines(), lines )
+
+      result += '\n\n'
+
+  return result
 
 class Project( models.Model ):
   """
@@ -96,15 +174,14 @@ This is a Generic Project
 
     return None
 
-
   @property
   def status( self ):
     try:
-      commit = self.commit_set.filter( done_at__isnull=False ).order_by( '-created' )[0]
+      commit = self.commit_set.filter( branch='master', done_at__isnull=False ).order_by( '-created' )[0]
     except IndexError:
-      return { 'passed': False, 'built': False }
+      return { 'passed': None, 'built': None, 'at': None }
 
-    return { 'passed': commit.passed, 'built': commit.built }
+    return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
 
   def save( self, *args, **kwargs ):
     if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
@@ -115,12 +192,6 @@ This is a Generic Project
 
     super( Project, self ).save( *args, **kwargs )
 
-  def postResults( self, commit, lint, test, build ):
-    try:
-      self.githubproject.postResults( commit, lint, test, build )
-    except ObjectDoesNotExist:
-      pass
-
   def __unicode__( self ):
     return 'Project "%s"' % self.name
 
@@ -128,7 +199,14 @@ This is a Generic Project
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
     properties = ( 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' )
     hide_fields = ( 'local_path', )
+    list_filters = { 'my_projects': {} }
 
+    @staticmethod
+    def buildQS( qs, user, filter, values ):
+      if filter == 'my_projects':
+        return qs.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
+
+      raise Exception( 'Invalid filter "%s"' % filter )
 
 class GitProject( Project ):
   """
@@ -164,45 +242,19 @@ This is a GitHub Project
     except ObjectDoesNotExist:
       return None
 
+  @property
+  def github( self ):
+    try:
+      if self._github:
+        return self._github
+    except AttributeError:
+      pass
+
+    self._github = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS, self.org, self.repo )
+    return self._github
+
   def __unicode__( self ):
     return 'GitHub Project "%s"(%s/%s)' % ( self.name, self._org, self._repo )
-
-  def postResults( self, commit, lint, test, build ):
-    gh = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS )
-    comment = ''
-    if lint:
-      lint = simplejson.loads( lint )
-    if test:
-      test = simplejson.loads( test )
-    if build:
-      build = simplejson.loads( build )
-
-    if lint:
-      comment += 'Lint Results:\n\n'
-      for distro in lint:
-        comment += '**%s**\n' % distro
-        comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
-        comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if test:
-      comment += 'Test Results:\n\n'
-      for distro in test:
-        comment += '**%s**\n' % distro
-        comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
-        comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if build:
-      comment += 'Build Results:\n\n'
-      for target in build:
-        for distro in build[ target ]:
-          comment += '**%s** - **%s**\n' % ( target, distro )
-          comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
-          comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if not comment:
-      comment = '**Nothing To Do**'
-
-    gh.postComment( self.org, self.repo, commit, comment )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -253,7 +305,9 @@ class Commit( models.Model ):
   """
 A Single Commit of a Project
   """
+  STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'done' )
   project = models.ForeignKey( Project )
+  owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
   lint_results = models.TextField( default='{}' )
@@ -263,10 +317,77 @@ A Single Commit of a Project
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  passed = models.BooleanField( editable=False, default=False )
-  built = models.BooleanField( editable=False, default=False )
+  passed = models.NullBooleanField( editable=False, blank=True, null=True )
+  built = models.NullBooleanField( editable=False, blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @property
+  def state( self ):
+    if self.done_at and self.build_at and self.test_at and self.lint_at:
+      return 'done'
+
+    if self.build_at and self.test_at and self.lint_at:
+      return 'built'
+
+    if self.test_at and self.lint_at:
+      return 'tested'
+
+    if self.lint_at:
+      return 'linted'
+
+    return 'new'
+
+  @property
+  def summary( self ):
+    if self.passed is None and self.built is None:
+      return None
+
+    result = []
+
+    if self.passed is True:
+      result.append( 'Passed: True' )
+    elif self.passed is False:
+      result.append( 'Passed: False' )
+
+    if self.built is True:
+      result.append( 'Built: True' )
+    elif self.built is False:
+      result.append( 'Built: False' )
+
+    return '\n'.join( result )
+
+  @property
+  def results( self ): # for now in Markdown format
+    result = {}
+
+    if self.lint_results:
+      tmp = simplejson.loads( self.lint_results )
+      if tmp:
+        result[ 'lint' ] = {}
+        for distro in tmp:
+          if tmp[ distro ].get( 'results', None ) is not None:
+            result[ 'lint' ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+
+    if self.test_results:
+      tmp = simplejson.loads( self.test_results )
+      if tmp:
+        result[ 'test' ] = {}
+        for distro in tmp:
+          if tmp[ distro ].get( 'results', None ) is not None:
+            result[ 'test' ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+
+    if self.build_results:
+      tmp = simplejson.loads( self.build_results )
+      if tmp:
+        result[ 'build' ] = {}
+        for target in tmp:
+          result[ 'build' ][ target ] = {}
+          for distro in tmp[ target ]:
+            if tmp[ target ][ distro ].get( 'results', None ) is not None:
+              result[ 'build' ][ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ] )
+
+    return result
 
   def save( self, *args, **kwargs ):
     try:
@@ -291,7 +412,7 @@ A Single Commit of a Project
       return
 
     sucess = resources[ 'target' ][0].get( 'success', False )
-    results = resources[ 'target' ][0].get( 'results', '<not specified>' )
+    results = resources[ 'target' ][0].get( 'results', None )
 
     if target == 'lint':
       status = simplejson.loads( self.lint_results )
@@ -319,20 +440,79 @@ A Single Commit of a Project
 
     self.save()
 
+  def postInProcess( self ):
+    if self.project.type != 'GitHubProject':
+      return
+
+    if not self.branch.startswith( '_PR' ):
+      return
+
+    gh = self.project.githubproject.github
+    if self.owner_override:
+      gh.setOwner( self.owner_override )
+    gh.postCommitStatus( self.commit, 'pending' )
+    gh.setOwner()
+
+  def postResults( self ):
+    if self.project.type != 'GitHubProject':
+      return
+
+    gh = self.project.githubproject.github
+    if self.owner_override:
+      gh.setOwner( self.owner_override )
+
+    comment = self.results
+
+    try:
+      prev_comment = Commit.objects.filter( project=self.project, branch=self.branch, done_at__lt=self.done_at ).order_by( '-done_at' )[0].results
+    except ( Commit.DoesNotExist, IndexError ):
+      prev_comment = None
+
+    if prev_comment is None and comment is None:
+      comment = '**Nothing To Do**'
+    elif prev_comment is not None and comment is None:
+      comment = '**Last Commit Had Results, This One Did Not**'
+    else:
+      comment = _markdownResults( comment, prev_comment )
+
+    gh.postCommitComment( self.commit, comment )
+
+    if self.branch.startswith( '_PR' ):
+      summary = self.summary
+
+      if summary is None:
+        summary = '**Nothing To Do**'
+
+      if self.passed is None and self.built is None:
+        gh.postCommitStatus( self.commit, 'success', description='No Test/Lint/Build to do' )
+      elif self.built is False:
+        gh.postCommitStatus( self.commit, 'error', description='Package Build Error' )
+      elif self.passed is False:
+        gh.postCommitStatus( self.commit, 'failure', description='Test/Lint Failure' )
+      elif self.passed is True:
+        gh.postCommitStatus( self.commit, 'success', description='Test/Lint Passed' )
+
+      gh.setOwner()
+
+      number = int( self.branch[3:] )
+      gh.postPRComment( number, summary )
+
   def __unicode__( self ):
     return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
 
   class Meta:
-      unique_together = ( 'project', 'commit' )
+      unique_together = ( 'project', 'commit', 'branch' )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    constants = ( 'STATE_LIST', )
+    properties = ( 'state', )
     list_filters = { 'project': { 'project': Project }, 'in_process': {} }
 
     @staticmethod
-    def buildQS( qs, filter, values ):
+    def buildQS( qs, user, filter, values ):
       if filter == 'project':
-        return qs.filter( project=values[ 'project' ] )
+        return qs.filter( project=values[ 'project' ] ).order_by( '-created' )
 
       if filter == 'in_process':
         return qs.filter( done_at__isnull=True )
@@ -378,7 +558,7 @@ This is a type of Build that can be done
     list_filters = { 'project': { 'project': Project } }
 
     @staticmethod
-    def buildQS( qs, filter, values ):
+    def buildQS( qs, user, filter, values ):
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 
