@@ -1,4 +1,5 @@
 import re
+import difflib
 
 from django.utils import simplejson
 from django.db import models
@@ -11,6 +12,83 @@ from mcp.Resource.models import Resource
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5
 RELEASE_TYPE_CHOICES = ( ( 'ci', 'CI' ), ( 'dev', 'Development' ), ( 'stage', 'Staging' ), ( 'prod', 'Production' ), ( 'depr', 'Deprocated' ) )
+
+def _markdownBlockQuote( lines ):
+  return '>' + re.sub( r'([\\`\*_{}\+\-\.\!#\(\)\[\]])', r'\\\1', '\n>'.join( lines ) )
+
+def _diffMarkDown( a, b ):
+  result = ''
+  sm = difflib.SequenceMatcher( None, a, b )
+  for group in sm.get_grouped_opcodes( 3 ):
+    for tag, i1, i2, j1, j2 in group:
+      if tag == 'replace':
+        result += '\n\n---\n\n_Changed %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( a[ i1:i2 ] )
+        result += '\n\n_To %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( b[ j1:j2 ] )
+
+      elif tag == 'delete':
+        result += '\n\n---\n\n_Removed %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( a[ i1:i2 ] )
+
+      elif tag == 'insert':
+        result += '\n\n---\n\n_Added %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += _markdownBlockQuote( b[ j1:j2 ] )
+
+  if not result:
+    return '\n_No Change_\n'
+  else:
+    return result
+
+def _markdownResults( valueCur, valuePrev=None ):
+  result = ''
+
+  for target in valueCur:
+    result += '%s Results:\n\n' % target.title()
+    try:
+      tmp_target = valuePrev[ target ]
+    except ( TypeError, KeyError ):
+      tmp_target = None
+
+    for group in valueCur[ target ]:
+      try:
+        tmp_group = tmp_target[ group ]
+      except ( TypeError, KeyError ):
+        tmp_group = None
+
+      if isinstance( valueCur[ target ][ group ], dict ):
+        for subgroup in valueCur[ target ][ group ]:
+          try:
+            tmp_subgroup = tmp_group[ subgroup ]
+          except ( TypeError, KeyError ):
+            tmp_subgroup = None
+
+          lines = valueCur[ target ][ group ][ subgroup ][1].splitlines()
+
+          result += '**%s** - **%s**\n' % ( group, subgroup )
+          if tmp_subgroup is None:
+            result += '  Success: **%s**\n' % valueCur[ target ][ group ][ subgroup ][0]
+            result += _markdownBlockQuote( lines )
+
+          else:
+            result += '  Success: **%s** -> **%s**\n' % ( tmp_subgroup[0], valueCur[ target ][ group ][ subgroup ][0] )
+            result += _diffMarkDown( tmp_subgroup[1].splitlines(), lines )
+
+      else:
+        lines = valueCur[ target ][ group ][1].splitlines()
+
+        result += '**%s**\n' % group
+        if tmp_group is None:
+          result += '  Success: **%s**\n' % valueCur[ target ][ group ][0]
+          result += _markdownBlockQuote( lines )
+
+        else:
+          result += '  Success: **%s** -> **%s**\n' % ( tmp_group[0], valueCur[ target ][ group ][0] )
+          result += _diffMarkDown( tmp_group[1].splitlines(), lines )
+
+      result += '\n\n'
+
+  return result
 
 class Project( models.Model ):
   """
@@ -260,6 +338,57 @@ A Single Commit of a Project
 
     return 'new'
 
+  @property
+  def summary( self ):
+    if self.passed is None and self.built is None:
+      return None
+
+    result = []
+
+    if self.passed is True:
+      result.append( 'Passed: True' )
+    elif self.passed is False:
+      result.append( 'Passed: False' )
+
+    if self.built is True:
+      result.append( 'Built: True' )
+    elif self.built is False:
+      result.append( 'Built: False' )
+
+    return '\n'.join( result )
+
+  @property
+  def results( self ): # for now in Markdown format
+    result = {}
+
+    if self.lint_results:
+      tmp = simplejson.loads( self.lint_results )
+      if tmp:
+        result[ 'lint' ] = {}
+        for distro in tmp:
+          if tmp[ distro ].get( 'results', None ) is not None:
+            result[ 'lint' ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+
+    if self.test_results:
+      tmp = simplejson.loads( self.test_results )
+      if tmp:
+        result[ 'test' ] = {}
+        for distro in tmp:
+          if tmp[ distro ].get( 'results', None ) is not None:
+            result[ 'test' ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+
+    if self.build_results:
+      tmp = simplejson.loads( self.build_results )
+      if tmp:
+        result[ 'build' ] = {}
+        for target in tmp:
+          result[ 'build' ][ target ] = {}
+          for distro in tmp[ target ]:
+            if tmp[ target ][ distro ].get( 'results', None ) is not None:
+              result[ 'build' ][ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ] )
+
+    return result
+
   def save( self, *args, **kwargs ):
     try:
       simplejson.loads( self.lint_results )
@@ -315,6 +444,9 @@ A Single Commit of a Project
     if self.project.type != 'GitHubProject':
       return
 
+    if not self.branch.startswith( '_PR' ):
+      return
+
     gh = self.project.githubproject.github
     if self.owner_override:
       gh.setOwner( self.owner_override )
@@ -329,75 +461,39 @@ A Single Commit of a Project
     if self.owner_override:
       gh.setOwner( self.owner_override )
 
-    comment = ''
-    summary = ''
+    comment = self.results
 
-    if self.lint_results:
-      lint = simplejson.loads( self.lint_results )
-    else:
-      lint = None
+    try:
+      prev_comment = Commit.objects.filter( project=self.project, branch=self.branch, done_at__lt=self.done_at ).order_by( '-done_at' )[0].results
+    except ( Commit.DoesNotExist, IndexError ):
+      prev_comment = None
 
-    if self.test_results:
-      test = simplejson.loads( self.test_results )
-    else:
-      test = None
-
-    if self.build_results:
-      build = simplejson.loads( self.build_results )
-    else:
-      build = None
-
-    if lint:
-      comment += 'Lint Results:\n\n'
-      for distro in lint:
-        if lint[ distro ].get( 'results', None ) is not None:
-          comment += '**%s**\n' % distro
-          comment += '  Success: **%s**\n' % lint[ distro ].get( 'success', False )
-          comment += '>' + lint[ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if test:
-      comment += 'Test Results:\n\n'
-      for distro in test:
-        if test[ distro ].get( 'results', None ) is not None:
-          comment += '**%s**\n' % distro
-          comment += '  Success: **%s**\n' % test[ distro ].get( 'success', False )
-          comment += '>' + test[ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if build:
-      comment += 'Build Results:\n\n'
-      for target in build:
-        for distro in build[ target ]:
-          if build[ target ][ distro ].get( 'results', None ) is not None:
-            comment += '**%s** - **%s**\n' % ( target, distro )
-            comment += '  Success: **%s**\n' % build[ target ][ distro ].get( 'success', False )
-            comment += '>' + build[ target ][ distro ][ 'results' ].replace( '\n', '\n>' )
-
-    if self.passed is not None:
-      if self.passed:
-        summary += 'Passed: True\n'
-        gh.postCommitStatus( self.commit, 'success', description='Test/Lint Passed' )
-      else:
-        summary += 'Passed: False\n'
-        gh.postCommitStatus( self.commit, 'failure', description='Test/Lint Failure' )
-
-    if self.built is not None:
-      if self.built:
-        summary += 'Built: True\n'
-      else:
-        summary += 'Built: False\n'
-        gh.postCommitStatus( self.commit, 'error', description='Package Build Error' )
-
-    if not comment:
+    if prev_comment is None and comment is None:
       comment = '**Nothing To Do**'
-
-    if not summary:
-      summary = '**Nothing To Do**'
+    elif prev_comment is not None and comment is None:
+      comment = '**Last Commit Had Results, This One Did Not**'
+    else:
+      comment = _markdownResults( comment, prev_comment )
 
     gh.postCommitComment( self.commit, comment )
 
-    gh.setOwner()
-
     if self.branch.startswith( '_PR' ):
+      summary = self.summary
+
+      if summary is None:
+        summary = '**Nothing To Do**'
+
+      if self.passed is None and self.built is None:
+        gh.postCommitStatus( self.commit, 'success', description='No Test/Lint/Build to do' )
+      elif self.built is False:
+        gh.postCommitStatus( self.commit, 'error', description='Package Build Error' )
+      elif self.passed is False:
+        gh.postCommitStatus( self.commit, 'failure', description='Test/Lint Failure' )
+      elif self.passed is True:
+        gh.postCommitStatus( self.commit, 'success', description='Test/Lint Passed' )
+
+      gh.setOwner()
+
       number = int( self.branch[3:] )
       gh.postPRComment( number, summary )
 

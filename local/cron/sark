@@ -146,7 +146,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     job.promotion.signalComplete( job.build )
 
   else:
-    logging.warning( 'Job has nothing to report to, hopfully that was intentional' )
+    logging.info( 'Job has nothing to report to, hopfully that was intentional' )
 
   logging.info( 'Setting job "%s" to Reported.' % job.id )
   job.reported_at = datetime.utcnow().replace( tzinfo=utc )

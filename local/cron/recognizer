@@ -83,8 +83,8 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
       logging.info( 'Lint for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
       commit.done_at = datetime.utcnow().replace( tzinfo=utc )
       slack.post_message( 'Lint for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
-      commit.postResults()
       commit.passed = False
+      commit.postResults()
     else:
       slack.post_message( 'Lint for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
 
@@ -124,8 +124,8 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       logging.info( 'Test for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
       commit.done_at = datetime.utcnow().replace( tzinfo=utc )
       slack.post_message( 'Test for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
-      commit.postResults()
       commit.passed = False
+      commit.postResults()
     else:
       slack.post_message( 'Test for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
       commit.passed = True
