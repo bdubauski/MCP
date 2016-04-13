@@ -318,6 +318,10 @@ function hashChange( event )
                 {
                   buttons = '<button type="button" class="btn btn-primary btn-sm" uri="' + uri + '" kind="' + item.target + ' job" action="acknowledge" do="action">Acknowledge</button>';
                 }
+                if( item.state == 'built' && ( item.manual || !item.suceeded ) )
+                {
+                  buttons = '<button type="button" class="btn btn-danger btn-sm" uri="' + uri + '" kind="' + item.target + ' job" action="jobRan" do="action">Force Ran</button>';
+                }
                 if( !item.manual )
                 {
                   var targetIcon = '<i class="fa fa-cogs fa-lg fa-fw"></i>'
