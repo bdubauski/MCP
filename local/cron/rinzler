@@ -13,6 +13,7 @@ import glob
 import json
 import shutil
 import socket
+from ssl import SSLError
 from datetime import datetime
 from logging.handlers import SysLogHandler
 from django.utils.timezone import utc
@@ -171,15 +172,19 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
   if project.type == 'GitHubProject':
     try:
       github = project.githubproject.github
-    except socket.timeout:
-      logging.warning( 'Connection Timedout connecting to github, will try again later.' )
+    except ( socket.timeout, SSLError ):
+      logging.warning( 'Connection Error connecting to github, will try again later.' )
       continue
     except Exception as e:
       logging.error( 'Error getting github connection, will try again later. %s' % e )
       continue
 
   if github is not None:
-    pull_list = github.getPullRequests()
+    try:
+      pull_list = github.getPullRequests()
+    except ( socket.timeout, SSLError ):
+      logging.warning( 'Connection Error connecting to github, will try again later.' )
+      continue
 
     for branch in git.ref_map():
       if branch.startswith( '_PR' ):
