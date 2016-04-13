@@ -363,31 +363,40 @@ A Single Commit of a Project
 
     if self.lint_results:
       tmp = simplejson.loads( self.lint_results )
-      if tmp:
-        result[ 'lint' ] = {}
-        for distro in tmp:
-          if tmp[ distro ].get( 'results', None ) is not None:
-            result[ 'lint' ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+      wrk = {}
+      for distro in tmp:
+        if tmp[ distro ].get( 'results', None ) is not None:
+          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+
+      if wrk:
+        result[ 'lint' ] = wrk
 
     if self.test_results:
       tmp = simplejson.loads( self.test_results )
-      if tmp:
-        result[ 'test' ] = {}
-        for distro in tmp:
-          if tmp[ distro ].get( 'results', None ) is not None:
-            result[ 'test' ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+      wrk = {}
+      for distro in tmp:
+        if tmp[ distro ].get( 'results', None ) is not None:
+          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+
+      if wrk:
+        result[ 'test' ] = wrk
 
     if self.build_results:
       tmp = simplejson.loads( self.build_results )
-      if tmp:
-        result[ 'build' ] = {}
-        for target in tmp:
-          result[ 'build' ][ target ] = {}
-          for distro in tmp[ target ]:
-            if tmp[ target ][ distro ].get( 'results', None ) is not None:
-              result[ 'build' ][ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ] )
+      wrk = {}
+      for target in tmp:
+        wrk[ target ] = {}
+        for distro in tmp[ target ]:
+          if tmp[ target ][ distro ].get( 'results', None ) is not None:
+            wrk[ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ] )
 
-    return result
+      if wrk:
+        result[ 'build' ] = wrk
+
+    if not result:
+      return None
+    else:
+      return result
 
   def save( self, *args, **kwargs ):
     try:
