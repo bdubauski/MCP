@@ -50,22 +50,45 @@ class GitHub( object ):
     return self._ghRepo
 
   def getCommit( self, commit_hash ):
-    return self.ghRepo.get_commit( commit_hash )
+    try:
+      return self.ghRepo.get_commit( commit_hash )
+    except UnknownObjectException:
+      return None
+
+  def getPR( self, id ):
+    try:
+      return self.ghRepo.get_pull( id )
+    except UnknownObjectException:
+      return None
 
   def postCommitComment( self, commit_hash, comment, line=GithubObject.NotSet, path=GithubObject.NotSet, position=GithubObject.NotSet ):
-    self.getCommit( commit_hash ).create_comment( comment, line, path, position )
+    commit = self.getCommit( commit_hash )
+    if commit is None:
+      logging.warning( 'Unable get Commit "%s" of "%s" in "%s"' % ( commit_hash, self.repo, self.org ) )
+      return
+
+    commit.create_comment( comment, line, path, position )
 
   def postCommitStatus( self, commit_hash, state, target_url=GithubObject.NotSet, description=GithubObject.NotSet ):
     if state not in ( 'pending', 'success', 'error', 'failure' ):
       raise GitHubException( 'Invalid state' )
 
+    commit = self.getCommit( commit_hash )
+    if commit is None:
+      logging.warning( 'Unable get Commit "%s" of "%s" in "%s"' % ( commit_hash, self.repo, self.org ) )
+      return
+
     try:
-      self.getCommit( commit_hash ).create_status( state, target_url, description )
+      commit.create_status( state, target_url, description )
     except UnknownObjectException:
       logging.warning( 'Unable to set status on commit "%s" of "%s" in "%s", check permissions' % ( commit_hash, self.repo, self.org ) )
 
   def postPRComment( self, id, comment ):
-    pr = self.ghRepo.get_pull( id )
+    pr = self.getPR( id )
+    if pr is None:
+      logging.warning( 'Unable get PR "%s" of "%s" in "%s"' % ( id, self.repo, self.org ) )
+      return
+
     pr.create_issue_comment( comment )
 
   def getRepos( self ):
@@ -83,4 +106,9 @@ class GitHub( object ):
     return [ i.number for i in self.ghRepo.get_pulls() ]
 
   def getPullRequestOwner( self, id ):
-    return self.ghRepo.get_pull( id ).user.login
+    pr = self.getPR( id )
+    if pr is None:
+      logging.warning( 'Unable get PR "%s" of "%s" in "%s"' % ( id, self.repo, self.org ) )
+      return None
+
+    return pr.user.login

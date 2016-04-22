@@ -43,7 +43,10 @@ def _diffMarkDown( a, b ):
 def _markdownResults( valueCur, valuePrev=None ):
   result = ''
 
-  for target in valueCur:
+  for target in ( 'lint', 'test', 'build' ):
+    if target not in valueCur:
+      continue
+
     result += '%s Results:\n\n' % target.title()
     try:
       tmp_target = valuePrev[ target ]
@@ -285,7 +288,7 @@ class PackageVersion( models.Model ):
   """
 This is a Version of a Package
   """
-  package = models.ForeignKey( Package )
+  package = models.ForeignKey( Package, on_delete=models.CASCADE )
   version = models.CharField( max_length=50 )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -306,7 +309,7 @@ class Commit( models.Model ):
 A Single Commit of a Project
   """
   STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'done' )
-  project = models.ForeignKey( Project )
+  project = models.ForeignKey( Project, on_delete=models.CASCADE )
   owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
@@ -535,7 +538,7 @@ This is a type of Build that can be done
   """
   key = models.CharField( max_length=160, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
   name = models.CharField( max_length=100 )
-  project = models.ForeignKey( Project )
+  project = models.ForeignKey( Project, on_delete=models.CASCADE )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
   resources = models.ManyToManyField( Resource, through='BuildResource', help_text='' )
   networks = models.TextField( default='{}' )
@@ -576,8 +579,8 @@ This is a type of Build that can be done
 
 class BuildDependancy( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True ) # until django supports multi filed primary keys
-  build = models.ForeignKey( Build )
-  package = models.ForeignKey( Package )
+  build = models.ForeignKey( Build, on_delete=models.CASCADE )
+  package = models.ForeignKey( Package, on_delete=models.CASCADE )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
   def save( self, *args, **kwargs ):
@@ -597,8 +600,8 @@ class BuildDependancy( models.Model ):
 
 class BuildResource( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
-  build = models.ForeignKey( Build )
-  resource = models.ForeignKey( Resource )
+  build = models.ForeignKey( Build, on_delete=models.CASCADE )
+  resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
 

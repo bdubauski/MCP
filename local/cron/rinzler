@@ -18,6 +18,7 @@ from datetime import datetime
 from logging.handlers import SysLogHandler
 from django.utils.timezone import utc
 from django.conf import settings
+from django.db import ProtectedError
 
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
@@ -59,8 +60,8 @@ def _makeBuild( build_name, project, manual ):
   network_list = make.networks( build_name )
   logging.debug( 'Build: "%s" depends: "%s" resources: "%s" networks: "%s".' % ( build_name, dependancy_list, resource_list, network_list ) )
   try:
-    build = Build.objects.get( project=project, name=build_name )
-    for item in build.buildresource_set.all(): #TODO: update instead of delete and re add
+    build = project.build_set.get( name=build_name )
+    for item in build.buildresource_set.all(): #TODO: update instead of delete and re-add
       item.delete()
 
     for item in build.builddependancy_set.all():
@@ -253,9 +254,6 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
     if branch == 'master':
       logging.info( 'Updating Builds info...' )
-      for build in project.build_set.all(): #TODO: update what has changed, not delete everything and re-add everything
-        build.delete()
-
       try:
         build_list = make.autoBuilds()
       except MakeException as e:
@@ -263,6 +261,16 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
         continue
 
       logging.debug( 'Auto Builds "%s".' % build_list )
+
+      existing_builds = [ i.name for i in project.build_set.all() ]
+
+      for build_name in set( existing_builds ) - set( build_list ):
+        build = project.build_set.get( name=build_name )
+        try:
+          build.delete() # this could cause an error if there is a build curently operating, if so, punt to later
+        except ProtectedError:
+          pass # can't delete now, will try on next update
+
       for build in build_list:
         _makeBuild( build, project, False )
 

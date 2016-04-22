@@ -7,6 +7,9 @@ from mcp.Project.models import Project, GitHubProject
 from mcp.lib.GitHub import GitHub, GitHubException
 
 class MCPUser( User ):
+  """
+  MCPUser is used to auth against MCP, and includes github and slack info
+  """
   projects = models.ManyToManyField( Project, through='MCPUserProject', help_text='' ) # github logins will reset this upon login
   github_username = models.CharField( max_length=100, blank=True, null=True ) # to auth aginst github
   slack_handle = models.CharField( max_length=100, blank=True, null=True ) # to notify when a job complets
@@ -51,10 +54,10 @@ class MCPUser( User ):
     except MCPUser.DoesNotExist:
       return False
 
-    return { 'github_username': user.github_username, 'slack_handle': user.slack_handle }
+    return { 'github_username': user.github_username, 'slack_handle': user.slack_handle, 'first_name': user.first_name, 'last_name': user.last_name, 'email': user.email }
 
   @staticmethod
-  def updateProfile( _user_, slack_handle=None ):
+  def updateProfile( _user_, first_name, last_name, email, slack_handle ):
     if _user_.is_anonymous():
       return False
 
@@ -63,8 +66,10 @@ class MCPUser( User ):
     except MCPUser.DoesNotExist:
       return False
 
-    if slack_handle is not None:
-      user.slack_handle = slack_handle
+    user.first_name = first_name
+    user.last_name = last_name
+    user.email = email
+    user.slack_handle = slack_handle
 
     user.save()
     return True
@@ -106,9 +111,9 @@ class MCPUser( User ):
     return 'MCPUser User "%s"' % self.username
 
   class API:
-    not_allowed_methods = ( 'GET', 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
+    not_allowed_methods = ( 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
     properties = ()
-    hide_fields = ( 'password', )
+    show_fields = ( 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle', )
     actions = {
                 'getProfile': [],
                 'updateProfile': [ { 'type': 'String' }, { 'type': 'String' } ],
@@ -116,8 +121,8 @@ class MCPUser( User ):
               }
 
 class MCPUserProject( models.Model ):
-  user = models.ForeignKey( MCPUser )
-  project = models.ForeignKey( Project )
+  user = models.ForeignKey( MCPUser, on_delete=models.CASCADE )
+  project = models.ForeignKey( Project, on_delete=models.CASCADE )
 
   def __unicode__( self ):
     return 'MCPUserProject for User "%s" Project "%s"' % ( self.user, self.project )
