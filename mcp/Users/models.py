@@ -45,24 +45,24 @@ class MCPUser( User ):
     return True
 
   @staticmethod
-  def getProfile( _user_ ):
-    if _user_.is_anonymous():
+  def getProfile( user ):
+    if user.is_anonymous():
       return False
 
     try:
-      user = MCPUser.objects.get( username=_user_.username )
+      user = MCPUser.objects.get( username=user.username )
     except MCPUser.DoesNotExist:
       return False
 
     return { 'github_username': user.github_username, 'slack_handle': user.slack_handle, 'first_name': user.first_name, 'last_name': user.last_name, 'email': user.email }
 
   @staticmethod
-  def updateProfile( _user_, first_name, last_name, email, slack_handle ):
-    if _user_.is_anonymous():
+  def updateProfile( user, first_name, last_name, email, slack_handle ):
+    if user.is_anonymous():
       return False
 
     try:
-      user = MCPUser.objects.get( username=_user_.username )
+      user = MCPUser.objects.get( username=user.username )
     except MCPUser.DoesNotExist:
       return False
 
@@ -75,12 +75,12 @@ class MCPUser( User ):
     return True
 
   @staticmethod
-  def selfRegister( _user_, github_username=None, github_password=None ):
+  def selfRegister( user, github_username=None, github_password=None ):
     """
     self Register a user, returns an array with error strigs if there are errors
     return True on success
     """
-    if not _user_.is_anonymous():
+    if not user.is_anonymous():
       return [ 'Must logout before Self Registering' ]
 
     user = None
@@ -105,7 +105,7 @@ class MCPUser( User ):
 
     user.groups.add( Group.objects.get( name=settings.SELFREGISTER_USER_GROUP ) )
 
-    return True
+    return None
 
   def __unicode__( self ):
     return 'MCPUser User "%s"' % self.username
@@ -115,9 +115,9 @@ class MCPUser( User ):
     properties = ()
     show_fields = ( 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle', )
     actions = {
-                'getProfile': [],
-                'updateProfile': [ { 'type': 'String' }, { 'type': 'String' } ],
-                'selfRegister': [ { 'type': 'String' }, { 'type': 'String' } ]
+                'getProfile': ( { 'type': 'Map' }, ( { 'type': '_USER_' } ) ),
+                'updateProfile': ( { 'type': 'Boolean' }, ( { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' } ) ),
+                'selfRegister': ( { 'type': 'StringList' }, (  { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' } ) )
               }
 
 class MCPUserProject( models.Model ):

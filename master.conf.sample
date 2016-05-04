@@ -15,7 +15,7 @@ PACKRAT_PSK = 'mcp'
 
 VMHOST = 1
 TARGET_SUBNET = 1
-TARGET_POD = 'mcp'
+TARGET_POD = 'test'
 
 HARDWARE_PROFILE = 'mcp-resource'
 CONFIGURE_PRIORITY_NORMAL = 50
@@ -25,6 +25,8 @@ SELFREGISTER_USER_GROUP = 'mcp_user'
 
 SITE_NAME = None
 
+SLACK_API_TOKEN = False
+SLACK_CHANNEL = '#mcp'
 SLACK_PROXY = None
 
 # SECURITY WARNING: keep the secret key used in production secret!

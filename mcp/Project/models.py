@@ -98,7 +98,7 @@ class Project( models.Model ):
 This is a Generic Project
   """
   name = models.CharField( max_length=50, primary_key=True )
-  local_path = models.CharField( max_length=50, null=True, blank=True, editable=False )
+  local_path = models.CharField( max_length=150, null=True, blank=True, editable=False )
   last_checked = models.DateTimeField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -207,6 +207,9 @@ This is a Generic Project
     @staticmethod
     def buildQS( qs, user, filter, values ):
       if filter == 'my_projects':
+        if user.is_anonymous():
+          return qs
+
         return qs.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
 
       raise Exception( 'Invalid filter "%s"' % filter )

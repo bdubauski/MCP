@@ -1,0 +1,43 @@
+#!/bin/bash
+set -e
+set -x
+
+if [ "x$1" == "x" ]
+then
+  print "usage $0 <path to answers file>"
+  exit 1
+fi
+
+a2dissite default
+a2dissite 000-default
+
+mv /etc/apache2/sites-enabled/plato.conf /etc/apache2/sites-enabled/000-plato.conf
+
+mkdir -p /var/www/http
+ln -s /var/www/plato-pxe /var/www/http/plato-pxe
+
+/etc/init.d/apache2 restart
+
+## Setup plato master
+
+/usr/local/plato/setup/setupWizard $1
+
+respkg --add-repo repo http://repo/json/prod/ main
+respkg --from-repo repo base-linux
+respkg --from-repo repo base-vm
+
+/usr/local/plato/util/gendns
+/etc/init.d/bind9 restart
+
+if [ "x$2" == "xpivot" ]
+then
+  # force configManager to look at the right plato
+  configManager --plato-host=plato --config-uuid=new --re-generate -f -c plato-client plato-client-config
+
+  hostname `cat /etc/hostname`
+
+  ifdown eth0
+  ifup eth0
+fi
+
+exit 0

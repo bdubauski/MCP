@@ -11,10 +11,10 @@ test-distros:
 	echo precise
 
 test-requires:
-	echo plato-master
+	echo plato-master respkg
 
 test:
-	/usr/local/plato/setup/setupWizard tests/setup-answers
+	tests/setupMaster test/setup-answers
 
 lint-requires:
 # linter not in precise	echo linter
@@ -36,4 +36,25 @@ dpkg-file:
 	echo $(shell ls ../mcp_*.deb):precise
 
 
-.PHONY: all clean test-distros test-requires test lint-requires lint dpkg-distros dpkg-requires dpkg
+.PHONY:: all clean test-distros test-requires test lint-requires lint dpkg-distros dpkg-requires dpkg dpkg-file
+
+# builds
+auto-builds:
+	echo installcheck
+
+installcheck-depends:
+	echo mcp:ci
+	echo plato:dev
+
+installcheck-resources:
+	echo plato-master:1:small-generic-precise
+
+installcheck-requires:
+	echo plato-master mcp
+
+installcheck:
+	cd tests && ./setupMaster setup-answers
+	nullunitInterface --signal-ran
+	touch installcheck
+
+.PHONY:: auto-builds installcheck-depends installcheck-resources installcheck-requires
