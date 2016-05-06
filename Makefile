@@ -14,7 +14,7 @@ test-requires:
 	echo plato-master respkg
 
 test:
-	tests/setupMaster test/setup-answers
+	tests/setupMaster $(CURDIR)/test/setup-answers
 
 lint-requires:
 # linter not in precise	echo linter
