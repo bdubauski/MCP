@@ -22,7 +22,7 @@ from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
 
 # in Hours
-CLEANUP_DELAY = 0.05
+CLEANUP_DELAY = 0.2
 AUTO_ACKNOLEDGE_DELAY = 24.0
 
 PID_FILE = '/var/run/sark.pid'
@@ -47,7 +47,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'sark', settings.SITE_NAME, settings.SLACK_PROXY )
+slack = Slack( 'sark', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
 
 # Iterate over the Queued Items
@@ -78,6 +78,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
     # Build a job
     job = BuildJob()
     job.manual = item.manual
+    job.user = item.user
     job.build = item.build
     job.project = item.project
     job.branch = item.branch
@@ -225,6 +226,7 @@ for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace(
   for bjnr in job.buildjobnetworkresource_set.all():
     bjnr.delete()
   job.delete()
+
 
 os.unlink( PID_FILE )
 logging.info( 'Done!' )

@@ -45,7 +45,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '%s\n' % os.getpid() )
 tmp.close()
 
-slack = Slack( 'tron', settings.SITE_NAME, settings.SLACK_PROXY )
+slack = Slack( 'tron', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
 def _queuePromotion( pkg_version, packrat_id, state, to_state ):
   package = pkg_version.package

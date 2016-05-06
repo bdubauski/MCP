@@ -2,4 +2,3 @@ www/*		/var/www/mcp
 mcp.conf	/etc/apache2/sites-available
 master.conf.sample	/etc/mcp
 local/* /usr/local/mcp
-manage.py	/usr/local/mcp/util

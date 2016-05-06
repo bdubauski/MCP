@@ -7,6 +7,9 @@ from mcp.Project.models import Project, GitHubProject
 from mcp.lib.GitHub import GitHub, GitHubException
 
 class MCPUser( User ):
+  """
+  MCPUser is used to auth against MCP, and includes github and slack info
+  """
   projects = models.ManyToManyField( Project, through='MCPUserProject', help_text='' ) # github logins will reset this upon login
   github_username = models.CharField( max_length=100, blank=True, null=True ) # to auth aginst github
   slack_handle = models.CharField( max_length=100, blank=True, null=True ) # to notify when a job complets
@@ -42,40 +45,42 @@ class MCPUser( User ):
     return True
 
   @staticmethod
-  def getProfile( _user_ ):
-    if _user_.is_anonymous():
+  def getProfile( user ):
+    if user.is_anonymous():
       return False
 
     try:
-      user = MCPUser.objects.get( username=_user_.username )
+      user = MCPUser.objects.get( username=user.username )
     except MCPUser.DoesNotExist:
       return False
 
-    return { 'github_username': user.github_username, 'slack_handle': user.slack_handle }
+    return { 'github_username': user.github_username, 'slack_handle': user.slack_handle, 'first_name': user.first_name, 'last_name': user.last_name, 'email': user.email }
 
   @staticmethod
-  def updateProfile( _user_, slack_handle=None ):
-    if _user_.is_anonymous():
+  def updateProfile( user, first_name, last_name, email, slack_handle ):
+    if user.is_anonymous():
       return False
 
     try:
-      user = MCPUser.objects.get( username=_user_.username )
+      user = MCPUser.objects.get( username=user.username )
     except MCPUser.DoesNotExist:
       return False
 
-    if slack_handle is not None:
-      user.slack_handle = slack_handle
+    user.first_name = first_name
+    user.last_name = last_name
+    user.email = email
+    user.slack_handle = slack_handle
 
     user.save()
     return True
 
   @staticmethod
-  def selfRegister( _user_, github_username=None, github_password=None ):
+  def selfRegister( user, github_username=None, github_password=None ):
     """
     self Register a user, returns an array with error strigs if there are errors
     return True on success
     """
-    if not _user_.is_anonymous():
+    if not user.is_anonymous():
       return [ 'Must logout before Self Registering' ]
 
     user = None
@@ -100,24 +105,24 @@ class MCPUser( User ):
 
     user.groups.add( Group.objects.get( name=settings.SELFREGISTER_USER_GROUP ) )
 
-    return True
+    return None
 
   def __unicode__( self ):
     return 'MCPUser User "%s"' % self.username
 
   class API:
-    not_allowed_methods = ( 'GET', 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
+    not_allowed_methods = ( 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
     properties = ()
-    hide_fields = ( 'password', )
+    show_fields = ( 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle', )
     actions = {
-                'getProfile': [],
-                'updateProfile': [ { 'type': 'String' }, { 'type': 'String' } ],
-                'selfRegister': [ { 'type': 'String' }, { 'type': 'String' } ]
+                'getProfile': ( { 'type': 'Map' }, ( { 'type': '_USER_' } ) ),
+                'updateProfile': ( { 'type': 'Boolean' }, ( { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' } ) ),
+                'selfRegister': ( { 'type': 'StringList' }, (  { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' } ) )
               }
 
 class MCPUserProject( models.Model ):
-  user = models.ForeignKey( MCPUser )
-  project = models.ForeignKey( Project )
+  user = models.ForeignKey( MCPUser, on_delete=models.CASCADE )
+  project = models.ForeignKey( Project, on_delete=models.CASCADE )
 
   def __unicode__( self ):
     return 'MCPUserProject for User "%s" Project "%s"' % ( self.user, self.project )

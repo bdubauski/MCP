@@ -1,1 +1,1 @@
-/etc/mcp/mcp.conf
+/etc/mcp/master.conf

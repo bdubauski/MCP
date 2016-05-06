@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
 from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
+from mcp.Users.models import MCPUser
 from plato.Config.lib import getSystemConfigValues
 from plato.Network.models import SubNet
 
@@ -33,8 +34,8 @@ class Promotion( models.Model ):
 
 
 class PromotionPkgVersion( models.Model ):
-  promotion = models.ForeignKey( Promotion )
-  package_version = models.ForeignKey( PackageVersion )
+  promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
+  package_version = models.ForeignKey( PackageVersion, on_delete=models.CASCADE )
   packrat_id = models.CharField( max_length=100 )
 
   def __unicode__( self ):
@@ -48,8 +49,8 @@ class PromotionPkgVersion( models.Model ):
 
 
 class PromotionBuild( models.Model ):
-  promotion = models.ForeignKey( Promotion )
-  build = models.ForeignKey( Build )
+  promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
+  build = models.ForeignKey( Build, on_delete=models.CASCADE )
   status = models.CharField( max_length=50 )
 
   def __unicode__( self ):
@@ -66,12 +67,13 @@ class QueueItem( models.Model ):
   """
 QueueItem
   """
-  build = models.ForeignKey( Build )
-  project = models.ForeignKey( Project )
+  build = models.ForeignKey( Build, on_delete=models.CASCADE, editable=False )
+  project = models.ForeignKey( Project, on_delete=models.CASCADE, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 ) # higher the value, higer the priority
   manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
+  user = models.ForeignKey( MCPUser, null=True, blank=True, on_delete=models.SET_NULL )
   resource_status = models.TextField( default='{}' )
   resource_groups = models.ManyToManyField( ResourceGroup, help_text='' )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
@@ -163,11 +165,12 @@ QueueItem
     return item
 
   @staticmethod
-  def queue( _user_, build ):
-    if not _user_.has_perm( 'Processor.can_build' ):
+  def queue( user, build ):
+    if not user.has_perm( 'Processor.can_build' ):
       raise PermissionDenied()
 
-    QueueItem.inQueueBuild( build, 'master', True, 100 )
+    item = QueueItem.inQueueBuild( build, 'master', True, 100 )
+    return item.pk
 
   def save( self, *args, **kwargs ):
     try:
@@ -187,7 +190,7 @@ QueueItem
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
     list_filters = { 'project': { 'project': Project } }
     actions = {
-                'queue': [ { 'type': 'Model', 'model': Build } ],
+                'queue': ( { 'type': 'Integer' }, ( { 'type': '_USER_' }, { 'type': 'Model', 'model': Build } ) ),
               }
 
     @staticmethod
@@ -202,8 +205,8 @@ class BuildJob( models.Model ):
 BuildJob
   """
   STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
-  build = models.ForeignKey( Build, editable=False )
-  project = models.ForeignKey( Project )
+  build = models.ForeignKey( Build, on_delete=models.PROTECT, editable=False ) # don't delete Builds/projects when things are in flight
+  project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   resources = models.TextField( default='{}' )
@@ -213,6 +216,7 @@ BuildJob
   acknowledged_at = models.DateTimeField( editable=False, blank=True, null=True )
   released_at = models.DateTimeField( editable=False, blank=True, null=True )
   manual = models.BooleanField()
+  user = models.ForeignKey( MCPUser, null=True, blank=True, on_delete=models.SET_NULL )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   networks = models.ManyToManyField( NetworkResource, through='BuildJobNetworkResource', help_text='' )
@@ -254,8 +258,21 @@ BuildJob
 
     return result
 
-  def jobRan( self, _user_ ):
-    if not _user_.is_anonymous() and not _user_.has_perm( 'Processor.can_ran' ):  # remove anonymous stuff when nullunit authencates
+  @property
+  def score( self ):
+    if self.ran_at is None:
+      return None
+
+    score_list = []
+    resource_map = simplejson.loads( self.resources )
+    for target in resource_map:
+      for i in range( 0, len( resource_map[ target ] ) ):
+        score_list.append( resource_map[ target ][ i ].get( 'score', None ) )
+
+    return score_list
+
+  def jobRan( self, user ):
+    if not user.is_anonymous() and not user.has_perm( 'Processor.can_ran' ):  # remove anonymous stuff when nullunit authencates
       raise PermissionDenied()
 
     if self.ran_at is not None: # been done, don't touch
@@ -267,8 +284,8 @@ BuildJob
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
     self.save()
 
-  def acknowledge( self, _user_ ):
-    if not _user_.has_perm( 'Processor.can_ack' ):
+  def acknowledge( self, user ):
+    if not user.has_perm( 'Processor.can_ack' ):
       raise PermissionDenied()
 
     if self.acknowledged_at is not None: # been done, don't touch
@@ -304,6 +321,26 @@ BuildJob
     resource_map = simplejson.loads( self.resources )
     try:
       resource_map[ name ][ index ][ 'results' ] = results
+    except ( IndexError, KeyError ):
+      return
+
+    self.resources = simplejson.dumps( resource_map )
+    self.save()
+
+  def setResourceScore( self, name, index, score ):
+    resource_map = simplejson.loads( self.resources )
+    try:
+      resource_map[ name ][ index ][ 'score' ] = score
+    except ( IndexError, KeyError ):
+      return
+
+    self.resources = simplejson.dumps( resource_map )
+    self.save()
+
+  def addPackageFiles( self, name, index, package_files ):
+    resource_map = simplejson.loads( self.resources )
+    try:
+      resource_map[ name ][ index ][ 'package_files' ] = package_files
     except ( IndexError, KeyError ):
       return
 
@@ -420,20 +457,22 @@ BuildJob
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE' )
     actions = {  # TODO: these can only be called by jobs, need some kind of auth for them
-                 'updateResourceState': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
-                 'setResourceSuccess': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ],
-                 'setResourceResults': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ],
-                 'getConfigStatus': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
-                 'getProvisioningInfo': [ { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ], # called by UI
-                 'setConfigValues': [ { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ],
-                 'getNetworkInfo': [ { 'type': 'String' } ],
+                 'updateResourceState': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ) ),
+                 'setResourceSuccess': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ) ),
+                 'setResourceResults': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ) ),
+                 'setResourceScore': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Float' } ) ),
+                 'addPackageFiles': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'StringList' } ) ),
+                 'getConfigStatus': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
+                 'getProvisioningInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ), # called by UI
+                 'setConfigValues': ( { 'type': 'Boolean' }, ( { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
+                 'getNetworkInfo': ( { 'type': 'Map' }, ( { 'type': 'String' } ) ),
                  # run by both
-                 'jobRan': [],
+                 'jobRan': ( None, ( { 'type': '_USER_' } ) ),
                  # these are normal
-                 'acknowledge': []
+                 'acknowledge': ( None, ( { 'type': '_USER_' } ) ),
               }
     constants = ( 'STATE_LIST', )
-    properties = ( 'state', 'suceeded' )
+    properties = ( 'state', 'suceeded', 'score' )
     list_filters = { 'project': { 'project': Project } }
 
     @staticmethod
@@ -445,8 +484,8 @@ BuildJob
 
 
 class BuildJobNetworkResource( models.Model ):
-  buildjob = models.ForeignKey( BuildJob )
-  networkresource = models.ForeignKey( NetworkResource )
+  buildjob = models.ForeignKey( BuildJob, on_delete=models.CASCADE )
+  networkresource = models.ForeignKey( NetworkResource, on_delete=models.CASCADE )
   name = models.CharField( max_length=100 )
 
   def __unicode__( self ):

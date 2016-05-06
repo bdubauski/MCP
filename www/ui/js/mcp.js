@@ -73,11 +73,11 @@ var mcpBuilder = {};
        return deferred.promise();
     };
 
-    mcp.updateProfile = function( slack_handle )
+    mcp.updateProfile = function( first_name, last_name, email, slack_handle )
     {
        var deferred = $.Deferred();
 
-       $.when( cinp.call( '/api/v1/Users(updateProfile)', { 'slack_handle': slack_handle } ) ).then(
+       $.when( cinp.call( '/api/v1/Users(updateProfile)', { 'first_name': first_name, 'last_name': last_name, 'email': email, 'slack_handle': slack_handle } ) ).then(
          function( data )
          {
            deferred.resolve( data.result.value );
