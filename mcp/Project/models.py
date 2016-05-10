@@ -200,7 +200,15 @@ This is a Generic Project
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    properties = ( 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' )
+    properties = {
+                   'type': { 'type': 'String' },
+                   'org': { 'type': 'String' },
+                   'repo': { 'type': 'String' },
+                   'busy': { 'type': 'String' },
+                   'upstream_git_url': { 'type': 'String' },
+                   'internal_git_url': { 'type': 'String' },
+                   'status': { 'type': 'String' }
+                  }
     hide_fields = ( 'local_path', )
     list_filters = { 'my_projects': {} }
 
@@ -521,7 +529,7 @@ A Single Commit of a Project
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
     constants = ( 'STATE_LIST', )
-    properties = ( 'state', )
+    properties = { 'state': { 'type': 'String' } }
     list_filters = { 'project': { 'project': Project }, 'in_process': {} }
 
     @staticmethod
