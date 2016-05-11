@@ -6,18 +6,12 @@ Vagrant.configure(2) do |config|
   config.vm.guest = "linux"
 
   config.vm.provider "virtualbox" do |vb|
-     # Display the VirtualBox GUI when booting the machine
      vb.gui = true
-
-     # Customize the amount of memory on the VM:
      vb.memory = "512"
-
      vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
-
      vb.name = 'mcp-dev'
   end
 
-  config.vm.synced_folder ".", "/vagrant", disabled: true
   config.vm.network "forwarded_port", guest: 80, host: 8080
 
   # plato-client/master setup
@@ -53,6 +47,9 @@ PLATO_CONFIG
 set -e
 set -x
 
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y python-cinp graphviz git make python-pygithub
+
 # make it possible to "write" to the readonly local dirs
 mkdir -p /opt/mcpoverlay/local_upper
 mkdir -p /usr/local/mcp
@@ -72,8 +69,6 @@ sed s/'DEBUG = False'/'DEBUG = True'/ -i /etc/mcp/master.conf
 
 touch /var/run/mcpIterate.lock
 
-export DEBIAN_FRONTEND=noninteractive
-apt-get install -y python-cinp graphviz git make python-pygithub
 a2ensite mcp.conf
 mv /etc/apache2/sites-enabled/000-plato.conf /etc/apache2/sites-enabled/001-plato.conf
 mv /etc/apache2/sites-enabled/mcp.conf /etc/apache2/sites-enabled/000-mcp.conf

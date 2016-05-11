@@ -472,7 +472,11 @@ BuildJob
                  'acknowledge': ( None, ( { 'type': '_USER_' } ) ),
               }
     constants = ( 'STATE_LIST', )
-    properties = ( 'state', 'suceeded', 'score' )
+    properties = {
+                   'state': { 'type': 'String' },
+                   'suceeded': { 'type': 'String' },
+                   'score': { 'type': 'String' } 
+                 }
     list_filters = { 'project': { 'project': Project } }
 
     @staticmethod

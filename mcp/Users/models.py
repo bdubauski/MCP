@@ -112,7 +112,6 @@ class MCPUser( User ):
 
   class API:
     not_allowed_methods = ( 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
-    properties = ()
     show_fields = ( 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle', )
     actions = {
                 'getProfile': ( { 'type': 'Map' }, ( { 'type': '_USER_' } ) ),
