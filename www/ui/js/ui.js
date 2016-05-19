@@ -137,6 +137,7 @@ function hashChange( event )
     $( '#project-detail' ).show();
     $( '#global-detail' ).hide();
     $( '#project-tab' ).addClass( 'active' );
+    mainTitle.html( 'Project' );
 
     if( id )
     {
@@ -495,7 +496,7 @@ function hashChange( event )
     $( '#project-detail' ).hide();
     $( '#global-detail' ).show();
     $( '#global-tab' ).addClass( 'active' );
-    mainTitle.append( 'Global stuff' );
+    mainTitle.html( 'Global stuff' );
     jobEntries = $( '#global-build-jobs table tbody' );
     queueEntries = $( '#global-queued-jobs table tbody' );
     promotionJobs= $( '#global-promotion-jobs table tbody' );
@@ -595,7 +596,7 @@ function hashChange( event )
     $( '#project-detail' ).hide();
     $( '#global-detail' ).hide();
     $( '#help-tab' ).addClass( 'active' );
-    mainTitle.append( 'Help stuff' );
+    mainTitle.html( 'Help stuff' );
   }
   else
   {
@@ -603,7 +604,7 @@ function hashChange( event )
     $( '#project-detail' ).hide();
     $( '#global-detail' ).hide();
     $( '#home-tab' ).addClass( 'active' );
-    mainTitle.append( 'Home' );
+    mainTitle.html( 'Home' );
   }
 }
 
