@@ -43,8 +43,8 @@ auto-builds:
 	echo installcheck
 
 installcheck-depends:
-	echo mcp:ci
-	echo plato:dev
+	echo mcp:dev
+	echo plato-master:stage
 
 installcheck-resources:
 	echo plato-master:1:small-generic-precise

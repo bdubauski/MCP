@@ -114,7 +114,7 @@ class MCPUser( User ):
     not_allowed_methods = ( 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
     show_fields = ( 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle', )
     actions = {
-                'getProfile': ( { 'type': 'Map' }, ( { 'type': '_USER_' } ) ),
+                'getProfile': ( { 'type': 'Map' }, ( { 'type': '_USER_' }, ) ),
                 'updateProfile': ( { 'type': 'Boolean' }, ( { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' } ) ),
                 'selfRegister': ( { 'type': 'StringList' }, (  { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' } ) )
               }
