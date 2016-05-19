@@ -6,7 +6,7 @@ from django.db import models
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.conf import settings
 
-from mcp.lib.GitHub import GitHub
+from mcp.lib.libGitHub import GitHub
 from mcp.Resource.models import Resource
 
 # from packrat Repos/models.py
