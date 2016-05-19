@@ -465,17 +465,17 @@ BuildJob
                  'getConfigStatus': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
                  'getProvisioningInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ), # called by UI
                  'setConfigValues': ( { 'type': 'Boolean' }, ( { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
-                 'getNetworkInfo': ( { 'type': 'Map' }, ( { 'type': 'String' } ) ),
+                 'getNetworkInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, ) ),
                  # run by both
-                 'jobRan': ( None, ( { 'type': '_USER_' } ) ),
+                 'jobRan': ( None, ( { 'type': '_USER_' }, ) ),
                  # these are normal
-                 'acknowledge': ( None, ( { 'type': '_USER_' } ) ),
+                 'acknowledge': ( None, ( { 'type': '_USER_' }, ) ),
               }
     constants = ( 'STATE_LIST', )
     properties = {
                    'state': { 'type': 'String' },
                    'suceeded': { 'type': 'String' },
-                   'score': { 'type': 'String' } 
+                   'score': { 'type': 'String' }
                  }
     list_filters = { 'project': { 'project': Project } }
 
