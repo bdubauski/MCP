@@ -1,6 +1,6 @@
 Vagrant.configure(2) do |config|
   config.vm.box = "plato-precise"
-  config.vm.box_url = "http://http.lab.stgr01.monilytics.net/vagrant/"
+  config.vm.box_url = "http://http.lab.stgr01.monilytics.net/vagrant/plato-precise.json"
 
   config.vm.communicator = "ssh"
   config.vm.guest = "linux"

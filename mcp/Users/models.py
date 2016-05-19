@@ -4,7 +4,7 @@ from django.utils.crypto import get_random_string
 from django.contrib.auth.models import User, Group
 
 from mcp.Project.models import Project, GitHubProject
-from mcp.lib.GitHub import GitHub, GitHubException
+from mcp.lib.libGitHub import GitHub, GitHubException
 
 class MCPUser( User ):
   """
