@@ -319,7 +319,7 @@ class Commit( models.Model ):
   """
 A Single Commit of a Project
   """
-  STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'done' )
+  STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'doced', 'done' )
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
   owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
@@ -327,9 +327,11 @@ A Single Commit of a Project
   lint_results = models.TextField( default='{}' )
   test_results = models.TextField( default='{}' )
   build_results = models.TextField( default='{}')
+  docs_results = models.TextField( default='{}' )
   lint_at = models.DateTimeField( editable=False, blank=True, null=True )
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
+  docs_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
   passed = models.NullBooleanField( editable=False, blank=True, null=True )
   built = models.NullBooleanField( editable=False, blank=True, null=True )
@@ -338,8 +340,11 @@ A Single Commit of a Project
 
   @property
   def state( self ):
-    if self.done_at and self.build_at and self.test_at and self.lint_at:
+    if self.done_at and self.doced_at and self.build_at and self.test_at and self.lint_at:
       return 'done'
+
+    if self.doced_at and self.build_at and self.test_at and self.lint_at:
+      return 'doced'
 
     if self.build_at and self.test_at and self.lint_at:
       return 'built'

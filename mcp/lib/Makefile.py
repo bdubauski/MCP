@@ -55,5 +55,8 @@ class Makefile( object ):
   def testDistros( self ):
     return self._execute( 'test-distros' )
 
+  def docsDistros( self ):
+    return self._execute( 'docs-distros' )
+
   def packageDistros( self, type ): # type in dpkg, rpm, respkg, resource
     return self._execute( '%s-distros' % type )

@@ -10,7 +10,7 @@
     }
   },
   {
-    "pk": "_buildin_:trusty",
+    "pk": "_builtin_:trusty",
     "model": "Project.build",
     "fields": {
       "name": "trusty",
@@ -21,7 +21,7 @@
     }
   },
   {
-    "pk": "_buildin_:precise",
+    "pk": "_builtin_:precise",
     "model": "Project.build",
     "fields": {
       "name": "precise",
@@ -32,10 +32,10 @@
     }
   },
   {
-    "pk": "_buildin_:xenial",
+    "pk": "_builtin_:xenial",
     "model": "Project.build",
     "fields": {
-      "name": "xenail",
+      "name": "xenial",
       "project": "_builtin_",
       "updated": "2014-01-01T01:01:01Z",
       "manual": false,
@@ -43,7 +43,7 @@
     }
   },
   {
-    "pk": "_buildin_:centos6",
+    "pk": "_builtin_:centos6",
     "model": "Project.build",
     "fields": {
       "name": "centos6",
@@ -58,7 +58,7 @@
     "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-trusty",
-      "build": "_buildin_:trusty",
+      "build": "_builtin_:trusty",
       "quanity": 1,
       "name": "target"
     }
@@ -68,7 +68,7 @@
     "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-precise",
-      "build": "_buildin_:precise",
+      "build": "_builtin_:precise",
       "name": "target",
       "quanity": 1
     }
@@ -78,7 +78,7 @@
     "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-xenial",
-      "build": "_buildin_:xenial",
+      "build": "_builtin_:xenial",
       "name": "target",
       "quanity": 1
     }
@@ -88,7 +88,7 @@
     "model": "Project.buildresource",
     "fields": {
       "resource": "small-generic-centos6",
-      "build": "_buildin_:centos6",
+      "build": "_builtin_:centos6",
       "name": "target",
       "quanity": 1
     }

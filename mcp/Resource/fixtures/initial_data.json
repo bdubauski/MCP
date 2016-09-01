@@ -151,7 +151,7 @@
       "description": "MCP Auto Build",
       "created": "2014-01-01T01:01:01Z",
       "deconfig_script": "",
-      "config_values": "{\r\n\"+packages\":\" nullunit\",\r\n\"packrat_host\": \"http://packrat\",\r\n\"packrat_builder_name\": \"builder\",\r\n\"packrat_builder_psk\": \"builder\"\r\n}",
+      "config_values": "{\r\n\"+packages\":\" nullunit\",\r\n\"packrat_host\": \"http://packrat\",\r\n\"packrat_builder_name\": \"builder\",\r\n\"packrat_builder_psk\": \"builder\",\r\n\"confluence_host\": \"http://confluence\",\r\n\"confluence_username\": \"mcp\",\r\n\"confluence_password\": \"mcp\"\r\n}",
       "config_script": "",
       "parents": [],
       "selectable": false

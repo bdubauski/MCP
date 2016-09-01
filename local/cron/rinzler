@@ -29,7 +29,7 @@ from mcp.lib.Slack import Slack
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
 
-# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
+# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'docs', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -261,6 +261,14 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
         if distro_list:
           commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+
+      logging.info( 'Adding Docs Build...' )
+      try:
+        distro_list = make.docsDistros()
+      except MakeException as e:
+        distro_list = []
+
+      commit.docs_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
 
     commit.build_results = json.dumps( commit.build_results )
 
