@@ -11,11 +11,27 @@ class Migration(SchemaMigration):
 
         # Changing field 'Project.local_path'
         db.alter_column('Project_project', 'local_path', self.gf('django.db.models.fields.CharField')(max_length=150, null=True))
+        # Adding field 'Commit.docs_results'
+        db.add_column('Project_commit', 'docs_results',
+                      self.gf('django.db.models.fields.TextField')(default='{}'),
+                      keep_default=False)
+
+        # Adding field 'Commit.docs_at'
+        db.add_column('Project_commit', 'docs_at',
+                      self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True),
+                      keep_default=False)
+
 
     def backwards(self, orm):
 
         # Changing field 'Project.local_path'
         db.alter_column('Project_project', 'local_path', self.gf('django.db.models.fields.CharField')(max_length=50, null=True))
+        # Deleting field 'Commit.docs_results'
+        db.delete_column('Project_commit', 'docs_results')
+
+        # Deleting field 'Commit.docs_at'
+        db.delete_column('Project_commit', 'docs_at')
+
 
     models = {
         'Project.build': {
@@ -53,6 +69,8 @@ class Migration(SchemaMigration):
             'built': ('django.db.models.fields.NullBooleanField', [], {'null': 'True', 'blank': 'True'}),
             'commit': ('django.db.models.fields.CharField', [], {'max_length': '45'}),
             'created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
+            'docs_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
+            'docs_results': ('django.db.models.fields.TextField', [], {'default': "'{}'"}),
             'done_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'lint_at': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),

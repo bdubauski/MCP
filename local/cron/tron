@@ -47,6 +47,11 @@ tmp.close()
 
 slack = Slack( 'tron', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
+uri_release_map = packrat.release_map()
+release_uri_map = {}
+for uri in uri_release_map:
+  release_uri_map[ uri_release_map[ uri ] ] = uri
+
 def _queuePromotion( pkg_version, packrat_id, state, to_state ):
   package = pkg_version.package
   promotion = None
@@ -73,7 +78,7 @@ def _queuePromotion( pkg_version, packrat_id, state, to_state ):
   dependancy_list = BuildDependancy.objects.filter( package=package, state=state )
   if len( dependancy_list ) == 0:
     logging.info( 'No Dependancies for package "%s" version "%s" at state "%s", promoting to "%s"...' % ( package.name, pkg_version.version, state, to_state ) )
-    packrat.promote( packrat_id, to_state )
+    packrat.promote( packrat_id, release_uri_map[ to_state ] )
     pkg_version.state = to_state
     pkg_version.save()
     slack.post_message( 'No Dependancies for package "%s" version "%s" at state "%s", promoting to "%s"...' % ( package.name, pkg_version.version, state, to_state  ), slack.SUCCESS )
@@ -110,7 +115,7 @@ for promotion in Promotion.objects.all():
 
   for promotion_pkg_version in promotion.promotionpkgversion_set.all():
     logging.info( 'Promoting "%s" version "%s" to "%s".' % ( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.to_state ) )
-    packrat.promote( promotion_pkg_version.packrat_id, promotion.to_state )
+    packrat.promote( promotion_pkg_version.packrat_id, release_uri_map[ promotion.to_state ] )
     pkg_version = promotion_pkg_version.package_version
     pkg_version.state = promotion.to_state
     pkg_version.save()
@@ -131,12 +136,14 @@ for name in packrat.packages():
   version_map = packrat.package_files( package.name )
   for packrat_id in version_map.keys():
     version = version_map[ packrat_id ]
-    if version[ 'depr_at' ] or version[ 'prod_at' ] or version[ 'stage_at' ]: # techinically if state in in ( 'depr', 'prod', 'stage' ):
+    release = uri_release_map[ version[ 'release' ] ]
+
+    if release in ( 'depr', 'prod', 'stage' ):
       continue
 
-    if version[ 'ci_at' ] is None: # techinicall state == 'new', see comment on package_files
+    if release == 'new':
       logging.info( 'Promoting new package "%s" version "%s" to "ci"...' % ( package.name, version[ 'version' ] ) )
-      packrat.promote( packrat_id, 'ci' )
+      packrat.promote( packrat_id, release_uri_map[ 'ci' ] )
       logging.info( 'Creating new package version for "%s" version "%s"...' % ( package.name, version[ 'version' ] ) )
       pkg_version = PackageVersion()
       pkg_version.package = package
@@ -144,6 +151,7 @@ for name in packrat.packages():
       pkg_version.version = version[ 'version' ]
       pkg_version.save()
       slack.post_message( 'Promoting new package "%s" version "%s" to "ci"...' % ( package.name, version[ 'version' ] ), slack.SUCCESS )
+      release = 'ci'
 
     else:
       try:
@@ -154,6 +162,10 @@ for name in packrat.packages():
         continue
 
     if pkg_version.promotion_set.all().count() > 0: # this package is being worked on
+      continue
+
+    if pkg_version.state != release:
+      logging.warning( 'PackageFile on Packrat release level dose not match internal tracking, Package: "%s", Version: "%s", Packrat: "%s", Internal: "%s"... Skipping PackageFile.' % ( pkg_version.package.name, pkg_version.version, release, pkg_version.state ) )
       continue
 
     if pkg_version.state == 'ci':

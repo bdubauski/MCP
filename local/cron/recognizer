@@ -136,18 +136,14 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=True ):
   if commit.branch != 'master': # only build from master branch
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.done_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.postResults()
     commit.save()
     continue
 
   status = json.loads( commit.build_results )
 
   if not status:
-    slack.post_message( 'No Build for "%s", branch "%s".' % ( commit.project.name, commit.branch ), slack.INFO )
+    slack.post_message( 'No Build for "%s".' % commit.project.name, slack.INFO )
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.done_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.postResults()
     commit.save()
     continue
 
@@ -170,20 +166,71 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     commit.build_results = json.dumps( status )
 
   if done:
-    logging.info( 'Commit "%s" of "%s" branch "%s" Complete' % ( commit.commit, commit.project.name, commit.branch ) )
+    logging.info( 'Build Complete for "%s" of "%s" branch "%s" Complete' % ( commit.commit, commit.project.name, commit.branch ) )
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
     if not success:
-      logging.warning( 'Commit "%s" of "%s" branch "%s" Failed' % ( commit.commit, commit.project.name, commit.branch ) )
-      slack.post_message( 'Commit "%s" of "%s", branch "%s" Failed.' % ( commit.commit, commit.project.name, commit.branch ), slack.ERROR )
+      logging.info( 'Build for "%s" of "%s" branch "%s" Failed' % ( commit.commit, commit.project.name, commit.branch ) )
+      commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+      slack.post_message( 'Build for "%s" of "%s", branch "%s" Failed.' % ( commit.commit, commit.project.name, commit.branch ), slack.ERROR )
       commit.built = False
+      commit.postResults()
     else:
-      slack.post_message( 'Commit "%s" of "%s", branch "%s" Finished.' % ( commit.commit, commit.project.name, commit.branch ), slack.DONE )
+      slack.post_message( 'Build for "%s" of "%s", branch "%s" Finished.' % ( commit.commit, commit.project.name, commit.branch ), slack.SUCCESS )
       commit.built = True
 
-    commit.done_at = datetime.utcnow().replace( tzinfo=utc )
-    commit.postResults()
+  commit.save()
+
+#check for commits that need docs
+for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, docs_at__isnull=True ):
+  if commit.branch != 'master': # only build docs from master branch
+    commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.save()
+    continue
+
+  status = json.loads( commit.docs_results )
+
+  if not status:
+    slack.post_message( 'No Docs for "%s".' % commit.project.name, slack.INFO )
+    commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.save()
+    continue
+
+  done = True
+  success = True
+  for distro in status:
+    if not status[ distro ].get( 'status', None ):
+      logging.info( 'Queuing up Docs job for "%s", branch "%s", distro "%s"' % ( commit.project.name, commit.branch, distro ) )
+      try:
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'docs', QUEUE_PRIORITY, commit )
+        status[ distro ][ 'status' ] = 'building'
+      except Exception as e:
+        status[ distro ][ 'status' ] = 'done'
+        status[ distro ][ 'results' ] = 'Exception Queuing: "%s"' % e
+
+    done &= status[ distro ][ 'status' ] == 'done'
+    success &= status[ distro ].get( 'success', False )
+
+  commit.docs_results = json.dumps( status )
+
+  if done: # failed doc building dosen't block anything, just make the comment and move on
+    logging.info( 'Docs Complete for "%s", branch "%s"' % ( commit.project.name, commit.branch ) )
+    commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    if not success:
+      logging.info( 'Docs for "%s", branch "%s" failed' % ( commit.project.name, commit.branch ) )
+      slack.post_message( 'Docs for "%s", branch "%s" Failed.' % ( commit.project.name, commit.branch ), slack.ERROR )
+    else:
+      slack.post_message( 'Docs for "%s", branch "%s" Success.' % ( commit.project.name, commit.branch ), slack.SUCCESS )
 
   commit.save()
+
+#check for commits that are done
+for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, docs_at__isnull=False ):
+  slack.post_message( 'Commit "%s" of "%s", branch "%s" Finished.' % ( commit.commit, commit.project.name, commit.branch ), slack.DONE )
+  commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+  commit.postResults()
+  commit.save()
+  continue
+
 
 os.unlink( PID_FILE )
 logging.info( 'Done!' )
