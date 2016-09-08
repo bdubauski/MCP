@@ -24,7 +24,7 @@ $( document ).ready(
         {
           $.cookie( 'user', user );
           $.cookie( 'token', token );
-          location.reload()
+          location.reload();
         }
       ).fail(
         function( reason )
@@ -58,7 +58,7 @@ $( document ).ready(
       $( '#user' ).html( '<strong>' + user + ' </strong>' );
       $('a').tooltip();
       cinp.setAuth( user, token );
-      permissions()
+      permissions();
       keepalive_interval = setInterval(
         function()
         {
@@ -94,7 +94,7 @@ function isToday(dt) {
 jQuery.fn.sortDivs = function sortDivs() {
   $("> div", this[0]).sort(asc_sort).appendTo(this[0]);
   function asc_sort(a, b){ return ($(b).attr("timestamp")) > ($(a).attr("timestamp")) ? 1 : -1; }
-}
+};
 
 function hashChange( event )
 {
@@ -121,7 +121,7 @@ function hashChange( event )
   } else {
     type = hash.substr( 1, pos - 1 );
     id = atob( hash.substr( pos + 1 ) );
-    path = id.split(':')[1]
+    path = id.split(':')[1];
   }
 
   var latestCommitEntry;
@@ -151,12 +151,12 @@ function hashChange( event )
         {
           data = data.detail;
           var buildPass = '';
-          var jobBuilt = data.status.built
-          buildPass += '<span>'
+          var jobBuilt = data.status.built;
+          buildPass += '<span>';
           if( data.status.passed )
           {
             buildPass += '<img src="/ui/image/test-pass.svg" /> ';
-          } else if( data.status.passed == null )
+          } else if( data.status.passed === null )
           {
           } else {
             buildPass += '<img src="/ui/image/test-error.svg" /> ';
@@ -165,12 +165,12 @@ function hashChange( event )
           if( data.status.built )
           {
             buildPass += '<img src="/ui/image/build-pass.svg" />';
-          } else if( data.status.built == null )
+          } else if( data.status.built === null )
           {
           } else {
             buildPass += '<img src="/ui/image/build-error.svg" />';
           }
-          buildPass += '</span>'
+          buildPass += '</span>';
           if( data.type == 'GitHubProject' )
           {
             mainTitle.html( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/>' + buildPass );
@@ -329,7 +329,7 @@ function hashChange( event )
                   var targetIcon = '<i class="fa fa-dot-circle-o fa-lg fa-fw"></i>'
                 }
                 var distro = item.build.split(':')[2]
-                jobEntry += '<div class="panel panel-default"><div class="panel-body" id="build-id-' + buildID + '"><ul class="list-inline"><li>' + targetIcon + '&nbsp;' + item.target + '</li><li>build #' + buildID + '<li>state: ' + item.state + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
+                jobEntry += '<div class="panel panel-default"><div class="panel-body" id="build-id-' + buildID + '"><ul class="list-inline"><li>' + targetIcon + '&nbsp;' + item.target + '</li><li>build #' + buildID + '<li>state: ' + item.state + '</li><li>suceded: ' + item.suceeded + '</li><li>score: ' + item.score + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
 
                 var resources = jQuery.parseJSON( item.resources )
                 for( var key in resources )
@@ -515,7 +515,7 @@ function hashChange( event )
           if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
           buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
 
-          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
+          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.suceeded + '</td><td>' + item.score + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
         }
       }
     ).fail(

@@ -43,7 +43,7 @@ def _diffMarkDown( a, b ):
 def _markdownResults( valueCur, valuePrev=None ):
   result = ''
 
-  for target in ( 'lint', 'test', 'build' ):
+  for target in ( 'lint', 'test', 'build', 'docs' ):
     if target not in valueCur:
       continue
 
@@ -71,10 +71,14 @@ def _markdownResults( valueCur, valuePrev=None ):
           result += '**%s** - **%s**\n' % ( group, subgroup )
           if tmp_subgroup is None:
             result += '  Success: **%s**\n' % valueCur[ target ][ group ][ subgroup ][0]
+            if valueCur[ target ][ group ][ subgroup ][2] is not None:
+              result += '  Score: **%s**\n' % valueCur[ target ][ group ][ subgroup ][2]
             result += _markdownBlockQuote( lines )
 
           else:
             result += '  Success: **%s** -> **%s**\n' % ( tmp_subgroup[0], valueCur[ target ][ group ][ subgroup ][0] )
+            if valueCur[ target ][ group ][ subgroup ][2] is not None:
+              result += '  Success: **%s** -> **%s**\n' % ( tmp_subgroup[2], valueCur[ target ][ group ][ subgroup ][2] )
             result += _diffMarkDown( tmp_subgroup[1].splitlines(), lines )
 
       else:
@@ -83,10 +87,19 @@ def _markdownResults( valueCur, valuePrev=None ):
         result += '**%s**\n' % group
         if tmp_group is None:
           result += '  Success: **%s**\n' % valueCur[ target ][ group ][0]
+          if valueCur[ target ][ group ][2] is not None:
+            result += '  Score: **%s**\n' % valueCur[ target ][ group ][2]
           result += _markdownBlockQuote( lines )
 
         else:
           result += '  Success: **%s** -> **%s**\n' % ( tmp_group[0], valueCur[ target ][ group ][0] )
+          if valueCur[ target ][ group ][2] is not None:
+            result += '  Score: **%s** -> **%s**\n' % ( tmp_group[2], valueCur[ target ][ group ][2] )
+            try:
+              if float( tmp_group[2] > float( valueCur[ target ][ group ][2] ) ):
+                result += '## WARNING: Score value decreased ##'
+            except ValueError:
+              pass
           result += _diffMarkDown( tmp_group[1].splitlines(), lines )
 
       result += '\n\n'
@@ -385,7 +398,7 @@ A Single Commit of a Project
       wrk = {}
       for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
 
       if wrk:
         result[ 'lint' ] = wrk
@@ -395,7 +408,7 @@ A Single Commit of a Project
       wrk = {}
       for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ] )
+          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
 
       if wrk:
         result[ 'test' ] = wrk
@@ -407,10 +420,21 @@ A Single Commit of a Project
         wrk[ target ] = {}
         for distro in tmp[ target ]:
           if tmp[ target ][ distro ].get( 'results', None ) is not None:
-            wrk[ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ] )
+            wrk[ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ], tmp[ target ][ distro ].get( 'score', None ) )
 
       if wrk:
         result[ 'build' ] = wrk
+
+    if self.docs_results:
+      tmp = simplejson.loads( self.docs_results )
+      wrk = {}
+      for distro in tmp:
+        if tmp[ distro ].get( 'results', None ) is not None:
+          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
+
+      if wrk:
+        result[ 'docs' ] = wrk
+
 
     if not result:
       return None
@@ -436,7 +460,7 @@ A Single Commit of a Project
     super( Commit, self ).save( *args, **kwargs )
 
   def signalComplete( self, target, build_name, resources ):
-    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource' ):
+    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'docs' ):
       return
 
     sucess = resources[ 'target' ][0].get( 'success', False )
@@ -465,6 +489,14 @@ A Single Commit of a Project
       status[ target ][ distro ][ 'success' ] = sucess
       status[ target ][ distro ][ 'results' ] = results
       self.build_results = simplejson.dumps( status )
+
+    elif target == 'docs':
+      status = simplejson.loads( self.docs_results )
+      distro = build_name
+      status[ distro ][ 'status' ] = 'done'
+      status[ distro ][ 'success' ] = sucess
+      status[ distro ][ 'results' ] = results
+      self.docs_results = simplejson.dumps( status )
 
     self.save()
 

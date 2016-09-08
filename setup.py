@@ -8,7 +8,7 @@ import os
 
 class custom_build( build_py ):
     def run( self ):
-      if os.path.exists( 'mcp/settings.py' ):
+      if os.path.lexists( 'mcp/settings.py' ):
         print 'Moving settings.py asside...'
         os.rename('mcp/settings.py', 'mcp/settings.py.tmp')
 
@@ -55,7 +55,7 @@ class custom_build( build_py ):
         self.copy_file(os.path.join(src_dir, filename), target, preserve_mode=False)
 
       os.unlink( 'mcp/settings.py' )
-      if os.path.exists( 'mcp/settings.py.tmp' ):
+      if os.path.lexists( 'mcp/settings.py.tmp' ):
         print 'Moving settings.py back...'
         os.rename('mcp/settings.py.tmp', 'mcp/settings.py')
 
