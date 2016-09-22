@@ -1,3 +1,12 @@
+mcp (0.12-1) precise; urgency=medium
+
+  * added docs stage
+  * keeping track of stage "score"
+  * allow users to auth against github
+  * loads of fixes
+
+ -- Peter <peter@blueboy>  Thu, 22 Sep 2016 09:34:50 -0600
+
 mcp (0.11-1) precise; urgency=medium
 
   * Even better UI
