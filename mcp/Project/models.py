@@ -482,14 +482,6 @@ A Single Commit of a Project
       status[ distro ][ 'results' ] = results
       self.test_results = simplejson.dumps( status )
 
-    else:
-      status = simplejson.loads( self.build_results )
-      distro = build_name
-      status[ target ][ distro ][ 'status' ] = 'done'
-      status[ target ][ distro ][ 'success' ] = sucess
-      status[ target ][ distro ][ 'results' ] = results
-      self.build_results = simplejson.dumps( status )
-
     elif target == 'docs':
       status = simplejson.loads( self.docs_results )
       distro = build_name
@@ -497,6 +489,14 @@ A Single Commit of a Project
       status[ distro ][ 'success' ] = sucess
       status[ distro ][ 'results' ] = results
       self.docs_results = simplejson.dumps( status )
+
+    else:
+      status = simplejson.loads( self.build_results )
+      distro = build_name
+      status[ target ][ distro ][ 'status' ] = 'done'
+      status[ target ][ distro ][ 'success' ] = sucess
+      status[ target ][ distro ][ 'results' ] = results
+      self.build_results = simplejson.dumps( status )
 
     self.save()
 
