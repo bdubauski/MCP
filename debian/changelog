@@ -1,0 +1,83 @@
+mcp (0.12-1) precise; urgency=medium
+
+  * added docs stage
+  * keeping track of stage "score"
+  * allow users to auth against github
+  * loads of fixes
+
+ -- Peter <peter@blueboy>  Thu, 22 Sep 2016 09:34:50 -0600
+
+mcp (0.11-1) precise; urgency=medium
+
+  * Even better UI
+  * Better handeling of Makefiles in mcp
+
+ -- Peter <peter@blueboy>  Thu, 17 Mar 2016 15:01:22 -0600
+
+mcp (0.10-1) precise; urgency=medium
+
+  * UI cleanup
+  * More APIs for UI to use
+
+ -- Peter <peter@blueboy>  Thu, 25 Feb 2016 14:07:18 -0700
+
+mcp (0.9-4) precise; urgency=medium
+
+  * Adding AJAX like UI
+  * Expanding API
+
+ -- Peter <peter@blueboy>  Wed, 03 Feb 2016 20:36:23 -0700
+
+mcp (0.8-2) precise; urgency=medium
+
+  * Network Resource Managment
+  * API for setting config values
+
+ -- Peter <peter@blueboy>  Thu, 14 Jan 2016 15:44:06 -0700
+
+mcp (0.7-1) precise; urgency=medium
+
+  * Slack proxy
+  * preallocation fixes
+  * initial data fixed
+
+ -- Peter <peter@blueboy>  Tue, 12 Jan 2016 16:35:23 -0700
+
+mcp (0.6-1) precise; urgency=medium
+
+  * Adding ability to pre-create VMs so speed up new jobs
+
+ -- Peter <peter@blueboy>  Mon, 11 Jan 2016 13:49:12 -0700
+
+mcp (0.5-1) precise; urgency=medium
+
+  * better handling of jobs
+  * tweeking meaning of complete
+
+ -- Peter <peter@blueboy>  Wed, 28 Oct 2015 11:32:55 -0600
+
+mcp (0.4-1) precise; urgency=medium
+
+  * rinzler bug fixes
+  * field nameing cleanup
+
+ -- Peter <peter@blueboy>  Wed, 09 Sep 2015 13:21:44 -0600
+
+mcp (0.3-1) precise; urgency=medium
+
+  * Acknoledge stage after reported stage to allow failed
+    jobs to be investagated
+
+ -- Peter <peter@blueboy>  Wed, 09 Sep 2015 09:36:35 -0600
+
+mcp (0.2-1) precise; urgency=medium
+
+  * Packaging Fixes 
+
+ -- Peter <peter@blueboy>  Thu, 03 Sep 2015 21:07:37 -0600
+
+mcp (0.1-1) precise; urgency=medium
+
+  * Initial release.
+
+ -- Peter <peter@blueboy>  Mon, 31 Aug 2015 16:06:46 -0600

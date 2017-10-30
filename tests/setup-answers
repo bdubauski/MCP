@@ -1,0 +1,14 @@
+POSTGRES_LOCAL="y"
+POSTGRES_HOST="127.0.0.1"
+MONGO_LOCAL="y"
+MONGO_HOST="127.0.0.1"
+
+POD_ZONE="test.local"
+POD_CODE="test"
+SITE_DESC="TEST"
+ADMIN_EMAIL="admin@test.local"
+
+IP_ADDRESS="$( ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | cut -d' ' -f1 )"
+IP_NETMASK="$( ifconfig eth0 | grep 'inet addr:' | cut -d: -f4 )"
+GW_ADDRESS="$( route -n | grep '^0.0.0.0' | awk '{ print $2 }' )"
+VLAN="1"

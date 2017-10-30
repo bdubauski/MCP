@@ -1,0 +1,30 @@
+#!/usr/bin/python -u
+import os
+
+os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+
+from mcp.Project.models import Project, Build, Package, BuildDependancy
+
+print 'strict graph {'
+print 'rankdir=LR'
+
+for project in Project.objects.all().order_by( 'name' ):
+  if project.name[0] == '_':
+    continue
+  print 'PRJ_%s [shape="box3d"][label="%s"]' % ( project.name.replace( '-', '_' ), project.name )
+
+for build in Build.objects.all().order_by( 'name' ):
+  if build.name[0] == '_' or build.project.name[0] == '_':
+    continue
+  print 'BLD_%s_%s [shape="doubleoctagon"][label="%s"][color="%s"]' % ( build.name.replace( '-', '_' ), build.project.name.replace( '-', '_' ), build.name, ( 'red' if build.manual else 'green' ) )
+  print 'PRJ_%s -- BLD_%s_%s [color=blue]' % ( build.project.name.replace( '-', '_' ), build.name.replace( '-', '_' ), build.project.name.replace( '-', '_' ) )
+
+for package in Package.objects.all().order_by( 'name' ):
+  if package.name[0] == '_':
+    continue
+  print 'PKG_%s [shape="tab"][label="%s"]' % ( package.name.replace( '-', '_' ), package.name )
+
+for builddep in BuildDependancy.objects.all():
+  print 'PKG_%s -- BLD_%s_%s [label="%s"][color=red]' % ( builddep.package.name.replace( '-', '_' ), builddep.build.name.replace( '-', '_' ), builddep.build.project.name.replace( '-', '_' ), builddep.state)
+
+print '}'

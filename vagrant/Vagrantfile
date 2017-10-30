@@ -1,0 +1,84 @@
+Vagrant.configure(2) do |config|
+  config.vm.box = "plato-precise"
+  config.vm.box_url = "http://http.lab.stgr01.monilytics.net/vagrant/plato-precise.json"
+
+  config.vm.communicator = "ssh"
+  config.vm.guest = "linux"
+
+  config.vm.provider "virtualbox" do |vb|
+     #vb.gui = true
+     vb.memory = "512"
+     vb.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
+     vb.name = 'mcp-dev'
+  end
+
+  config.vm.network "forwarded_port", guest: 80, host: 8080
+
+  # plato-client/master setup
+  config.vm.provision "file", source: "../tests/plato-config.json", destination: "/etc/plato/config.json"
+  config.vm.provision "file", source: "../tests/setupMaster", destination: "/tmp/setupMaster"
+  config.vm.provision "file", source: "../tests/setup-answers", destination: "/tmp/setup-answers"
+
+  config.vm.provision "shell", inline: <<-PLATO_CONFIG
+set -e
+set -x
+
+export DEBIAN_FRONTEND=noninteractive
+sed s/--MAC--/$( cat /sys/class/net/eth0/address )/ -i /etc/plato/config.json
+sed s/--hostname--/$( hostname )/ -i /etc/plato/config.json
+echo "plato-client plato-client/plato-host string file:///etc/plato/config.json" | /usr/bin/debconf-set-selections
+dpkg -i /root/plato-client.deb
+dpkg -i /root/plato-client-config.deb
+wget -q -O- http://repo/repo-key | apt-key add -
+apt-get update
+apt-get install -y plato-master respkg
+/tmp/setupMaster /tmp/setup-answers
+PLATO_CONFIG
+
+  # "install" mcp
+  config.vm.synced_folder "../www", "/var/www/mcp", create: true, :mount_options => ["ro"]
+  config.vm.synced_folder "../local", "/opt/mcpoverlay/local_lower", create: true, :mount_options => ["ro"]
+  config.vm.synced_folder "../mcp", "/opt/mcpoverlay/mcp_lower", create: true, :mount_options => ["ro"]
+  config.vm.provision "file", source: "../master.conf.sample", destination: "/tmp/master.conf"
+  config.vm.provision "file", source: "../mcp.conf", destination: "/tmp/mcp.conf"
+  config.vm.provision "file", source: "testdata.py", destination: "/tmp/testdata.py"
+
+  config.vm.provision "shell", inline: <<-MCP_CONFIG
+set -e
+set -x
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y python-cinp graphviz git make python-pygithub
+
+# make it possible to "write" to the readonly local dirs
+mkdir -p /opt/mcpoverlay/local_upper
+mkdir -p /usr/local/mcp
+mount -t overlayfs overlayfs -olowerdir=/opt/mcpoverlay/local_lower,upperdir=/opt/mcpoverlay/local_upper /usr/local/mcp
+
+mkdir -p /opt/mcpoverlay/mcp_upper
+mkdir -p /usr/lib/python2.7/dist-packages/mcp
+mount -t overlayfs overlayfs -olowerdir=/opt/mcpoverlay/mcp_lower,upperdir=/opt/mcpoverlay/mcp_upper /usr/lib/python2.7/dist-packages/mcp
+
+# "install" the package
+mkdir -p /etc/mcp
+mv /tmp/mcp.conf /etc/apache2/sites-available/mcp.conf
+mv /tmp/master.conf /etc/mcp/master.conf
+
+ln -sf /etc/mcp/master.conf /usr/lib/python2.7/dist-packages/mcp/settings.py
+sed s/'DEBUG = False'/'DEBUG = True'/ -i /etc/mcp/master.conf
+
+touch /var/run/mcpIterate.lock
+
+a2ensite mcp.conf
+mv /etc/apache2/sites-enabled/000-plato.conf /etc/apache2/sites-enabled/001-plato.conf
+mv /etc/apache2/sites-enabled/mcp.conf /etc/apache2/sites-enabled/000-mcp.conf
+/etc/init.d/apache2 restart
+
+# setup MCP
+/usr/local/mcp/setup/setupWizzard
+
+# load test data
+/tmp/testdata.py
+
+MCP_CONFIG
+end

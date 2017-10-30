@@ -1,0 +1,228 @@
+[
+  {
+    "pk": "small-generic-precise",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "precise-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Precise",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-trusty",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "trusty-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Trusty",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-xenial",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "xenial-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Xenial",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-centos6",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "centos6-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Small Generic Centos6",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-precise",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "precise-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Precise",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-trusty",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "trusty-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Trusty",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-xenial",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "xenial-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Xenial",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "medium-generic-centos6",
+    "model": "Resource.resource",
+    "fields": {
+      "config_profile": "centos6-mcp",
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Medium Generic Centos6",
+      "created": "2014-01-01T01:01:01Z"
+    }
+  },
+  {
+    "pk": "small-generic-precise",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "small-generic-trusty",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "small-generic-xenial",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "small-generic-centos6",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "small-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-precise",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-trusty",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-xenial",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "medium-generic-centos6",
+    "model": "Resource.vmresource",
+    "fields": {
+      "vm_template": "medium-generic",
+      "build_ahead_count": 2
+    }
+  },
+  {
+    "pk": "mcp-auto",
+    "model": "Config.profile",
+    "fields": {
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "MCP Auto Build",
+      "created": "2014-01-01T01:01:01Z",
+      "deconfig_script": "",
+      "config_values": "{\r\n\"+packages\":\" nullunit\",\r\n\"packrat_host\": \"http://packrat\",\r\n\"packrat_builder_name\": \"builder\",\r\n\"packrat_builder_psk\": \"builder\",\r\n\"confluence_host\": \"http://confluence\",\r\n\"confluence_username\": \"mcp\",\r\n\"confluence_password\": \"mcp\"\r\n}",
+      "config_script": "",
+      "parents": [],
+      "selectable": false
+    }
+  },
+  {
+    "pk": "centos6-mcp",
+    "model": "Config.profile",
+    "fields": {
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "CentOS 6 MCP Auto Build",
+      "created": "2014-01-01T01:01:01Z",
+      "deconfig_script": "",
+      "config_values": "",
+      "config_script": "",
+      "parents": [
+        "centos6",
+        "mcp-auto"
+      ],
+      "selectable": false
+    }
+  },
+  {
+    "pk": "precise-mcp",
+    "model": "Config.profile",
+    "fields": {
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Precise MCP Auto Build",
+      "created": "2014-01-01T01:01:01Z",
+      "deconfig_script": "",
+      "config_values": "",
+      "config_script": "",
+      "parents": [
+        "precise",
+        "mcp-auto"
+      ],
+      "selectable": false
+    }
+  },
+  {
+    "pk": "trusty-mcp",
+    "model": "Config.profile",
+    "fields": {
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Trusty MCP Auto Build",
+      "created": "2014-01-01T01:01:01Z",
+      "deconfig_script": "",
+      "config_values": "",
+      "config_script": "",
+      "parents": [
+        "trusty",
+        "mcp-auto"
+      ],
+      "selectable": false
+    }
+  },
+  {
+    "pk": "xenial-mcp",
+    "model": "Config.profile",
+    "fields": {
+      "updated": "2014-01-01T01:01:01Z",
+      "description": "Xenial MCP Auto Build",
+      "created": "2014-01-01T01:01:01Z",
+      "deconfig_script": "",
+      "config_values": "",
+      "config_script": "",
+      "parents": [
+        "xenial",
+        "mcp-auto"
+      ],
+      "selectable": false
+    }
+  }
+]

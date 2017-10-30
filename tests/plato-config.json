@@ -1,0 +1,31 @@
+{
+  "plato_host": "file:///etc/plato/config.json",
+  "repo_list": [ {"distribution": "precise", "type": "apt", "uri": "http://mirrors.mozy.com/ubuntu/", "components": ["main","universe","multiverse"], "proxy": ""},
+                 {"distribution": "precise-updates", "type": "apt", "uri": "http://mirrors.mozy.com/ubuntu/", "components": ["main","universe","multiverse"], "proxy": ""},
+                 {"distribution": "precise-security", "type": "apt", "uri": "http://mirrors.mozy.com/ubuntu/", "components": ["main","universe","multiverse"], "proxy": ""},
+                 {"distribution": "precise", "type": "apt", "uri": "http://repo/apt/prod", "components": [ "main" ], "proxy": "" } ],
+  "hostname": "--hostname--",
+  "http_proxy": "",
+  "distro_version": "precise",
+  "pod": "local",
+  "id": 0,
+  "config_uuid": "00000000-0000-0000-0000-000000000000",
+  "domain": "local",
+  "interfaces": {
+    "eth0": {
+      "address_list": [
+        {
+          "address": "dhcp",
+          "auto": true,
+          "primary": true,
+          "sub_interface": null,
+          "tagged": false,
+          "vlan": 0,
+          "mtu": 1500
+        }
+      ],
+      "mac": "--MAC--",
+      "name": "eth0"
+    }
+  }
+}
