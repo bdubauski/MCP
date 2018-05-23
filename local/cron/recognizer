@@ -191,7 +191,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if not status:
     slack.post_message( 'No Docs for "%s".' % commit.project.name, slack.INFO )
-    commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
     commit.save()
     continue
 
