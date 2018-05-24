@@ -3,13 +3,14 @@ from cinp import client
 
 PACKRAT_API_VERSION = 'v1.1'
 
-class Packrat( object ):
+
+class Packrat():
   def __init__( self, host, proxy, name, psk ):
     self.name = name
     self.cinp = client.CInP( host, '/api/v1', proxy )
     root = self.cinp.describe( '/api/v1/Repos' )[0]
     if root[ 'api-version' ] != PACKRAT_API_VERSION:
-      raise Exception( 'Expected API version "%s" found "%s"' % ( PACKRAT_API_VERSION, root[ 'api-version' ] ) )
+      raise Exception( 'Expected API version "{0}" found "{1}"'.format( PACKRAT_API_VERSION, root[ 'api-version' ] ) )
     logging.debug( 'packrat: login' )
     self.token = self.cinp.call( '/api/v1/Auth(login)', { 'username': self.name, 'password': psk } )[ 'value' ]
     self.cinp.setAuth( name, self.token )
@@ -28,9 +29,9 @@ class Packrat( object ):
     return results
 
   def package_files( self, package ):
-    logging.debug( 'packrat: listing package files for "%s"' % package )
+    logging.debug( 'packrat: listing package files for "{0}"'.format( package ) )
 
-    return self.cinp.getObjects( list_args={ 'uri': '/api/v1/Repos/PackageFile', 'filter': 'package', 'values': { 'package': '/api/v1/Repos/Package:%s:' % package } } )
+    return self.cinp.getObjects( list_args={ 'uri': '/api/v1/Repos/PackageFile', 'filter': 'package', 'values': { 'package': '/api/v1/Repos/Package:{0}:'.format( package ) } } )
 
   def release_map( self ):
     logging.debug( 'packrat: get release_map' )
@@ -43,5 +44,5 @@ class Packrat( object ):
     return results
 
   def promote( self, package_file_id, state ):
-    logging.debug( 'packrat: promoting package file "%s" to "%s"' % ( package_file_id, state ) )
-    return self.cinp.call( '%s(promote)' % package_file_id, { 'to': state } )
+    logging.debug( 'packrat: promoting package file "{0}" to "{1}"'.format( package_file_id, state ) )
+    return self.cinp.call( '{0}(promote)'.format( package_file_id ), { 'to': state } )

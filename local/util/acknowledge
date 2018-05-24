@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/env python3
 import os
 
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
@@ -15,7 +15,7 @@ job_id = sys.argv[1]
 job = BuildJob.objects.get( pk=job_id )
 
 if not job.reported_at:
-  print 'Job %s not reported, can not acknowledge.' % job_id
+  print( 'Job {0} not reported, can not acknowledge.'.format( job_id ) )
   sys.exit( 1 )
 
 job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )

@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/env python3
 #
 # rinzler
 #   check for updates in the repo, then load the build targets and dependancies into the database
@@ -49,22 +49,23 @@ if os.path.exists( PID_FILE ):
   sys.exit( 0 )
 
 tmp = open( PID_FILE, 'w' )
-tmp.write( '%s\n' % os.getpid() )
+tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
 slack = Slack( 'rinzler', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+
 
 def _makeBuild( build_name, project, manual ):
   dependancy_list = make.depends( build_name )
   resource_list = make.resources( build_name )
   network_list = make.networks( build_name )
-  logging.debug( 'Build: "%s" depends: "%s" resources: "%s" networks: "%s".' % ( build_name, dependancy_list, resource_list, network_list ) )
+  logging.debug( 'Build: "{0}" depends: "{1}" resources: "{2}" networks: "{3}".'.format( build_name, dependancy_list, resource_list, network_list ) )
   try:
     build = project.build_set.get( name=build_name )
     build.manual = manual
     build.save()
 
-    for item in build.buildresource_set.all(): #TODO: update instead of delete and re-add
+    for item in build.buildresource_set.all():  # TODO: update instead of delete and re-add
       item.delete()
 
     for item in build.builddependancy_set.all():
@@ -83,7 +84,7 @@ def _makeBuild( build_name, project, manual ):
       package = Package.objects.get( name=package_name )
 
     except Package.DoesNotExist:
-      logging.warning( 'Package "%s" for dependancy for build "%s" does not exist, skipped.' % ( package_name, build_name ) )
+      logging.warning( 'Package "{0}" for dependancy for build "{1}" does not exist, skipped.'.format( package_name, build_name ) )
       continue
 
     builddep = BuildDependancy()
@@ -98,7 +99,7 @@ def _makeBuild( build_name, project, manual ):
       resource = Resource.objects.get( name=resource_name )
 
     except Resource.DoesNotExist:
-      logging.error( 'Resource "%s" for build "%s" does not exist, killing the build.' % ( resource_name, build_name ) )
+      logging.error( 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( resource_name, build_name ) )
       build.delete()
       return
 
@@ -115,6 +116,7 @@ def _makeBuild( build_name, project, manual ):
 
   build.networks = json.dumps( network )
   build.save()
+
 
 # where project dosen't have any queue items
 for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_checked' ):
@@ -139,22 +141,22 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
   url = project.clone_git_url
 
-  if url is None: # for now we only support Git based projects
+  if url is None:  # for now we only support Git based projects
     continue
 
   # it's good let's do this
-  logging.info( 'Checking project "%s"' % project.name )
+  logging.info( 'Checking project "{0}"'.format( project.name ) )
 
   if not project.local_path:
-    project.local_path = '%s/%s' % ( project.pk, os.path.basename( url ) )
+    project.local_path = '{0}/{1}'.format( project.pk, os.path.basename( url ) )
     path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
     parent_path = '/'.join( path.split( '/' )[ :-1 ] )
-    logging.debug( 'Creating "%s" for "%s"...' % ( parent_path, project.name ) )
+    logging.debug( 'Creating "{0}" for "{1}"...'.format( parent_path, project.name ) )
     try:
       os.makedirs( parent_path )
 
     except OSError as e:
-      if e.errno == 17: # allready exists
+      if e.errno == 17:  # allready exists
         pass
 
       else:
@@ -166,7 +168,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
   else:
     path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
-    logging.debug( 'Updating "%s" for "%s"...' % ( path, project.name ) )
+    logging.debug( 'Updating "{0}" for "{1}"...'.format( path, project.name ) )
     git = Git( path )
 
   git.update()
@@ -191,25 +193,25 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       if branch.startswith( '_PR' ):
         number = int( branch[3:] )
         if number not in pull_list:
-          logging.debug( 'Cleaning up branch "%s"' % branch )
+          logging.debug( 'Cleaning up branch "{0}"'.format( branch ) )
           git.remove_branch( branch )
 
     for pull in pull_list:
-      branch_name = '_PR%s' % pull
+      branch_name = '_PR{0}'.format( pull )
       if project.commit_set.filter( branch=branch_name, done_at__isnull=True ).count() > 0:
         continue
 
-      logging.info( '  Pulling PR #%s' % pull )
-      git.fetch_branch( 'refs/pull/%s/head' % pull, branch_name )
+      logging.info( '  Pulling PR #{0}'.format( pull ) )
+      git.fetch_branch( 'refs/pull/{0}/head'.format( pull ), branch_name )
 
   branch_map = git.ref_map()
 
-  logging.debug( 'Branches: "%s"' % branch_map )
+  logging.debug( 'Branches: "{0}"'.format( branch_map ) )
 
   for branch in branch_map.keys():
     try:
       commit = Commit.objects.get( project=project, branch=branch, commit=branch_map[ branch ] )
-      continue # allready there, don't need to worry about it
+      continue  # allready there, don't need to worry about it
     except Commit.DoesNotExist:
       pass
 
@@ -222,15 +224,15 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
         continue
 
     if owner is not None:
-      logging.info( 'New Commit "%s" on Branch "%s" of Project "%s" owned by "%s"...' % ( branch_map[ branch ], branch, project.name, owner ) )
-      slack.post_message( 'New Commit "%s" on Branch "%s"(%s) of Project "%s".' % ( branch_map[ branch ], branch, owner, project.name ), slack.INFO )
+      logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}" owned by "{3}"...'.format( branch_map[ branch ], branch, project.name, owner ) )
+      slack.post_message( 'New Commit "{0}" on Branch "{1}"({2}) of Project "{3}".'.format( branch_map[ branch ], branch, owner, project.name ), slack.INFO )
     else:
-      logging.info( 'New Commit "%s" on Branch "%s" of Project "%s"...' % ( branch_map[ branch ], branch, project.name ) )
-      slack.post_message( 'New Commit "%s" on Branch "%s" of Project "%s".' % ( branch_map[ branch ], branch, project.name ), slack.INFO )
+      logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}"...'.format( branch_map[ branch ], branch, project.name ) )
+      slack.post_message( 'New Commit "{0}" on Branch "{1}" of Project "{2}".'.format( branch_map[ branch ], branch, project.name ), slack.INFO )
 
     git.checkout( WORK_DIR, branch )
 
-    make = Makefile( glob.glob( '%s/*' % WORK_DIR )[0] )
+    make = Makefile( glob.glob( '{0}/*'.format( WORK_DIR ) )[0] )
 
     commit = Commit()
     commit.project = project
@@ -242,7 +244,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     try:
       distro_list = make.testDistros()
     except MakeException as e:
-      logging.error( 'Error Retreiving Test Distros from Makefile "%s", ignorning commit.' % e )
+      logging.error( 'Error Retreiving Test Distros from Makefile "{0}", ignorning commit.'.format( e ) )
       continue
 
     commit.lint_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
@@ -256,7 +258,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
         try:
           distro_list = make.packageDistros( tmp )
         except MakeException as e:
-          logging.error( 'Error Retreiving Packaging Distros from Makefile "%s", ignorning commit.' % e )
+          logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
           continue
 
         if distro_list:
@@ -270,27 +272,27 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
       commit.docs_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
 
-    commit.build_results = json.dumps( commit.build_results )
+    commit.build_results = json.dumps( commit.builkd_results )
 
     if branch == 'master':
       logging.info( 'Updating Builds info...' )
       try:
         build_list = make.autoBuilds()
       except MakeException as e:
-        logging.error( 'Error Retreiving Auto Builds from Makefile "%s", ignorning commit.' % e )
+        logging.error( 'Error Retreiving Auto Builds from Makefile "{0}", ignorning commit.'.format( e ) )
         continue
 
-      logging.debug( 'Auto Builds "%s".' % build_list )
+      logging.debug( 'Auto Builds "{0}".'.format( build_list ) )
 
       existing_builds = [ i.name for i in project.build_set.all() ]
 
       for build_name in set( existing_builds ) - set( build_list ):
         build = project.build_set.get( name=build_name )
         try:
-          build.delete() # this could cause an error if there is a build curently operating, if so, punt to later
+          build.delete()  # this could cause an error if there is a build curently operating, if so, punt to later
         except ProtectedError:
-          logging.warning( 'Build "%s" is not longer defined, however it is still in use, will try to delete again next time.' % build_name )
-          pass # can't delete now, will try on next update
+          logging.warning( 'Build "{0}" is not longer defined, however it is still in use, will try to delete again next time.'.format( build_name ) )
+          pass  # can't delete now, will try on next update
 
       for build in build_list:
         _makeBuild( build, project, False )
@@ -298,10 +300,10 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       try:
         build_list = make.manualBuilds()
       except MakeException as e:
-        logging.error( 'Error Retreiving Manual Builds from Makefile "%s", ignorning commit.' % e )
+        logging.error( 'Error Retreiving Manual Builds from Makefile "{0}", ignorning commit.'.format( e ) )
         continue
 
-      logging.debug( 'Manual Builds "%s".' % build_list )
+      logging.debug( 'Manual Builds "{0}".'.format( build_list ) )
       for build in build_list:
         _makeBuild( build, project, True )
 

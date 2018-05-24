@@ -14,7 +14,7 @@ from plato.Config.lib import createConfig
 from plato.Device.lib import createDevice
 from plato.Provisioner.lib import submitConfigureJob, submitDeconfigureJob
 
-#NOTE: these are not thread safe, there is not per-instance resource reservation
+# NOTE: these are not thread safe, there is not per-instance resource reservation
 # make sure only one thing is calling these methods at a time...
 # other than ready, that is thread safe
 
@@ -31,12 +31,14 @@ def config_values( job, name, index ):
                              'mcp_make_target': job.target
                             } )
 
+
 def config_values_prealloc():
   return simplejson.dumps( {
                              'mcp_host': settings.MCP_HOST,
                              'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
                              'mcp_prealloc': True
                             } )
+
 
 class Resource( models.Model ):
   """
@@ -62,35 +64,35 @@ Resource
 
     return self
 
-  def available( self, quantity ): # called first to see if resources are aviable
+  def available( self, quantity ):  # called first to see if resources are aviable
     return False
 
-  def allocate( self, job, name, quaninity, config_id_list=None ): # called second to allocate the resources to the project
-    return None # the id of the allocated resource
+  def allocate( self, job, name, quaninity, config_id_list=None ):  # called second to allocate the resources to the project
+    return None  # the id of the allocated resource
 
   @staticmethod
   def release( config ):
     try:
       config = Config.objects.get( pk=config )
     except Config.DoesNotExist:
-      return None # it's allready gone?
+      return None  # it's allready gone?
 
     if config.target.type == 'VM':
       return submitDeconfigureJob( config, True, True )
     else:
       job = submitDeconfigureJob( config, True, False )
-      config.hostname = 'mcp-unused-%s' % ( config.pk )
-      config.description = '%s.%s' % ( config.hostname, config.pod.domain )
-      config.profile_id = settings.HARDWARE_PROFILE # this goes after submitDeconfigureJob so that the job has the target's deconfigure job
+      config.hostname = 'mcp-unused-{0}'.format( config.pk )
+      config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
+      config.profile_id = settings.HARDWARE_PROFILE  # this goes after submitDeconfigureJob so that the job has the target's deconfigure job
       config.save()
       return job
 
   @staticmethod
-  def built( config ): # called last to see if the resources are ready to go
+  def built( config ):  # called last to see if the resources are ready to go
     try:
       config = Config.objects.get( pk=config )
     except Config.DoesNotExist:
-      return True # dosen't we pretend like it's all done
+      return True  # dosen't we pretend like it's all done
 
     return config.status == 'Configured'
 
@@ -99,7 +101,7 @@ Resource
     try:
       config = Config.objects.get( pk=config )
     except Config.DoesNotExist:
-      return True # dosen't Exist, all cleaned up
+      return True  # dosen't Exist, all cleaned up
 
     return config.target.type != 'VM' and config.status == 'Provisioned'
 
@@ -116,8 +118,8 @@ Resource
 
     super( Resource, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'Generic Resource "%s"' % self.description
+  def __str__( self ):
+    return 'Generic Resource "{0}"'.format( self.description )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -140,8 +142,8 @@ class VMResource( Resource ):
 
   @staticmethod
   def _takeOver( config, job, name, index ):
-    config.hostname = 'mcp-auto--%s-%s-%s' % ( job.pk, name, index )
-    config.description = '%s.%s' % ( config.hostname, config.pod.domain )
+    config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
+    config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
     config.config_values = config_values( job, name, index )
     config.save()
 
@@ -149,7 +151,7 @@ class VMResource( Resource ):
   def _createNew( job, name, index, pod, profile, vmtemplate, subnet ):
     address_list = []
     address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-    config = createConfig( 'mcp-auto--%s-%s-%s' % ( job.pk, name, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_NORMAL )
+    config = createConfig( 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_NORMAL )
     config.config_values = config_values( job, name, index )
     config.save()
     createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
@@ -160,26 +162,26 @@ class VMResource( Resource ):
     index = 0
     while Config.objects.filter( pod=pod, profile=profile, hostname__startswith='mcp-preallocate-', configurable__device__vmdevice__template=vmtemplate ).count() < goal_number:
       if len( subnet.unused_list ) < 1:
-        return # just bail, something else will complain about this, we are just making an effort for speed here
+        return  # just bail, something else will complain about this, we are just making an effort for speed here
 
       index += 1
       address_list = []
       address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
-      config = createConfig( 'mcp-preallocate--%s-%s' % ( seed, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_PREALLOC ) # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
+      config = createConfig( 'mcp-preallocate--{0}-{1}'.format( seed, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_PREALLOC )  # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
       config.config_values = config_values_prealloc()
       config.save()
       createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
 
-  def allocate( self, job, name, quantity, config_id_list=None ): # for now config_id_list is ignored, VMs don't pre-exist, so can't pre pick them
+  def allocate( self, job, name, quantity, config_id_list=None ):  # for now config_id_list is ignored, VMs don't pre-exist, so can't pre pick them
     try:
       profile = Profile.objects.get( pk=self.config_profile )
     except Profile.DoesNotExist:
-      raise Exception( 'Profile "%s" not found' % self.config_profile )
+      raise Exception( 'Profile "{0}" not found'.format( self.config_profile ) )
 
     try:
       vmtemplate = VMTemplate.objects.get( pk=self.vm_template )
     except VMTemplate.DoesNotExist:
-      raise Exception( 'VMTemplate "%s" not found' % self.vm_template )
+      raise Exception( 'VMTemplate "{0}" not found'.format( self.vm_template ) )
 
     pod = Pod.objects.get( pk=settings.TARGET_POD )
 
@@ -203,15 +205,16 @@ class VMResource( Resource ):
 
       results.append( config.pk )
 
-    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, hashlib.md5( '%s-%s-%s' % ( job.pk, name, config_id_list ) ).hexdigest()[ 0:10 ] )
+    self._replentishPreAllocate( self.build_ahead_count, pod, profile, vmtemplate, subnet, hashlib.md5( '{0}-{1}-{2}'.format( job.pk, name, config_id_list ) ).hexdigest()[ 0:10 ] )
 
     return results
 
-  def __unicode__( self ):
-    return 'VM Resource "%s"' % self.description
+  def __str__( self ):
+    return 'VM Resource "{0}"'.format( self.description )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+
 
 class HardwareResource( Resource ):
   hardware_template = models.CharField( max_length=50 )
@@ -223,7 +226,7 @@ class HardwareResource( Resource ):
     try:
       profile = Profile.objects.get( pk=self.config_profile )
     except Profile.DoesNotExist:
-      raise Exception( 'Profile "%s" not found' % self.config_profile )
+      raise Exception( 'Profile "{0}" not found'.format( self.config_profile ) )
 
     if config_id_list:
       config_list = Config.objects.filter( pk__in=config_id_list, configured__isnull=True, configjob=None )
@@ -238,16 +241,16 @@ class HardwareResource( Resource ):
       config = config_list.pop( 0 )
       config.config_values = config_values( job, name, index )
       config.profile = profile
-      config.hostname = 'mcp-auto--%s-%s-%s' % ( job.pk, name, index )
-      config.description = '%s.%s' % ( config.hostname, config.pod.domain )
+      config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
+      config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
       config.save()
       results.append( config.pk )
       submitConfigureJob( config )
 
     return results
 
-  def __unicode__( self ):
-    return 'Hardware Resource "%s"' % self.description
+  def __str__( self ):
+    return 'Hardware Resource "{0}"'.format( self.description )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -280,8 +283,8 @@ ResourceGroup
 
     super( ResourceGroup, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'Resource Group "%s"' % self.description
+  def __str__( self ):
+    return 'Resource Group "{0}"'.format( self.description )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -295,8 +298,8 @@ NetworkResource
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def __unicode__( self ):
-    return 'Network Resource for subnet "%s"' % self.subnet
+  def __str__( self ):
+    return 'Network Resource for subnet "{0}"'.format( self.subnet )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

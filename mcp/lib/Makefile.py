@@ -3,33 +3,35 @@ import subprocess
 
 MAKE_CMD = '/usr/bin/make'
 
+
 class MakeException( Exception ):
   pass
 
-class Makefile( object ):
+
+class Makefile():
   def __init__( self, dir ):
     self.dir = dir
 
   def _execute( self, target ):
-    logging.info( 'makefile: executing target "%s"' % target )
+    logging.info( 'makefile: executing target "{0}"'.format( target ) )
 
     try:
       args = [ MAKE_CMD, 'MCP=1', '-s', '-C', self.dir, target ]
-      logging.debug( 'makefile: executing "%s"' % args )
+      logging.debug( 'makefile: executing "{0}"'.format( args ) )
       proc = subprocess.Popen( args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT )
       ( stdout, _ ) = proc.communicate()
     except Exception as e:
-      raise MakeException( 'Exception %s while makeing target "%s"' % ( e, target ) )
+      raise MakeException( 'Exception {0} while makeing target "{1}"'.format( e, target ) )
 
-    logging.debug( 'make: rc: %s' % proc.returncode )
-    logging.debug( 'make: output:\n----------\n%s\n---------' % stdout )
+    logging.debug( 'make: rc: {0}'.format( proc.returncode ) )
+    logging.debug( 'make: output:\n----------\n{0}\n---------'.format( stdout ) )
 
     if proc.returncode == 2:
       if stdout.startswith( 'make: *** No rule to make target' ):
         return []
 
     if proc.returncode != 0:
-      raise MakeException( 'make returned "%s"' % proc.returncode )
+      raise MakeException( 'make returned "{0}"'.format( proc.returncode ) )
 
     result = []
     for line in stdout.strip().splitlines():
@@ -44,13 +46,13 @@ class Makefile( object ):
     return self._execute( 'manual-builds' )
 
   def resources( self, build ):
-    return self._execute( '%s-resources' % build )
+    return self._execute( '{0}-resources'.format( build ) )
 
   def networks( self, build ):
-    return self._execute( '%s-networks' % build )
+    return self._execute( '{0}-networks'.format( build ) )
 
   def depends( self, build ):
-    return self._execute( '%s-depends' % build )
+    return self._execute( '{0}-depends'.format( build ) )
 
   def testDistros( self ):
     return self._execute( 'test-distros' )
@@ -58,5 +60,5 @@ class Makefile( object ):
   def docsDistros( self ):
     return self._execute( 'docs-distros' )
 
-  def packageDistros( self, type ): # type in dpkg, rpm, respkg, resource
-    return self._execute( '%s-distros' % type )
+  def packageDistros( self, type ):  # type in dpkg, rpm, respkg, resource
+    return self._execute( '{0}-distros'.format( type ) )

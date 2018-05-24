@@ -3,10 +3,12 @@ import logging
 
 from github import Github, GithubObject, BadCredentialsException, UnknownObjectException
 
+
 class GitHubException( Exception ):
   pass
 
-class GitHub( object ):
+
+class GitHub():
   def __init__( self, host, proxy, user, password, org=None, repo=None ):
     if proxy is not None:
       proxy_save = os.getenv( 'http_proxy' )
@@ -18,7 +20,7 @@ class GitHub( object ):
 
     self.user = self.conn.get_user()
 
-    try: # force communicatoin with Github
+    try:  # force communicatoin with Github
       self.user.type
     except BadCredentialsException:
       raise GitHubException( 'Unable to Login to github' )
@@ -44,9 +46,9 @@ class GitHub( object ):
       return self._ghRepo
 
     if self.owner is not None:
-      self._ghRepo = self.conn.get_repo( '%s/%s' % ( self.owner, self.repo ) )
+      self._ghRepo = self.conn.get_repo( '{0}/{1}'.format( self.owner, self.repo ) )
     else:
-      self._ghRepo = self.conn.get_repo( '%s/%s' % ( self.org, self.repo ) )
+      self._ghRepo = self.conn.get_repo( '{0}/{1}'.format( self.org, self.repo ) )
     return self._ghRepo
 
   def getCommit( self, commit_hash ):
@@ -64,7 +66,7 @@ class GitHub( object ):
   def postCommitComment( self, commit_hash, comment, line=GithubObject.NotSet, path=GithubObject.NotSet, position=GithubObject.NotSet ):
     commit = self.getCommit( commit_hash )
     if commit is None:
-      logging.warning( 'Unable get Commit "%s" of "%s" in "%s"' % ( commit_hash, self.repo, self.org ) )
+      logging.warning( 'Unable get Commit "{0}" of "{1}" in "{2}"'.format( commit_hash, self.repo, self.org ) )
       return
 
     commit.create_comment( comment, line, path, position )
@@ -75,18 +77,18 @@ class GitHub( object ):
 
     commit = self.getCommit( commit_hash )
     if commit is None:
-      logging.warning( 'Unable get Commit "%s" of "%s" in "%s"' % ( commit_hash, self.repo, self.org ) )
+      logging.warning( 'Unable get Commit "{0}" of "{1}" in "{2}"'.format( commit_hash, self.repo, self.org ) )
       return
 
     try:
       commit.create_status( state, target_url, description )
     except UnknownObjectException:
-      logging.warning( 'Unable to set status on commit "%s" of "%s" in "%s", check permissions' % ( commit_hash, self.repo, self.org ) )
+      logging.warning( 'Unable to set status on commit "{0}" of "{1}" in "{2}", check permissions'.format( commit_hash, self.repo, self.org ) )
 
   def postPRComment( self, id, comment ):
     pr = self.getPR( id )
     if pr is None:
-      logging.warning( 'Unable get PR "%s" of "%s" in "%s"' % ( id, self.repo, self.org ) )
+      logging.warning( 'Unable get PR "{0}" of "{1}" in "{2}"'.format( id, self.repo, self.org ) )
       return
 
     pr.create_issue_comment( comment )
@@ -108,7 +110,7 @@ class GitHub( object ):
   def getPullRequestOwner( self, id ):
     pr = self.getPR( id )
     if pr is None:
-      logging.warning( 'Unable get PR "%s" of "%s" in "%s"' % ( id, self.repo, self.org ) )
+      logging.warning( 'Unable get PR "{0}" of "{1}" in "{2}"'.format( id, self.repo, self.org ) )
       return None
 
     return pr.user.login

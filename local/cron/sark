@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/env python3
 #
 #  sark
 #
@@ -44,32 +44,32 @@ if os.path.exists( PID_FILE ):
   sys.exit( 0 )
 
 tmp = open( PID_FILE, 'w' )
-tmp.write( '%s\n' % os.getpid() )
+tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
 slack = Slack( 'sark', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
 
 # Iterate over the Queued Items
-for item in QueueItem.objects.all().order_by( '-priority' ): # start with the biggest number first
+for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the biggest number first
   try:
     # Check to see if resources are aviable
     ( compute_status, network_status ) = item.checkResources()
     if compute_status:
-      logging.info( 'Queue Item "%s" waiting for compute "%s"' % ( item, compute_status ) )
+      logging.info( 'Queue Item "{0}" waiting for compute "{1}"'.format( item, compute_status ) )
       item.resource_status = json.dumps( { 'compute': compute_status } )
       item.save()
       continue
 
     if network_status:
-      logging.info( 'Queue Item "%s" waiting for network "%s"' % ( item, network_status ) )
+      logging.info( 'Queue Item "{0}" waiting for network "{1}"'.format( item, network_status ) )
       item.resource_status = json.dumps( { 'network': network_status } )
       item.save()
       continue
 
   except Exception as e:
-    logging.exception( 'Exception "%s" checking resources for item "%s", skiping...' % ( e, item.pk ) )
-    item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )
+    logging.exception( 'Exception "{0}" checking resources for item "{1}", skiping...'.format( e, item.pk ) )
+    item.resource_status = json.dumps( { 'error': 'Exception: "{0}"'.format( e ) } )
     item.save()
     continue
 
@@ -89,7 +89,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
 
     # allocate the Resources
     ( compute_resources, network_resources ) = item.allocateResources( job )
-    logging.info( 'Starting Queue Item "%s" with Compute "%s", Network "%s", as job "%s"' % ( item, compute_resources, network_resources, job.id ) )
+    logging.info( 'Starting Queue Item "{0}" with Compute "{1}", Network "{2}", as job "{3}"'.format( item, compute_resources, network_resources, job.id ) )
     job.resources = json.dumps( compute_resources )
     job.save()
     for network in network_resources:
@@ -100,18 +100,18 @@ for item in QueueItem.objects.all().order_by( '-priority' ): # start with the bi
       bjnr.save()
 
   except Exception as e:
-    logging.exception( 'Exception "%s" creating job for queue item "%s", skiping...' % ( e, item.pk ) )
+    logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
     if job and job.pk:
       for bjnr in job.buildjobnetworkresource_set.all():
         bjnr.delete()
       job.delete()
 
-    item.resource_status = json.dumps( { 'error': 'Exception: "%s"' % e } )
+    item.resource_status = json.dumps( { 'error': 'Exception: "{0}"'.format( e ) } )
     item.save()
     continue
 
   # remove the queue Item
-  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) for Queue Item %s submitted.' % ( job.id, job.project.name, job.build.name, job.branch, job.target, item.id ), slack.INFO )
+  slack.post_message( 'Job {0} ( project: "{1}", build: "{2}", branch: "{3}", target: "{4}" ) for Queue Item {5} submitted.'.format( job.id, job.project.name, job.build.name, job.branch, job.target, item.id ), slack.INFO )
   item.delete()
 
 
@@ -122,7 +122,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
   for name in resource_map:
     for index in range( 0, len( resource_map[ name ] ) ):
       if resource_map[ name ][ index ][ 'status' ] not in ( 'Allocated', 'Building' ):
-        continue # don't want to overwrite any new status that might of been put in by something else, hopfully that something else waited till it was built, b/c we are going to assume it is, really should keep track of feedback status and building status seperately
+        continue  # don't want to overwrite any new status that might of been put in by something else, hopfully that something else waited till it was built, b/c we are going to assume it is, really should keep track of feedback status and building status seperately
 
       tmp = Resource.built( resource_map[ name ][ index ][ 'config' ] )
       ready &= tmp
@@ -130,7 +130,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 
   # all done, set to built
   if ready:
-    logging.info( 'Setting job "%s" to Built.' % job.id )
+    logging.info( 'Setting job "{0}" to Built.'.format( job.id ) )
     job.built_at = datetime.utcnow().replace( tzinfo=utc )
     job.save()
 
@@ -149,34 +149,34 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   else:
     logging.info( 'Job has nothing to report to, hopfully that was intentional' )
 
-  logging.info( 'Setting job "%s" to Reported.' % job.id )
+  logging.info( 'Setting job "{0}" to Reported.'.format( job.id ) )
   job.reported_at = datetime.utcnow().replace( tzinfo=utc )
   job.save()
 
   results = ''
   resource_map = json.loads( job.resources )
   for target in resource_map:
-    results += 'Target: *%s*\n' % target
+    results += 'Target: *{0}*\n'.format( target )
     for index in range( 0, len( resource_map[ target ] ) ):
       tmp = resource_map[ target ][ index ]
-      results += 'Index %s\n' % index
+      results += 'Index {0}\n'.format( index )
       try:
-        results += 'Sucess: *%s*\n' % tmp[ 'success' ]
+        results += 'Sucess: *{0}*\n'.format( tmp[ 'success' ] )
       except KeyError:
         pass
 
       try:
         if tmp[ 'results' ] is not None:
-          results += '```%s```\n' % tmp[ 'results' ][-500:]
+          results += '```{0}```\n'.format( tmp[ 'results' ][-500:] )
       except KeyError:
         pass
 
-  slack.post_message( 'Job %s ( project: "%s", build: "%s", branch: "%s", target: "%s" ) Completed.\n%s' % ( job.id, job.project.name, job.build.name, job.branch, job.target, results ), slack.INFO )
+  slack.post_message( 'Job {0} ( project: "{1}", build: "{2}", branch: "{3}", target: "{4}" ) Completed.\n{5}'.format( job.id, job.project.name, job.build.name, job.branch, job.target, results ), slack.INFO )
 
 
 # iterate over the Reported jobs that are not manual and look to see if the resources are all released
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=True, released_at__isnull=True, manual=False ):
-  if job.suceeded: # sucess auto Acknoledges
+  if job.suceeded:  # sucess auto Acknoledges
     job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
     job.save()
     continue
@@ -194,7 +194,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   for name in resource_map:
     for index in range( 0, len( resource_map[ name ] ) ):
       if resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
-        logging.info( 'Releasing resource "%s" "%s" of job "%s".' % ( name, index, job.id ) )
+        logging.info( 'Releasing resource "{0}" "{1}" of job "{2}".'.format( name, index, job.id ) )
         if Resource.release( resource_map[ name ][ index ][ 'config' ]  ) is None:
           job.updateResourceState( name, index, 'Released' )
         else:
@@ -215,14 +215,14 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
   # resources all released, set job to released
   if ready:
-    logging.info( 'Setting job "%s" to Released.' % job.id )
+    logging.info( 'Setting job "{0}" to Released.'.format( job.id ) )
     job.released_at = datetime.utcnow().replace( tzinfo=utc )
     job.save()
 
 
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
 for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
-  logging.info( 'Cleaning up job "%s".' % job.id )
+  logging.info( 'Cleaning up job "{0}".'.format( job.id ) )
   for bjnr in job.buildjobnetworkresource_set.all():
     bjnr.delete()
   job.delete()

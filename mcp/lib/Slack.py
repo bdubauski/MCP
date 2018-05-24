@@ -3,7 +3,8 @@ import urllib
 import urllib2
 import logging
 
-class Slack( object ):
+
+class Slack():
   NOTSET = ':loudspeaker:'
   DEBUG = ':speaker:'
   INFO = ':information_source:'
@@ -16,7 +17,7 @@ class Slack( object ):
   def __init__( self, proc, api_token, channel_name, site=None, proxy=None ):
     self.api_token = api_token
     self.channel_name = channel_name
-    self.user_name = 'mcp(%s)-%s' % ( site, proc ) if site else 'mcp-%s' % proc
+    self.user_name = 'mcp({0})-{1}'.format( site, proc ) if site else 'mcp-{0}'.format( proc )
     self.slack_api_base_url = 'https://slack.com/api'
     if proxy:
       self.opener = urllib2.build_opener( urllib2.ProxyHandler( { 'http': proxy, 'https': proxy } ) )
@@ -35,12 +36,12 @@ class Slack( object ):
         'icon_emoji': emoji
     }
 
-    url = '%s/%s' % ( self.slack_api_base_url, 'chat.postMessage' )
+    url = '{0}/{1}'.format( self.slack_api_base_url, 'chat.postMessage' )
     data = urllib.urlencode( data )
     try:
       resp = self.opener.open( url, data=data )
     except Exception as e:
-      logging.warning( 'Slack: Got Exception "%s" when posting message' % e )
+      logging.warning( 'Slack: Got Exception "{0}" when posting message'.format( e ) )
       return
 
     rc = resp.read()
@@ -52,5 +53,5 @@ class Slack( object ):
       return
 
     if 'ok' not in rc:
-      logging.warning( 'Slack: Failed to post message "%s"' % rc )
+      logging.warning( 'Slack: Failed to post message {0}'.format( rc ) )
       return

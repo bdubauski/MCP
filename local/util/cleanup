@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/env python3
 import os
 import time
 
@@ -16,19 +16,19 @@ job_id = sys.argv[1]
 job = BuildJob.objects.get( pk=job_id )
 
 if not job.built_at:
-  print 'Job "%s" has not completed building' % job_id
+  print( 'Job "{0}" has not completed building'.format( job_id ) )
   sys.exit( 1 )
 
-print 'Setting job to Ran...'
+print( 'Setting job to Ran...' )
 job.ran_at = datetime.utcnow().replace( tzinfo=utc )
 job.save()
 
 job = BuildJob.objects.get( pk=job_id )
 while job.reported_at is None:
-  print 'Waiting for job to Report....'
+  print( 'Waiting for job to Report....' )
   time.sleep( 5 )
   job = BuildJob.objects.get( pk=job_id )
 
-print 'Setting job to Acknoledged....'
+print( 'Setting job to Acknoledged....' )
 job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
 job.save()

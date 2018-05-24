@@ -13,8 +13,10 @@ from mcp.Resource.models import Resource
 RELEASE_TYPE_LENGTH = 5
 RELEASE_TYPE_CHOICES = ( ( 'ci', 'CI' ), ( 'dev', 'Development' ), ( 'stage', 'Staging' ), ( 'prod', 'Production' ), ( 'depr', 'Deprocated' ) )
 
+
 def _markdownBlockQuote( lines ):
   return '>' + re.sub( r'([\\`\*_{}\+\-\.\!#\(\)\[\]])', r'\\\1', '\n>'.join( lines ) )
+
 
 def _diffMarkDown( a, b ):
   result = ''
@@ -22,23 +24,24 @@ def _diffMarkDown( a, b ):
   for group in sm.get_grouped_opcodes( 3 ):
     for tag, i1, i2, j1, j2 in group:
       if tag == 'replace':
-        result += '\n\n---\n\n_Changed %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += '\n\n---\n\n_Changed {0}:{1} -> {2}:{3}_\n'.format( i1, i2, j1, j2 )
         result += _markdownBlockQuote( a[ i1:i2 ] )
-        result += '\n\n_To %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += '\n\n_To {0}:{1} -> {2}:{3}_\n'.format( i1, i2, j1, j2 )
         result += _markdownBlockQuote( b[ j1:j2 ] )
 
       elif tag == 'delete':
-        result += '\n\n---\n\n_Removed %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += '\n\n---\n\n_Removed {0}:{1} -> {2}:{3}s_\n'.format( i1, i2, j1, j2 )
         result += _markdownBlockQuote( a[ i1:i2 ] )
 
       elif tag == 'insert':
-        result += '\n\n---\n\n_Added %s:%s -> %s:%s_\n' % ( i1, i2, j1, j2 )
+        result += '\n\n---\n\n_Added {0}:{1} -> {2}:{3}_\n'.format( i1, i2, j1, j2 )
         result += _markdownBlockQuote( b[ j1:j2 ] )
 
   if not result:
     return '\n_No Change_\n'
   else:
     return result
+
 
 def _markdownResults( valueCur, valuePrev=None ):
   result = ''
@@ -47,7 +50,7 @@ def _markdownResults( valueCur, valuePrev=None ):
     if target not in valueCur:
       continue
 
-    result += '%s Results:\n\n' % target.title()
+    result += '{0} Results:\n\n'.format( target.title() )
     try:
       tmp_target = valuePrev[ target ]
     except ( TypeError, KeyError ):
@@ -68,33 +71,33 @@ def _markdownResults( valueCur, valuePrev=None ):
 
           lines = valueCur[ target ][ group ][ subgroup ][1].splitlines()
 
-          result += '**%s** - **%s**\n' % ( group, subgroup )
+          result += '**{0}** - **{1}**\n'.format( group, subgroup )
           if tmp_subgroup is None:
-            result += '  Success: **%s**\n' % valueCur[ target ][ group ][ subgroup ][0]
+            result += '  Success: **{0}**\n'.format( valueCur[ target ][ group ][ subgroup ][0] )
             if valueCur[ target ][ group ][ subgroup ][2] is not None:
-              result += '  Score: **%s**\n' % valueCur[ target ][ group ][ subgroup ][2]
+              result += '  Score: **{0}**\n'.format( valueCur[ target ][ group ][ subgroup ][2] )
             result += _markdownBlockQuote( lines )
 
           else:
-            result += '  Success: **%s** -> **%s**\n' % ( tmp_subgroup[0], valueCur[ target ][ group ][ subgroup ][0] )
+            result += '  Success: **{0}** -> **{1}**\n'.format( tmp_subgroup[0], valueCur[ target ][ group ][ subgroup ][0] )
             if valueCur[ target ][ group ][ subgroup ][2] is not None:
-              result += '  Success: **%s** -> **%s**\n' % ( tmp_subgroup[2], valueCur[ target ][ group ][ subgroup ][2] )
+              result += '  Success: **{0}** -> **{1}**\n'.format( tmp_subgroup[2], valueCur[ target ][ group ][ subgroup ][2] )
             result += _diffMarkDown( tmp_subgroup[1].splitlines(), lines )
 
       else:
         lines = valueCur[ target ][ group ][1].splitlines()
 
-        result += '**%s**\n' % group
+        result += '**{0}**\n'.format( group )
         if tmp_group is None:
-          result += '  Success: **%s**\n' % valueCur[ target ][ group ][0]
+          result += '  Success: **{0}**\n'.format( valueCur[ target ][ group ][0] )
           if valueCur[ target ][ group ][2] is not None:
-            result += '  Score: **%s**\n' % valueCur[ target ][ group ][2]
+            result += '  Score: **{0}**\n'.format( valueCur[ target ][ group ][2] )
           result += _markdownBlockQuote( lines )
 
         else:
-          result += '  Success: **%s** -> **%s**\n' % ( tmp_group[0], valueCur[ target ][ group ][0] )
+          result += '  Success: **{0}** -> **{1}**\n'.format( tmp_group[0], valueCur[ target ][ group ][0] )
           if valueCur[ target ][ group ][2] is not None:
-            result += '  Score: **%s** -> **%s**\n' % ( tmp_group[2], valueCur[ target ][ group ][2] )
+            result += '  Score: **{0}** -> **{1}**\n'.format( tmp_group[2], valueCur[ target ][ group ][2] )
             try:
               if float( tmp_group[2] > float( valueCur[ target ][ group ][2] ) ):
                 result += '## WARNING: Score value decreased ##'
@@ -105,6 +108,7 @@ def _markdownResults( valueCur, valuePrev=None ):
       result += '\n\n'
 
   return result
+
 
 class Project( models.Model ):
   """
@@ -147,7 +151,7 @@ This is a Generic Project
       return None
 
   @property
-  def busy( self ): # ie. can it be updated, and scaned for new things to do
+  def busy( self ):  # ie. can it be updated, and scaned for new things to do
     not_busy = True
     for build in self.build_set.all():
       for item in build.queueitem_set.all():
@@ -160,12 +164,12 @@ This is a Generic Project
 
   @property
   def internal_git_url( self ):
-    return '%s%s' % ( settings.GIT_HOST, self.local_path )
+    return '{0}{1}'.format( settings.GIT_HOST, self.local_path )
 
   @property
   def upstream_git_url( self ):
     try:  # for now we only support git based projects
-      return '%s/%s/%s.git' % ( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo )
+      return '{0}/{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo )
     except ObjectDoesNotExist:
       pass
 
@@ -179,7 +183,7 @@ This is a Generic Project
   @property
   def clone_git_url( self ):
     try:  # for now we only support git based projects
-      return ( '%s%s/%s.git' % ( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://%s:%s@' % ( settings.GITHUB_USER, settings.GITHUB_PASS ) )
+      return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://{0}:{1}@'.format( settings.GITHUB_USER, settings.GITHUB_PASS ) )
     except ObjectDoesNotExist:
       pass
 
@@ -208,8 +212,8 @@ This is a Generic Project
 
     super( Project, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'Project "%s"' % self.name
+  def __str__( self ):
+    return 'Project "{0}"'.format( self.name )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -233,7 +237,8 @@ This is a Generic Project
 
         return qs.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
 
-      raise Exception( 'Invalid filter "%s"' % filter )
+      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
+
 
 class GitProject( Project ):
   """
@@ -241,8 +246,8 @@ This is a Git Project
   """
   git_url = models.CharField( max_length=200 )
 
-  def __unicode__( self ):
-    return 'Git Project "%s"' % self.name
+  def __str__( self ):
+    return 'Git Project "{0}"'.format( self.name )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -280,8 +285,8 @@ This is a GitHub Project
     self._github = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS, self.org, self.repo )
     return self._github
 
-  def __unicode__( self ):
-    return 'GitHub Project "%s"(%s/%s)' % ( self.name, self._org, self._repo )
+  def __str__( self ):
+    return 'GitHub Project "{0}"({1}/{2})'.format( self.name, self._org, self._repo )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -301,8 +306,8 @@ This is a Package
 
     super( Package, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'Package "%s"' % self.name
+  def __str__( self ):
+    return 'Package "{0}"'.format( self.name )
 
   class API:
     not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
@@ -318,8 +323,8 @@ This is a Version of a Package
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def __unicode__( self ):
-    return 'PackageVersion "%s" verison "%s"' % ( self.package.name, self.version )
+  def __str__( self ):
+    return 'PackageVersion "{0}" verison "{1}"'.format( self.package.name, self.version )
 
   class Meta:
       unique_together = ( 'package', 'version' )
@@ -390,7 +395,7 @@ A Single Commit of a Project
     return '\n'.join( result )
 
   @property
-  def results( self ): # for now in Markdown format
+  def results( self ):  # for now in Markdown format
     result = {}
 
     if self.lint_results:
@@ -434,7 +439,6 @@ A Single Commit of a Project
 
       if wrk:
         result[ 'docs' ] = wrk
-
 
     if not result:
       return None
@@ -557,8 +561,8 @@ A Single Commit of a Project
       number = int( self.branch[3:] )
       gh.postPRComment( number, summary )
 
-  def __unicode__( self ):
-    return 'Commit "%s" on branch "%s" of project "%s"' % ( self.commit, self.branch, self.project.name )
+  def __str__( self ):
+    return 'Commit "{0}" on branch "{1}" of project "{2}"'.format( self.commit, self.branch, self.project.name )
 
   class Meta:
       unique_together = ( 'project', 'commit', 'branch' )
@@ -577,14 +581,14 @@ A Single Commit of a Project
       if filter == 'in_process':
         return qs.filter( done_at__isnull=True )
 
-      raise Exception( 'Invalid filter "%s"' % filter )
+      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
 
 
 class Build( models.Model ):
   """
 This is a type of Build that can be done
   """
-  key = models.CharField( max_length=160, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
+  key = models.CharField( max_length=160, editable=False, primary_key=True )  # until djanog supports multi filed primary keys
   name = models.CharField( max_length=100 )
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
@@ -603,12 +607,12 @@ This is a type of Build that can be done
     except ValueError:
       raise ValidationError( 'networks must be valid JSON' )
 
-    self.key = '%s_%s' % ( self.project.name, self.name )
+    self.key = '{0}_{1}'.format( self.project.name, self.name )
 
     super( Build, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'Build "%s" of "%s"' % ( self.name, self.project.name )
+  def __str__( self ):
+    return 'Build "{0}" of "{1}"'.format( self.name, self.project.name )
 
   class Meta:
       unique_together = ( 'name', 'project' )
@@ -622,22 +626,22 @@ This is a type of Build that can be done
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 
-      raise Exception( 'Invalid filter "%s"' % filter )
+      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
 
 
 class BuildDependancy( models.Model ):
-  key = models.CharField( max_length=250, editable=False, primary_key=True ) # until django supports multi filed primary keys
+  key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s_%s' % ( self.build.key, self.package.name )
+    self.key = '{0}_{1}'.format( self.build.key, self.package.name )
 
     super( BuildDependancy, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'BuildDependancies from "%s" to "%s" at "%s"' % ( self.build.name, self.package.name, self.state )
+  def __str__( self ):
+    return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.state )
 
   class Meta:
       unique_together = ( 'build', 'package' )
@@ -647,19 +651,19 @@ class BuildDependancy( models.Model ):
 
 
 class BuildResource( models.Model ):
-  key = models.CharField( max_length=250, editable=False, primary_key=True ) # until djanog supports multi filed primary keys
+  key = models.CharField( max_length=250, editable=False, primary_key=True )  # until djanog supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
 
   def save( self, *args, **kwargs ):
-    self.key = '%s_%s_%s' % ( self.build.key, self.name, self.resource.name )
+    self.key = '{0}_{1}_{2}'.format( self.build.key, self.name, self.resource.name )
 
     super( BuildResource, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'BuildResource from "%s" for "%s" named "%s"' % ( self.build.name, self.resource.name, self.name )
+  def __str__( self ):
+    return 'BuildResource from "{0}" for "{1}" named "{2}"'.format( self.build.name, self.resource.name, self.name )
 
   class Meta:
       unique_together = ( 'build', 'name' )

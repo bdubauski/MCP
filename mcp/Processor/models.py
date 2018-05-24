@@ -11,6 +11,7 @@ from mcp.Users.models import MCPUser
 from plato.Config.lib import getSystemConfigValues
 from plato.Network.models import SubNet
 
+
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
 # with multiple "versions" for one "version" of the file.  So hopfully the rest of MCP maintains one commit at a time, and we will group
 # all versions of a package togeather in the same Promotion for now, better logic is needed eventually
@@ -21,8 +22,8 @@ class Promotion( models.Model ):
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def __unicode__( self ):
-    return 'Promotion for package/versions %s to "%s"' % ( [ ( '%s(%s)' % ( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.to_state )
+  def __str__( self ):
+    return 'Promotion for package/versions {0} to "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.to_state )
 
   def signalComplete( self, build ):
     promotion_build = self.promotionbuild_set.get( build=build )
@@ -38,8 +39,8 @@ class PromotionPkgVersion( models.Model ):
   package_version = models.ForeignKey( PackageVersion, on_delete=models.CASCADE )
   packrat_id = models.CharField( max_length=100 )
 
-  def __unicode__( self ):
-    return 'PromotionPkgVersion for package "%s" version "%s" promoting to "%s"' % ( self.package_version.package.name, self.package_version.version, self.promotion.to_state )
+  def __str__( self ):
+    return 'PromotionPkgVersion for package "{0}" version "{1}" promoting to "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.to_state )
 
   class Meta:
     unique_together = ( 'promotion', 'package_version' )
@@ -53,8 +54,8 @@ class PromotionBuild( models.Model ):
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   status = models.CharField( max_length=50 )
 
-  def __unicode__( self ):
-    return 'PromotionBuild to state "%s" using build "%s" at "%s"' % ( self.promotion.to_state, self.build.name, self.status )
+  def __str__( self ):
+    return 'PromotionBuild to state "{0}" using build "{1}" at "{2}"'.format( self.promotion.to_state, self.build.name, self.status )
 
   class Meta:
     unique_together = ( 'promotion', 'build' )
@@ -71,8 +72,8 @@ QueueItem
   project = models.ForeignKey( Project, on_delete=models.CASCADE, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
-  priority = models.IntegerField( default=50 ) # higher the value, higer the priority
-  manual = models.BooleanField() # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
+  priority = models.IntegerField( default=50 )  # higher the value, higer the priority
+  manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   user = models.ForeignKey( MCPUser, null=True, blank=True, on_delete=models.SET_NULL )
   resource_status = models.TextField( default='{}' )
   resource_groups = models.ManyToManyField( ResourceGroup, help_text='' )
@@ -101,11 +102,11 @@ QueueItem
     have = len( NetworkResource.objects.filter( buildjob=None ) )
     need = len( simplejson.loads( self.build.networks ) )
     if have < need:
-      network[ 'network' ] = 'Need: %s   Available: %s' % ( need, have )
+      network[ 'network' ] = 'Need: {0}   Available: {1}'.format( need, have )
 
     return ( compute, network )
 
-  def allocateResources( self, job ): # warning, dosen't check first, make sure you are sure there are resources available before calling
+  def allocateResources( self, job ):  # warning, dosen't check first, make sure you are sure there are resources available before calling
     compute = {}
     network = {}
     group_config_list = []
@@ -117,9 +118,9 @@ QueueItem
       quanity = buildresource.quanity
       resource = buildresource.resource.native
       config_list = []
-      if group_config_list: # should we have an option that prevents from allocating from outside the group_config_list?
-        config_list = resource.allocate( job, name, quanity, config_id_list=group_config_list ) # first try to allocated from resource groups
-      config_list = resource.allocate( job, name, quanity - len( config_list ) ) # now allocated from general pool
+      if group_config_list:  # should we have an option that prevents from allocating from outside the group_config_list?
+        config_list = resource.allocate( job, name, quanity, config_id_list=group_config_list )  # first try to allocated from resource groups
+      config_list = resource.allocate( job, name, quanity - len( config_list ) )  # now allocated from general pool
       compute[ name ] = []
       for config in config_list:
         compute[ name ].append( { 'status': 'Allocated', 'config': config } )
@@ -150,7 +151,7 @@ QueueItem
     try:
       build = Build.objects.get( project_id='_builtin_', name=distro )
     except Build.DoesNotExist:
-      raise Exception( 'distro "%s" not set up' % distro )
+      raise Exception( 'distro "{0}" not set up'.format( distro ) )
 
     item = QueueItem()
     item.build = build
@@ -180,8 +181,8 @@ QueueItem
 
     super( QueueItem, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'QueueItem for "%s" of priority "%s"' % ( self.build.name, self.priority )
+  def __str__( self ):
+    return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
   class Meta:
     permissions = ( ( 'can_build', 'Can Queue Builds' ), )
@@ -198,14 +199,15 @@ QueueItem
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 
-      raise Exception( 'Invalid filter "%s"' % filter )
+      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
+
 
 class BuildJob( models.Model ):
   """
 BuildJob
   """
   STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
-  build = models.ForeignKey( Build, on_delete=models.PROTECT, editable=False ) # don't delete Builds/projects when things are in flight
+  build = models.ForeignKey( Build, on_delete=models.PROTECT, editable=False )  # don't delete Builds/projects when things are in flight
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
@@ -275,7 +277,7 @@ BuildJob
     if not user.is_anonymous() and not user.has_perm( 'Processor.can_ran' ):  # remove anonymous stuff when nullunit authencates
       raise PermissionDenied()
 
-    if self.ran_at is not None: # been done, don't touch
+    if self.ran_at is not None:  # been done, don't touch
       return
 
     if not self.built_at:
@@ -288,7 +290,7 @@ BuildJob
     if not user.has_perm( 'Processor.can_ack' ):
       raise PermissionDenied()
 
-    if self.acknowledged_at is not None: # been done, don't touch
+    if self.acknowledged_at is not None:  # been done, don't touch
       return
 
     if self.reported_at is None:
@@ -448,8 +450,8 @@ BuildJob
 
     super( BuildJob, self ).save( *args, **kwargs )
 
-  def __unicode__( self ):
-    return 'BuildJob "%s" for build "%s"' % ( self.pk, self.build.name )
+  def __str__( self ):
+    return 'BuildJob "{0}" for build "{1}"'.format( self.pk, self.build.name )
 
   class Meta:
     permissions = ( ( 'can_ack', 'Can Acknowledge Builds' ), ( 'can_ran', 'Can Flag a Build as "ran"' ) )
@@ -463,7 +465,7 @@ BuildJob
                  'setResourceScore': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Float' } ) ),
                  'addPackageFiles': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'StringList' } ) ),
                  'getConfigStatus': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
-                 'getProvisioningInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ), # called by UI
+                 'getProvisioningInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),  # called by UI
                  'setConfigValues': ( { 'type': 'Boolean' }, ( { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
                  'getNetworkInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, ) ),
                  # run by both
@@ -484,7 +486,7 @@ BuildJob
       if filter == 'project':
         return qs.filter( project=values[ 'project' ] )
 
-      raise Exception( 'Invalid filter "%s"' % filter )
+      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
 
 
 class BuildJobNetworkResource( models.Model ):
@@ -492,8 +494,8 @@ class BuildJobNetworkResource( models.Model ):
   networkresource = models.ForeignKey( NetworkResource, on_delete=models.CASCADE )
   name = models.CharField( max_length=100 )
 
-  def __unicode__( self ):
-    return 'BuildJobNetworkResource for BuildJob "%s" NetworkResource "%s" Named "%s"' % ( self.buildjob, self.networkresource, self.name )
+  def __str__( self ):
+    return 'BuildJobNetworkResource for BuildJob "{0}" NetworkResource "{1}" Named "{2}"'.format( self.buildjob, self.networkresource, self.name )
 
   class Meta:
     unique_together = ( ( 'buildjob', 'networkresource' ), ( 'buildjob', 'name' ) )

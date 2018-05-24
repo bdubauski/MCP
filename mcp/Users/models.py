@@ -6,16 +6,17 @@ from django.contrib.auth.models import User, Group
 from mcp.Project.models import Project, GitHubProject
 from mcp.lib.libGitHub import GitHub, GitHubException
 
+
 class MCPUser( User ):
   """
   MCPUser is used to auth against MCP, and includes github and slack info
   """
-  projects = models.ManyToManyField( Project, through='MCPUserProject', help_text='' ) # github logins will reset this upon login
-  github_username = models.CharField( max_length=100, blank=True, null=True ) # to auth aginst github
-  slack_handle = models.CharField( max_length=100, blank=True, null=True ) # to notify when a job complets
+  projects = models.ManyToManyField( Project, through='MCPUserProject', help_text='' )  # github logins will reset this upon login
+  github_username = models.CharField( max_length=100, blank=True, null=True )  # to auth aginst github
+  slack_handle = models.CharField( max_length=100, blank=True, null=True )  # to notify when a job complets
 
-  github_oath = models.CharField( max_length=100, blank=True, null=True ) # oath token from github
-  github_orgs = models.TextField( blank=True, null=True ) # if set, will limit the orgs visable to this user, coma delimited
+  github_oath = models.CharField( max_length=100, blank=True, null=True )  # oath token from github
+  github_orgs = models.TextField( blank=True, null=True )  # if set, will limit the orgs visable to this user, coma delimited
 
   def login( self, password ):  # if this fails do not try any other login stuff, it failed period.
     if self.github_username is None:
@@ -90,7 +91,7 @@ class MCPUser( User ):
       pass
 
     if user is not None:
-      return [ 'User "%s" is Allread Registered' % github_username ]
+      return [ 'User "{0}" is Allready Registered'.format( github_username ) ]
 
     try:
       GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, github_username, github_password )
@@ -107,8 +108,8 @@ class MCPUser( User ):
 
     return None
 
-  def __unicode__( self ):
-    return 'MCPUser User "%s"' % self.username
+  def __str__( self ):
+    return 'MCPUser User "{0}"'.format( self.username )
 
   class API:
     not_allowed_methods = ( 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
@@ -119,12 +120,13 @@ class MCPUser( User ):
                 'selfRegister': ( { 'type': 'StringList' }, (  { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' } ) )
               }
 
+
 class MCPUserProject( models.Model ):
   user = models.ForeignKey( MCPUser, on_delete=models.CASCADE )
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
 
-  def __unicode__( self ):
-    return 'MCPUserProject for User "%s" Project "%s"' % ( self.user, self.project )
+  def __str__( self ):
+    return 'MCPUserProject for User "{0}" Project "{1}"'.format( self.user, self.project )
 
   class Meta:
     unique_together = ( ( 'user', 'project' ), )

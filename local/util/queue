@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/bin/env python3
 import os
 
 os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
@@ -10,7 +10,7 @@ from mcp.Processor.models import QueueItem
 from mcp.Project.models import Build, Project
 from mcp.Resource.models import ResourceGroup
 
-oparser = optparse.OptionParser( description='Queue Job', usage='%prog [options]\n-b/--build and -t/--target are mutually exclusive, only one of the will process.' )
+oparser = optparse.OptionParser( description='Queue Job', usage='prog [options]\n-b/--build and -t/--target are mutually exclusive, only one of the will process.' )
 oparser.add_option( '-p', '--priority', help='Queue Item Priority (default: 50)', dest='priority', default=50 )
 oparser.add_option( '-r', '--branch', help='git branch to check out (default: master)', dest='branch', default='master' )
 oparser.add_option( '-e', '--resource-group', help='Resource Group to use (can be specified multiple times)', dest='resource_group', default=[], action='append' )
@@ -30,32 +30,32 @@ oparser.add_option_group( ogroup )
 
 if options.build:
   if not options.project:
-    print 'project is required for build'
+    print( 'project is required for build' )
     sys.exit( 1 )
 
   try:
     project = Project.objects.get( pk=options.project )
   except Project.DoesNotExist:
-    print 'Project "%s" not found' % options.project
+    print( 'Project "{0}" not found'.format( options.project ) )
     sys.exit( 1 )
 
   try:
     build = Build.objects.get( project=project, name=options.build )
   except Build.DoesNotExist:
-    print 'Build "%s" for project "%s" not Found' % ( options.build, options.project )
+    print( 'Build "{0}" for project "{1}" not Found'.format( options.build, options.project ) )
     sys.exit( 1 )
 
   item = QueueItem.inQueueBuild( build, options.branch, options.manual, options.priority )
 
 elif options.target:
   if not options.distro or not options.project:
-    print 'distro and project are required for target'
+    print( 'distro and project are required for target' )
     sys.exit( 1 )
 
   try:
     project = Project.objects.get( pk=options.project )
   except Project.DoesNotExist:
-    print 'Project "%s" not found' % options.project
+    print( 'Project "{0}" not found'.format( options.project ) )
     sys.exit( 1 )
 
   item = QueueItem.inQueueTarget( project, options.branch, options.manual, options.distro, options.target, options.priority )
@@ -69,7 +69,7 @@ for name in options.resource_group:
   try:
     group = ResourceGroup.objects.get( name=name )
   except ResourceGroup.DoesNotExist:
-    print 'Resource Group "%s" not found'
+    print( 'Resource Group "{0}" not found'.format( name ) )
     item.delete()
     sys.exit( 1 )
 
@@ -78,5 +78,5 @@ for name in options.resource_group:
 item.resource_groups = group_list
 item.save()
 
-print 'Item "%s" Queued' % item
+print( 'Item "{0}" Queued'.format( item ) )
 sys.exit( 0 )

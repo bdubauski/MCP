@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 
 from mcp.Users.models import MCPUser
 
+
 class Backend( ModelBackend ):
   def authenticate( self, username=None, password=None ):
     try:
