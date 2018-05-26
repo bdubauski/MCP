@@ -1,13 +1,23 @@
 import re
 import difflib
+import json
 
-from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.conf import settings
 
-from mcp.lib.libGitHub import GitHub
+from cinp.orm_django import DjangoCInP as CInP
+
+from mcp.fields import name_regex
+from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
+
+
+cinp = CInP( 'Project', '0.1' )
+
+
+COMMIT_STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'doced', 'done' )
+
 
 # from packrat Repos/models.py
 RELEASE_TYPE_LENGTH = 5
@@ -110,6 +120,7 @@ def _markdownResults( valueCur, valuePrev=None ):
   return result
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' ] )
 class Project( models.Model ):
   """
 This is a Generic Project
@@ -203,56 +214,54 @@ This is a Generic Project
 
     return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
 
-  def save( self, *args, **kwargs ):
-    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
-      raise ValidationError( 'Invalid name' )
+  @cinp.list_filter( name='my_projects', paramater_type_list=[ { 'type': '__USER__' } ] )
+  @staticmethod
+  def filter_my_projects( user ):
+    if user.is_anonymous():
+      return Project.objects.all()
+
+    return Project.objects.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
 
     if not self.local_path:
       self.local_path = None
 
-    super( Project, self ).save( *args, **kwargs )
+    errors = {}
+
+    if not name_regex.match( self.name ):
+      errors[ 'name' ] = 'Invalid'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'Project "{0}"'.format( self.name )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    properties = {
-                   'type': { 'type': 'String' },
-                   'org': { 'type': 'String' },
-                   'repo': { 'type': 'String' },
-                   'busy': { 'type': 'String' },
-                   'upstream_git_url': { 'type': 'String' },
-                   'internal_git_url': { 'type': 'String' },
-                   'status': { 'type': 'String' }
-                  }
-    hide_fields = ( 'local_path', )
-    list_filters = { 'my_projects': {} }
 
-    @staticmethod
-    def buildQS( qs, user, filter, values ):
-      if filter == 'my_projects':
-        if user.is_anonymous():
-          return qs
-
-        return qs.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
-
-      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
-
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class GitProject( Project ):
   """
 This is a Git Project
   """
   git_url = models.CharField( max_length=200 )
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'Git Project "{0}"'.format( self.name )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class GitHubProject( Project ):
   """
 This is a GitHub Project
@@ -285,13 +294,16 @@ This is a GitHub Project
     self._github = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS, self.org, self.repo )
     return self._github
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'GitHub Project "{0}"({1}/{2})'.format( self.name, self._org, self._repo )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Package( models.Model ):
   """
 This is a Package
@@ -300,19 +312,26 @@ This is a Package
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def save( self, *args, **kwargs ):
-    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
-      raise ValidationError( 'Invalid name' )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
-    super( Package, self ).save( *args, **kwargs )
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    if not name_regex.match( self.name ):
+      errors[ 'name' ] = 'Invalid'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'Package "{0}"'.format( self.name )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class PackageVersion( models.Model ):
   """
 This is a Version of a Package
@@ -323,21 +342,23 @@ This is a Version of a Package
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'PackageVersion "{0}" verison "{1}"'.format( self.package.name, self.version )
 
   class Meta:
-      unique_together = ( 'package', 'version' )
-
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    unique_together = ( 'package', 'version' )
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=( 'state' ), constant_set_map={ 'state': COMMIT_STATE_LIST } )
 class Commit( models.Model ):
   """
 A Single Commit of a Project
   """
-  STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'doced', 'done' )
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
   owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
@@ -399,7 +420,7 @@ A Single Commit of a Project
     result = {}
 
     if self.lint_results:
-      tmp = simplejson.loads( self.lint_results )
+      tmp = json.loads( self.lint_results )
       wrk = {}
       for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
@@ -409,7 +430,7 @@ A Single Commit of a Project
         result[ 'lint' ] = wrk
 
     if self.test_results:
-      tmp = simplejson.loads( self.test_results )
+      tmp = json.loads( self.test_results )
       wrk = {}
       for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
@@ -419,7 +440,7 @@ A Single Commit of a Project
         result[ 'test' ] = wrk
 
     if self.build_results:
-      tmp = simplejson.loads( self.build_results )
+      tmp = json.loads( self.build_results )
       wrk = {}
       for target in tmp:
         wrk[ target ] = {}
@@ -431,7 +452,7 @@ A Single Commit of a Project
         result[ 'build' ] = wrk
 
     if self.docs_results:
-      tmp = simplejson.loads( self.docs_results )
+      tmp = json.loads( self.docs_results )
       wrk = {}
       for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
@@ -445,24 +466,6 @@ A Single Commit of a Project
     else:
       return result
 
-  def save( self, *args, **kwargs ):
-    try:
-      simplejson.loads( self.lint_results )
-    except ValueError:
-      raise ValidationError( 'lint_results must be valid JSON' )
-
-    try:
-      simplejson.loads( self.test_results )
-    except ValueError:
-      raise ValidationError( 'test_results must be valid JSON' )
-
-    try:
-      simplejson.loads( self.build_results )
-    except ValueError:
-      raise ValidationError( 'build_results must be valid JSON' )
-
-    super( Commit, self ).save( *args, **kwargs )
-
   def signalComplete( self, target, build_name, resources ):
     if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'docs' ):
       return
@@ -471,37 +474,38 @@ A Single Commit of a Project
     results = resources[ 'target' ][0].get( 'results', None )
 
     if target == 'lint':
-      status = simplejson.loads( self.lint_results )
+      status = json.loads( self.lint_results )
       distro = build_name
       status[ distro ][ 'status' ] = 'done'
       status[ distro ][ 'success' ] = sucess
       status[ distro ][ 'results' ] = results
-      self.lint_results = simplejson.dumps( status )
+      self.lint_results = json.dumps( status )
 
     elif target == 'test':
-      status = simplejson.loads( self.test_results )
+      status = json.loads( self.test_results )
       distro = build_name
       status[ distro ][ 'status' ] = 'done'
       status[ distro ][ 'success' ] = sucess
       status[ distro ][ 'results' ] = results
-      self.test_results = simplejson.dumps( status )
+      self.test_results = json.dumps( status )
 
     elif target == 'docs':
-      status = simplejson.loads( self.docs_results )
+      status = json.loads( self.docs_results )
       distro = build_name
       status[ distro ][ 'status' ] = 'done'
       status[ distro ][ 'success' ] = sucess
       status[ distro ][ 'results' ] = results
-      self.docs_results = simplejson.dumps( status )
+      self.docs_results = json.dumps( status )
 
     else:
-      status = simplejson.loads( self.build_results )
+      status = json.loads( self.build_results )
       distro = build_name
       status[ target ][ distro ][ 'status' ] = 'done'
       status[ target ][ distro ][ 'success' ] = sucess
       status[ target ][ distro ][ 'results' ] = results
-      self.build_results = simplejson.dumps( status )
+      self.build_results = json.dumps( status )
 
+    self.full_clean()
     self.save()
 
   def postInProcess( self ):
@@ -561,29 +565,48 @@ A Single Commit of a Project
       number = int( self.branch[3:] )
       gh.postPRComment( number, summary )
 
+  @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
+  @staticmethod
+  def filter_project( project ):
+    return Commit.objects.objects.filter( project=project ).order_by( '-created' )
+
+  @cinp.list_filter( name='in_process', paramater_type_list=[] )
+  @staticmethod
+  def filter_in_process( project ):
+    return Commit.objects.objects.filter( done_at__isnull=True )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    try:
+      json.loads( self.lint_results )
+    except ValueError:
+      errors[ 'lint_results' ] = 'Must be valid JSON'
+
+    try:
+      json.loads( self.test_results )
+    except ValueError:
+      errors[ 'test_results' ] = 'Must be valid JSON'
+
+    try:
+      json.loads( self.build_results )
+    except ValueError:
+      errors[ 'build_results' ] = 'Must be valid JSON'
+
+    if errors:
+      raise ValidationError( errors )
+
   def __str__( self ):
     return 'Commit "{0}" on branch "{1}" of project "{2}"'.format( self.commit, self.branch, self.project.name )
 
-  class Meta:
-      unique_together = ( 'project', 'commit', 'branch' )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    constants = ( 'STATE_LIST', )
-    properties = { 'state': { 'type': 'String' } }
-    list_filters = { 'project': { 'project': Project }, 'in_process': {} }
-
-    @staticmethod
-    def buildQS( qs, user, filter, values ):
-      if filter == 'project':
-        return qs.filter( project=values[ 'project' ] ).order_by( '-created' )
-
-      if filter == 'in_process':
-        return qs.filter( done_at__isnull=True )
-
-      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
-
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Build( models.Model ):
   """
 This is a type of Build that can be done
@@ -598,58 +621,69 @@ This is a type of Build that can be done
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def save( self, *args, **kwargs ):
-    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
-      raise ValidationError( 'Invalid name' )
+  @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
+  @staticmethod
+  def filter_project( project ):
+    return Build.objects.objects.filter( project=project )
 
-    try:
-      simplejson.loads( self.networks )
-    except ValueError:
-      raise ValidationError( 'networks must be valid JSON' )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
     self.key = '{0}_{1}'.format( self.project.name, self.name )
 
-    super( Build, self ).save( *args, **kwargs )
+    errors = {}
+
+    if not name_regex.match( self.name ):
+      errors[ 'name' ] = 'Invalid'
+
+    try:
+      json.loads( self.networks )
+    except ValueError:
+      errors[ 'networks' ] = 'Must be valid JSON'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'Build "{0}" of "{1}"'.format( self.name, self.project.name )
 
   class Meta:
-      unique_together = ( 'name', 'project' )
-
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    list_filters = { 'project': { 'project': Project } }
-
-    @staticmethod
-    def buildQS( qs, user, filter, values ):
-      if filter == 'project':
-        return qs.filter( project=values[ 'project' ] )
-
-      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
+    unique_together = ( 'name', 'project' )
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class BuildDependancy( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
   state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
 
-  def save( self, *args, **kwargs ):
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
     self.key = '{0}_{1}'.format( self.build.key, self.package.name )
 
-    super( BuildDependancy, self ).save( *args, **kwargs )
+    errors = {}
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.state )
 
   class Meta:
-      unique_together = ( 'build', 'package' )
-
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    unique_together = ( 'build', 'package' )
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class BuildResource( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True )  # until djanog supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
@@ -657,16 +691,22 @@ class BuildResource( models.Model ):
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
 
-  def save( self, *args, **kwargs ):
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
     self.key = '{0}_{1}_{2}'.format( self.build.key, self.name, self.resource.name )
 
-    super( BuildResource, self ).save( *args, **kwargs )
+    errors = {}
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'BuildResource from "{0}" for "{1}" named "{2}"'.format( self.build.name, self.resource.name, self.name )
 
   class Meta:
-      unique_together = ( 'build', 'name' )
-
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+    unique_together = ( 'build', 'name' )

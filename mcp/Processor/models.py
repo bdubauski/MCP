@@ -1,9 +1,11 @@
+import json
 from datetime import datetime
 
 from django.utils.timezone import utc
-from django.utils import simplejson
 from django.db import models
 from django.core.exceptions import ValidationError, PermissionDenied
+
+from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
 from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
@@ -12,9 +14,16 @@ from plato.Config.lib import getSystemConfigValues
 from plato.Network.models import SubNet
 
 
+cinp = CInP( 'Processor', '0.1' )
+
+
+BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
+
+
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
 # with multiple "versions" for one "version" of the file.  So hopfully the rest of MCP maintains one commit at a time, and we will group
 # all versions of a package togeather in the same Promotion for now, better logic is needed eventually
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion', help_text='' )
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
@@ -22,22 +31,31 @@ class Promotion( models.Model ):
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def __str__( self ):
-    return 'Promotion for package/versions {0} to "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.to_state )
-
   def signalComplete( self, build ):
     promotion_build = self.promotionbuild_set.get( build=build )
     promotion_build.status = 'done'
+    promotion_build.full_clean()
     promotion_build.save()
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'Promotion for package/versions {0} to "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.to_state )
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class PromotionPkgVersion( models.Model ):
   promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
   package_version = models.ForeignKey( PackageVersion, on_delete=models.CASCADE )
   packrat_id = models.CharField( max_length=100 )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
   def __str__( self ):
     return 'PromotionPkgVersion for package "{0}" version "{1}" promoting to "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.to_state )
@@ -45,14 +63,17 @@ class PromotionPkgVersion( models.Model ):
   class Meta:
     unique_together = ( 'promotion', 'package_version' )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class PromotionBuild( models.Model ):
   promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   status = models.CharField( max_length=50 )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
   def __str__( self ):
     return 'PromotionBuild to state "{0}" using build "{1}" at "{2}"'.format( self.promotion.to_state, self.build.name, self.status )
@@ -60,10 +81,8 @@ class PromotionBuild( models.Model ):
   class Meta:
     unique_together = ( 'promotion', 'build' )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class QueueItem( models.Model ):
   """
 QueueItem
@@ -100,7 +119,7 @@ QueueItem
         compute[ resource.name ] = 'Not Available'
 
     have = len( NetworkResource.objects.filter( buildjob=None ) )
-    need = len( simplejson.loads( self.build.networks ) )
+    need = len( json.loads( self.build.networks ) )
     if have < need:
       network[ 'network' ] = 'Need: {0}   Available: {1}'.format( need, have )
 
@@ -125,7 +144,7 @@ QueueItem
       for config in config_list:
         compute[ name ].append( { 'status': 'Allocated', 'config': config } )
 
-    networks = simplejson.loads( self.build.networks )
+    networks = json.loads( self.build.networks )
     resource_list = list( NetworkResource.objects.filter( buildjob=None ) )
     for name in networks:
       network[ name ] = resource_list.pop( 0 )
@@ -142,6 +161,7 @@ QueueItem
     item.target = build.name
     item.priority = priority
     item.promotion = promotion
+    item.full_clean()
     item.save()
 
     return item
@@ -161,10 +181,12 @@ QueueItem
     item.target = target
     item.priority = priority
     item.commit = commit
+    item.full_clean()
     item.save()
 
     return item
 
+  @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build } ] )
   @staticmethod
   def queue( user, build ):
     if not user.has_perm( 'Processor.can_build' ):
@@ -173,13 +195,27 @@ QueueItem
     item = QueueItem.inQueueBuild( build, 'master', True, 100 )
     return item.pk
 
-  def save( self, *args, **kwargs ):
-    try:
-      simplejson.loads( self.resource_status )
-    except ValueError:
-      raise ValidationError( 'resource_status must be valid JSON' )
+  @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
+  @staticmethod
+  def filter_project( project ):
+    return QueueItem.objects.filter( project=project )
 
-    super( QueueItem, self ).save( *args, **kwargs )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    try:
+      json.loads( self.resource_status )
+    except ValueError:
+      errors[ 'resource_status' ] = 'must be valid JSON'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
@@ -187,26 +223,12 @@ QueueItem
   class Meta:
     permissions = ( ( 'can_build', 'Can Queue Builds' ), )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
-    list_filters = { 'project': { 'project': Project } }
-    actions = {
-                'queue': ( { 'type': 'Integer' }, ( { 'type': '_USER_' }, { 'type': 'Model', 'model': Build } ) ),
-              }
 
-    @staticmethod
-    def buildQS( qs, user, filter, values ):
-      if filter == 'project':
-        return qs.filter( project=values[ 'project' ] )
-
-      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
-
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=( 'state', 'suceeded', 'score' ), constant_set_map={ 'state': BUILDJOB_STATE_LIST } )
 class BuildJob( models.Model ):
   """
 BuildJob
   """
-  STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
   build = models.ForeignKey( Build, on_delete=models.PROTECT, editable=False )  # don't delete Builds/projects when things are in flight
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
@@ -253,7 +275,7 @@ BuildJob
       return None
 
     result = True
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     for target in resource_map:
       for i in range( 0, len( resource_map[ target ] ) ):
         result &= resource_map[ target ][ i ].get( 'success', True )
@@ -266,13 +288,14 @@ BuildJob
       return None
 
     score_list = []
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     for target in resource_map:
       for i in range( 0, len( resource_map[ target ] ) ):
         score_list.append( resource_map[ target ][ i ].get( 'score', None ) )
 
     return score_list
 
+  @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def jobRan( self, user ):
     if not user.is_anonymous() and not user.has_perm( 'Processor.can_ran' ):  # remove anonymous stuff when nullunit authencates
       raise PermissionDenied()
@@ -284,8 +307,10 @@ BuildJob
       self.built_at = datetime.utcnow().replace( tzinfo=utc )
 
     self.ran_at = datetime.utcnow().replace( tzinfo=utc )
+    self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def acknowledge( self, user ):
     if not user.has_perm( 'Processor.can_ack' ):
       raise PermissionDenied()
@@ -297,60 +322,72 @@ BuildJob
       raise ValidationError( 'Can not Acknoledge un-reported jobs' )
 
     self.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+    self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'String' ] )
   def updateResourceState( self, name, index, status ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       resource_map[ name ][ index ][ 'status' ] = status
     except ( IndexError, KeyError ):
       return
 
-    self.resources = simplejson.dumps( resource_map )
+    self.resources = json.dumps( resource_map )
+    self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'Boolean' ] )
   def setResourceSuccess( self, name, index, success ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       resource_map[ name ][ index ][ 'success' ] = bool( success )
     except ( IndexError, KeyError ):
       return
 
-    self.resources = simplejson.dumps( resource_map )
+    self.resources = json.dumps( resource_map )
+    self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'String' ] )
   def setResourceResults( self, name, index, results ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       resource_map[ name ][ index ][ 'results' ] = results
     except ( IndexError, KeyError ):
       return
 
-    self.resources = simplejson.dumps( resource_map )
+    self.resources = json.dumps( resource_map )
+    self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'Float' ] )
   def setResourceScore( self, name, index, score ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       resource_map[ name ][ index ][ 'score' ] = score
     except ( IndexError, KeyError ):
       return
 
-    self.resources = simplejson.dumps( resource_map )
+    self.resources = json.dumps( resource_map )
+    self.full_clean()
     self.save()
 
+  @cinp.action( return_type='String', paramater_type_list=[ 'Integer', { 'type': 'String', 'is_array': True } ] )
   def addPackageFiles( self, name, index, package_files ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       resource_map[ name ][ index ][ 'package_files' ] = package_files
     except ( IndexError, KeyError ):
       return
 
-    self.resources = simplejson.dumps( resource_map )
+    self.resources = json.dumps( resource_map )
+    self.full_clean()
     self.save()
 
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
   def getConfigStatus( self, name, index=None, count=None ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       config_list = resource_map[ name ]
     except KeyError:
@@ -371,8 +408,9 @@ BuildJob
 
     return results
 
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
   def getProvisioningInfo( self, name, index=None, count=None ):
-    resource_map = simplejson.loads( self.resources )
+    resource_map = json.loads( self.resources )
     try:
       config_list = resource_map[ name ]
     except KeyError:
@@ -399,28 +437,7 @@ BuildJob
 
     return results
 
-  def setConfigValues( self, values, name, index=None, count=None ):
-    resource_map = simplejson.loads( self.resources )
-    try:
-      config_list = resource_map[ name ]
-    except KeyError:
-      return False
-
-    if index is not None:
-      if count is not None:
-        config_list = config_list[ index:index + count ]
-      else:
-        config_list = config_list[ index: ]
-
-    for pos in range( 0, len( config_list ) ):
-      config = Resource.config( config_list[ pos ][ 'config' ] )
-      new_values = simplejson.loads( config.config_values )
-      new_values.update( values )
-      config.config_values = simplejson.dumps( new_values )
-      config.save()
-
-    return True
-
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ] )
   def getNetworkInfo( self, name ):
     try:
       network = self.buildjobnetworkresource_set.get( name=name )
@@ -442,13 +459,27 @@ BuildJob
 
     return results
 
-  def save( self, *args, **kwargs ):
-    try:
-      simplejson.loads( self.resources )
-    except ValueError:
-      raise ValidationError( 'status must be valid JSON' )
+  @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
+  @staticmethod
+  def filter_project( project ):
+    return BuildJob.objects.filter( project=project )
 
-    super( BuildJob, self ).save( *args, **kwargs )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    try:
+      json.loads( self.resources )
+    except ValueError:
+      errors[ 'resources' ] = 'Must be valid JSON'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'BuildJob "{0}" for build "{1}"'.format( self.pk, self.build.name )
@@ -456,37 +487,19 @@ BuildJob
   class Meta:
     permissions = ( ( 'can_ack', 'Can Acknowledge Builds' ), ( 'can_ran', 'Can Flag a Build as "ran"' ) )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE' )
-    actions = {  # TODO: these can only be called by jobs, need some kind of auth for them
-                 'updateResourceState': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ) ),
-                 'setResourceSuccess': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Boolean' } ) ),
-                 'setResourceResults': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'String' } ) ),
-                 'setResourceScore': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Float' } ) ),
-                 'addPackageFiles': ( None, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'StringList' } ) ),
-                 'getConfigStatus': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
-                 'getProvisioningInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),  # called by UI
-                 'setConfigValues': ( { 'type': 'Boolean' }, ( { 'type': 'Map' }, { 'type': 'String' }, { 'type': 'Integer' }, { 'type': 'Integer' } ) ),
-                 'getNetworkInfo': ( { 'type': 'Map' }, ( { 'type': 'String' }, ) ),
-                 # run by both
-                 'jobRan': ( None, ( { 'type': '_USER_' }, ) ),
-                 # these are normal
-                 'acknowledge': ( None, ( { 'type': '_USER_' }, ) ),
-              }
-    constants = ( 'STATE_LIST', )
-    properties = {
-                   'state': { 'type': 'String' },
-                   'suceeded': { 'type': 'String' },
-                   'score': { 'type': 'String' }
-                 }
-    list_filters = { 'project': { 'project': Project } }
-
-    @staticmethod
-    def buildQS( qs, user, filter, values ):
-      if filter == 'project':
-        return qs.filter( project=values[ 'project' ] )
-
-      raise Exception( 'Invalid filter "{0}"'.format( filter ) )
+  # TODO: these can only be called by jobs, need some kind of auth for them
+  # 'updateResourceState': ,
+  # 'setResourceSuccess': ,
+  # 'setResourceResults': ,
+  # 'setResourceScore':,
+  # 'addPackageFiles':
+  # 'getConfigStatus': ,
+  # getProvisioningInfo  # called by UI
+  # getNetworkInfo
+  # # run by both
+  # 'jobRan': ,
+  # # these are normal
+  # 'acknowledge': ,
 
 
 class BuildJobNetworkResource( models.Model ):

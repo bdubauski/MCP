@@ -21,6 +21,7 @@ if not job.built_at:
 
 print( 'Setting job to Ran...' )
 job.ran_at = datetime.utcnow().replace( tzinfo=utc )
+job.full_clean()
 job.save()
 
 job = BuildJob.objects.get( pk=job_id )
@@ -31,4 +32,5 @@ while job.reported_at is None:
 
 print( 'Setting job to Acknoledged....' )
 job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+job.full_clean()
 job.save()

@@ -58,18 +58,21 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     if compute_status:
       logging.info( 'Queue Item "{0}" waiting for compute "{1}"'.format( item, compute_status ) )
       item.resource_status = json.dumps( { 'compute': compute_status } )
+      item.full_clean()
       item.save()
       continue
 
     if network_status:
       logging.info( 'Queue Item "{0}" waiting for network "{1}"'.format( item, network_status ) )
       item.resource_status = json.dumps( { 'network': network_status } )
+      item.full_clean()
       item.save()
       continue
 
   except Exception as e:
     logging.exception( 'Exception "{0}" checking resources for item "{1}", skiping...'.format( e, item.pk ) )
     item.resource_status = json.dumps( { 'error': 'Exception: "{0}"'.format( e ) } )
+    item.full_clean()
     item.save()
     continue
 
@@ -85,18 +88,21 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.target = item.target
     job.commit = item.commit
     job.promotion = item.promotion
+    job.full_clean()
     job.save()
 
     # allocate the Resources
     ( compute_resources, network_resources ) = item.allocateResources( job )
     logging.info( 'Starting Queue Item "{0}" with Compute "{1}", Network "{2}", as job "{3}"'.format( item, compute_resources, network_resources, job.id ) )
     job.resources = json.dumps( compute_resources )
+    job.full_clean()
     job.save()
     for network in network_resources:
       bjnr = BuildJobNetworkResource()
       bjnr.buildjob = job
       bjnr.networkresource = network_resources[ network ]
       bjnr.name = network
+      bjnr.full_clean()
       bjnr.save()
 
   except Exception as e:
@@ -107,6 +113,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
       job.delete()
 
     item.resource_status = json.dumps( { 'error': 'Exception: "{0}"'.format( e ) } )
+    item.full_clean()
     item.save()
     continue
 
@@ -132,6 +139,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
   if ready:
     logging.info( 'Setting job "{0}" to Built.'.format( job.id ) )
     job.built_at = datetime.utcnow().replace( tzinfo=utc )
+    job.full_clean()
     job.save()
 
 
@@ -151,6 +159,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
   logging.info( 'Setting job "{0}" to Reported.'.format( job.id ) )
   job.reported_at = datetime.utcnow().replace( tzinfo=utc )
+  job.full_clean()
   job.save()
 
   results = ''
@@ -178,12 +187,14 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=True, released_at__isnull=True, manual=False ):
   if job.suceeded:  # sucess auto Acknoledges
     job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+    job.full_clean()
     job.save()
     continue
 
   # auto acknoledge after AUTO_ACKNOLEDGE_DELAY
   if job.reported_at < ( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=AUTO_ACKNOLEDGE_DELAY ) ):
     job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+    job.full_clean()
     job.save()
     continue
 
@@ -217,6 +228,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   if ready:
     logging.info( 'Setting job "{0}" to Released.'.format( job.id ) )
     job.released_at = datetime.utcnow().replace( tzinfo=utc )
+    job.full_clean()
     job.save()
 
 

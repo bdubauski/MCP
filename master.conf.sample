@@ -37,7 +37,8 @@ DEBUG = False
 
 TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = []
+TEMPLATE_DIRS = (
+)
 
 MCP_HOST = 'http://mcp/'
 MCP_PROXY = None
@@ -45,80 +46,46 @@ MCP_PROXY = None
 # Application definition
 
 INSTALLED_APPS = (
-  'django.contrib.admin',
-  'django.contrib.auth',
-  'django.contrib.contenttypes',
-  'django.contrib.sessions',
-  'south',
-  'cinp',
   'mcp.Processor',
   'mcp.Project',
   'mcp.Resource',
   'mcp.Users',
-  'plato.Base',
-  'plato.Pod',
-  'plato.DataCenter',
-  'plato.Asset',
-  'plato.Config',
-  'plato.Device',
-  'plato.Network',
-  'plato.Power',
-  'plato.Storage',
-  'plato.Provisioner',
-  'plato.Report'
+  'django.contrib.admin',
+  'django.contrib.auth',
+  'django.contrib.contenttypes',
+  'django.contrib.sessions',
+  'django.contrib.messages'
 )
 
 MIDDLEWARE_CLASSES = (
-  'django.middleware.common.CommonMiddleware',
-  'django.contrib.sessions.middleware.SessionMiddleware',
-  'django.contrib.messages.middleware.MessageMiddleware',
-  'django.contrib.auth.middleware.AuthenticationMiddleware',
-)
-
-AUTHENTICATION_BACKENDS = (
-  'mcp.Users.backend.Backend',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
 ROOT_URLCONF = 'mcp.urls'
 
-TEMPLATE_DIRS = (
-)
-
-from plato.settings import PROVISIONING_PROFILES, PLATO_HOST_NAME # noqa
+WSGI_APPLICATION = 'mcp.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.7/ref/settings/#databases
 
 DATABASES = {
-  'default': {
-      'ENGINE': 'django.db.backends.postgresql_psycopg2',
-      'NAME': 'plato',
-      'USER': 'plato',
-      'PASSWORD': 'plato',
-      'HOST': '127.0.0.1',
-      'PORT': '',
-  },
-  'mcp': {
-    'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    'NAME': 'mcp',
-    'USER': 'mcp',
-    'PASSWORD': 'mcp',
-    'HOST': '127.0.0.1',
-    'PORT': '',
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/opt/mcp/db.sqlite3',
+    }
 }
 
 
-DATABASE_ROUTERS = [ 'mcp.lib.db.MCPRouter' ]
-
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'America/Denver'
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
 USE_L10N = True
-
-USE_TZ = True
-
-STATIC_URL = '/static/'

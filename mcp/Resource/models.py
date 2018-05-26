@@ -1,11 +1,13 @@
-import re
 import hashlib
+import json
 
-from django.utils import simplejson
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
 from django.conf import settings
 
+from cinp.orm_django import DjangoCInP as CInP
+
+from mcp.fields import name_regex
 from plato.Config.models import Config, Profile
 from plato.Device.models import VMTemplate, VMHost
 from plato.Network.models import SubNet
@@ -19,27 +21,31 @@ from plato.Provisioner.lib import submitConfigureJob, submitDeconfigureJob
 # other than ready, that is thread safe
 
 
+cinp = CInP( 'Resource', '0.1' )
+
+
 def config_values( job, name, index ):
-  return simplejson.dumps( {
-                             'mcp_host': settings.MCP_HOST,
-                             'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
-                             'mcp_job_id': job.pk,
-                             'mcp_resource_name': name,
-                             'mcp_resource_index': index,
-                             'mcp_git_url': job.project.internal_git_url,
-                             'mcp_git_branch': job.branch,
-                             'mcp_make_target': job.target
-                            } )
+  return json.dumps( {
+                       'mcp_host': settings.MCP_HOST,
+                       'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
+                       'mcp_job_id': job.pk,
+                       'mcp_resource_name': name,
+                       'mcp_resource_index': index,
+                       'mcp_git_url': job.project.internal_git_url,
+                       'mcp_git_branch': job.branch,
+                       'mcp_make_target': job.target
+                      } )
 
 
 def config_values_prealloc():
-  return simplejson.dumps( {
-                             'mcp_host': settings.MCP_HOST,
-                             'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
-                             'mcp_prealloc': True
-                            } )
+  return json.dumps( {
+                       'mcp_host': settings.MCP_HOST,
+                       'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
+                       'mcp_prealloc': True
+                      } )
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Resource( models.Model ):
   """
 Resource
@@ -84,6 +90,7 @@ Resource
       config.hostname = 'mcp-unused-{0}'.format( config.pk )
       config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
       config.profile_id = settings.HARDWARE_PROFILE  # this goes after submitDeconfigureJob so that the job has the target's deconfigure job
+      config.full_clean()
       config.save()
       return job
 
@@ -112,19 +119,26 @@ Resource
     except Config.DoesNotExist:
       return None
 
-  def save( self, *args, **kwargs ):
-    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
-      raise ValidationError( 'Invalid name' )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
-    super( Resource, self ).save( *args, **kwargs )
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    if not name_regex.match( self.name ):
+      errors[ 'name' ] = 'Invalid'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'Generic Resource "{0}"'.format( self.description )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class VMResource( Resource ):
   vm_template = models.CharField( max_length=50 )
   build_ahead_count = models.IntegerField( default=0 )
@@ -145,6 +159,7 @@ class VMResource( Resource ):
     config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
     config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
     config.config_values = config_values( job, name, index )
+    config.full_clean()
     config.save()
 
   @staticmethod
@@ -153,6 +168,7 @@ class VMResource( Resource ):
     address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
     config = createConfig( 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_NORMAL )
     config.config_values = config_values( job, name, index )
+    config.full_clean()
     config.save()
     createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
     return config
@@ -169,6 +185,7 @@ class VMResource( Resource ):
       address_list.append( { 'interface': 'eth0', 'subnet': subnet } )
       config = createConfig( 'mcp-preallocate--{0}-{1}'.format( seed, index ), pod, profile, address_list, priority=settings.CONFIGURE_PRIORITY_PREALLOC )  # so we need a unique hostname, but the number really dosen't matter as long as it is unique, so for now we will cheet and use the job id, which should be counting up to see the number
       config.config_values = config_values_prealloc()
+      config.full_clean()
       config.save()
       createDevice( 'VM', [ 'eth0' ], config, vmhost=VMHost.objects.get( pk=settings.VMHOST ), vmtemplate=vmtemplate )
 
@@ -209,13 +226,16 @@ class VMResource( Resource ):
 
     return results
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'VM Resource "{0}"'.format( self.description )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class HardwareResource( Resource ):
   hardware_template = models.CharField( max_length=50 )
 
@@ -243,19 +263,23 @@ class HardwareResource( Resource ):
       config.profile = profile
       config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
       config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
+      config.full_clean()
       config.save()
       results.append( config.pk )
       submitConfigureJob( config )
 
     return results
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'Hardware Resource "{0}"'.format( self.description )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class ResourceGroup( models.Model ):
   """
 ResourceGroup
@@ -277,19 +301,26 @@ ResourceGroup
   def available( self ):
     return Config.objects.filter( pk__in=self.config_list, configured__isnull=True, configjob=None ).count() == len( self.config_list )
 
-  def save( self, *args, **kwargs ):
-    if not re.match( '^[a-z0-9][a-z0-9\-]*[a-z0-9]$', self.name ):
-      raise ValidationError( 'Invalid name' )
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
-    super( ResourceGroup, self ).save( *args, **kwargs )
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    if not name_regex.match( self.name ):
+      errors[ 'name' ] = 'Invalid'
+
+    if errors:
+      raise ValidationError( errors )
 
   def __str__( self ):
     return 'Resource Group "{0}"'.format( self.description )
 
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )
 
-
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class NetworkResource( models.Model ):
   """
 NetworkResource
@@ -298,8 +329,10 @@ NetworkResource
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'Network Resource for subnet "{0}"'.format( self.subnet )
-
-  class API:
-    not_allowed_methods = ( 'CREATE', 'DELETE', 'UPDATE', 'CALL' )

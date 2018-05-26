@@ -76,6 +76,7 @@ for name in options.resource_group:
   group_list.append( group )
 
 item.resource_groups = group_list
+item.full_clean()
 item.save()
 
 print( 'Item "{0}" Queued'.format( item ) )

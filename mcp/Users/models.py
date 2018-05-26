@@ -3,10 +3,16 @@ from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.contrib.auth.models import User, Group
 
+from cinp.orm_django import DjangoCInP as CInP
+
 from mcp.Project.models import Project, GitHubProject
-from mcp.lib.libGitHub import GitHub, GitHubException
+from mcp.lib.GitHub import GitHub, GitHubException
 
 
+cinp = CInP( 'Users', '0.1' )
+
+
+@cinp.model( not_allowed_verb_list=[ 'LIST', 'UPDATE', 'CREATE', 'DELETE' ], show_field_list=[ 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle' ] )
 class MCPUser( User ):
   """
   MCPUser is used to auth against MCP, and includes github and slack info
@@ -41,10 +47,12 @@ class MCPUser( User ):
           usrprj = MCPUserProject()
           usrprj.user = self
           usrprj.project = project
+          usrprj.full_clean()
           usrprj.save()
 
     return True
 
+  @cinp.action( return_type='Map', paramater_type_list=[ '_USER_' ] )
   @staticmethod
   def getProfile( user ):
     if user.is_anonymous():
@@ -57,6 +65,7 @@ class MCPUser( User ):
 
     return { 'github_username': user.github_username, 'slack_handle': user.slack_handle, 'first_name': user.first_name, 'last_name': user.last_name, 'email': user.email }
 
+  @cinp.action( return_type='Boolean', paramater_type_list=[ '_USER_', 'String', 'String', 'String' ] )
   @staticmethod
   def updateProfile( user, first_name, last_name, email, slack_handle ):
     if user.is_anonymous():
@@ -72,9 +81,11 @@ class MCPUser( User ):
     user.email = email
     user.slack_handle = slack_handle
 
+    user.full_clean()
     user.save()
     return True
 
+  @cinp.action( return_type={ 'type': 'String', 'is_array': True }, paramater_type_list=[ '_USER_', 'String', 'String' ] )
   @staticmethod
   def selfRegister( user, github_username=None, github_password=None ):
     """
@@ -102,23 +113,20 @@ class MCPUser( User ):
     user.username = github_username
     user.github_username = github_username
     user.set_password( get_random_string( length=20 ) )
+    user.full_clean()
     user.save()
 
     user.groups.add( Group.objects.get( name=settings.SELFREGISTER_USER_GROUP ) )
 
     return None
 
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
   def __str__( self ):
     return 'MCPUser User "{0}"'.format( self.username )
-
-  class API:
-    not_allowed_methods = ( 'LIST', 'UPDATE', 'CREATE', 'DELETE' )
-    show_fields = ( 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle', )
-    actions = {
-                'getProfile': ( { 'type': 'Map' }, ( { 'type': '_USER_' }, ) ),
-                'updateProfile': ( { 'type': 'Boolean' }, ( { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' }, { 'type': 'String' } ) ),
-                'selfRegister': ( { 'type': 'StringList' }, (  { 'type': '_USER_' }, { 'type': 'String' }, { 'type': 'String' } ) )
-              }
 
 
 class MCPUserProject( models.Model ):

@@ -19,4 +19,5 @@ if not job.reported_at:
   sys.exit( 1 )
 
 job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+job.full_clean()
 job.save()

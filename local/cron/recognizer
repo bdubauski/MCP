@@ -55,6 +55,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
   if not status:
     slack.post_message( 'No Lint for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
     commit.lint_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.full_clean()
     commit.save()
     continue
 
@@ -87,6 +88,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
     else:
       slack.post_message( 'Lint for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
 
+  commit.full_clean()
   commit.save()
 
 # check for commits that need testing
@@ -96,6 +98,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   if not status:
     slack.post_message( 'No Test for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
     commit.test_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.full_clean()
     commit.save()
     continue
 
@@ -129,12 +132,14 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       slack.post_message( 'Test for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
       commit.passed = True
 
+  commit.full_clean()
   commit.save()
 
 # check for commits that need building
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=True ):
   if commit.branch != 'master':  # only build from master branch
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.full_clean()
     commit.save()
     continue
 
@@ -143,6 +148,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   if not status:
     slack.post_message( 'No Build for "{0}".'.format( commit.project.name, slack.INFO ) )
     commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.full_clean()
     commit.save()
     continue
 
@@ -177,12 +183,14 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.SUCCESS )
       commit.built = True
 
+  commit.full_clean()
   commit.save()
 
 # check for commits that need docs
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, docs_at__isnull=True ):
   if commit.branch != 'master':  # only build docs from master branch
     commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.full_clean()
     commit.save()
     continue
 
@@ -191,6 +199,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   if not status:
     slack.post_message( 'No Docs for "{0}".'.format( commit.project.name ), slack.INFO )
     commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.full_clean()
     commit.save()
     continue
 
@@ -220,6 +229,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     else:
       slack.post_message( 'Docs for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
 
+  commit.full_clean()
   commit.save()
 
 # check for commits that are done
@@ -227,6 +237,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   slack.post_message( 'Commit "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.DONE )
   commit.done_at = datetime.utcnow().replace( tzinfo=utc )
   commit.postResults()
+  commit.full_clean()
   commit.save()
   continue
 
