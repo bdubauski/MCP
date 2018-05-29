@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
-from django.utils.timezone import utc
 from mcp.Processor.models import BuildJob
 
 
@@ -18,6 +20,6 @@ if not job.reported_at:
   print( 'Job {0} not reported, can not acknowledge.'.format( job_id ) )
   sys.exit( 1 )
 
-job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+job.acknowledged_at = datetime.now( timezone.utc )
 job.full_clean()
 job.save()

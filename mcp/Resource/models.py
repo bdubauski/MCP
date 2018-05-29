@@ -8,15 +8,8 @@ from django.conf import settings
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.fields import name_regex
-from plato.Config.models import Config, Profile
-from plato.Device.models import VMTemplate, VMHost
-from plato.Network.models import SubNet
-from plato.Pod.models import Pod
-from plato.Config.lib import createConfig
-from plato.Device.lib import createDevice
-from plato.Provisioner.lib import submitConfigureJob, submitDeconfigureJob
 
-# NOTE: these are not thread safe, there is not per-instance resource reservation
+# NOTE: these are not "thread safe", there is not per-instance resource reservation
 # make sure only one thing is calling these methods at a time...
 # other than ready, that is thread safe
 
@@ -52,7 +45,7 @@ Resource
   """
   name = models.CharField( max_length=50, primary_key=True )
   description = models.CharField( max_length=100 )
-  config_profile = models.CharField( max_length=50 )
+  blueprint = models.CharField( max_length=40 )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 

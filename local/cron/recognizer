@@ -5,17 +5,19 @@
 #
 #  Steps include linting, testing, then building
 #
-
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 import sys
 import logging
 import json
 from logging.handlers import SysLogHandler
-from datetime import datetime
-from django.utils.timezone import utc
+from datetime import datetime, timezone
+
 from django.conf import settings
 
 from mcp.Processor.models import QueueItem
@@ -23,6 +25,8 @@ from mcp.Project.models import Commit
 from mcp.lib.Slack import Slack
 
 PID_FILE = '/var/run/recoginzer.pid'
+PID_FILE = '/opt/mcp/recoginzer.pid'
+
 QUEUE_PRIORITY = 100
 
 logging.basicConfig()
@@ -54,7 +58,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
 
   if not status:
     slack.post_message( 'No Lint for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
-    commit.lint_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.lint_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
     continue
@@ -78,10 +82,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
 
   if done:
     logging.info( 'Lint Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
-    commit.lint_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.lint_at = datetime.now( timezone.utc )
     if not success:
       logging.info( 'Lint for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
-      commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+      commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Lint for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
       commit.passed = False
       commit.postResults()
@@ -97,7 +101,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if not status:
     slack.post_message( 'No Test for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
-    commit.test_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.test_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
     continue
@@ -121,10 +125,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if done:
     logging.info( 'Test Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
-    commit.test_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.test_at = datetime.now( timezone.utc )
     if not success:
       logging.info( 'Test for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
-      commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+      commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Test for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
       commit.passed = False
       commit.postResults()
@@ -138,7 +142,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 # check for commits that need building
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=True ):
   if commit.branch != 'master':  # only build from master branch
-    commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.build_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
     continue
@@ -147,7 +151,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if not status:
     slack.post_message( 'No Build for "{0}".'.format( commit.project.name, slack.INFO ) )
-    commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.build_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
     continue
@@ -172,10 +176,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if done:
     logging.info( 'Build Complete for "{0}" of "{1}" branch "{2}" Complete'.format( commit.commit, commit.project.name, commit.branch ) )
-    commit.build_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.build_at = datetime.now( timezone.utc )
     if not success:
       logging.info( 'Build for "{0}" of "{1}" branch "{2}" Failed'.format( commit.commit, commit.project.name, commit.branch ) )
-      commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+      commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Failed.'.format( commit.commit, commit.project.name, commit.branch ), slack.ERROR )
       commit.built = False
       commit.postResults()
@@ -189,7 +193,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 # check for commits that need docs
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, docs_at__isnull=True ):
   if commit.branch != 'master':  # only build docs from master branch
-    commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.docs_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
     continue
@@ -198,7 +202,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if not status:
     slack.post_message( 'No Docs for "{0}".'.format( commit.project.name ), slack.INFO )
-    commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.docs_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
     continue
@@ -222,7 +226,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   if done:  # failed doc building dosen't block anything, just make the comment and move on
     logging.info( 'Docs Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
-    commit.docs_at = datetime.utcnow().replace( tzinfo=utc )
+    commit.docs_at = datetime.now( timezone.utc )
     if not success:
       logging.info( 'Docs for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
       slack.post_message( 'Docs for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
@@ -235,7 +239,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 # check for commits that are done
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, docs_at__isnull=False ):
   slack.post_message( 'Commit "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.DONE )
-  commit.done_at = datetime.utcnow().replace( tzinfo=utc )
+  commit.done_at = datetime.now( timezone.utc )
   commit.postResults()
   commit.full_clean()
   commit.save()

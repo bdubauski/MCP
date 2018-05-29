@@ -7,10 +7,11 @@ PACKRAT_API_VERSION = 'v1.1'
 class Packrat():
   def __init__( self, host, proxy, name, psk ):
     self.name = name
-    self.cinp = client.CInP( host, '/api/v1', proxy )
-    root = self.cinp.describe( '/api/v1/Repos' )[0]
+    self.cinp = client.CInP( host, '/api/v1/', proxy )
+    root = self.cinp.describe( '/api/v1/' )
     if root[ 'api-version' ] != PACKRAT_API_VERSION:
       raise Exception( 'Expected API version "{0}" found "{1}"'.format( PACKRAT_API_VERSION, root[ 'api-version' ] ) )
+
     logging.debug( 'packrat: login' )
     self.token = self.cinp.call( '/api/v1/Auth(login)', { 'username': self.name, 'password': psk } )[ 'value' ]
     self.cinp.setAuth( name, self.token )

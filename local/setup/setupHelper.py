@@ -1,7 +1,10 @@
 #!/usr/bin/python -u
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 from django.contrib.auth.models import User
 u = User.objects.get( username__exact='root' )

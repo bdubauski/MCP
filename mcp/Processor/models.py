@@ -1,7 +1,6 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
-from django.utils.timezone import utc
 from django.db import models
 from django.core.exceptions import ValidationError, PermissionDenied
 
@@ -10,8 +9,6 @@ from cinp.orm_django import DjangoCInP as CInP
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
 from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
 from mcp.Users.models import MCPUser
-from plato.Config.lib import getSystemConfigValues
-from plato.Network.models import SubNet
 
 
 cinp = CInP( 'Processor', '0.1' )
@@ -304,9 +301,9 @@ BuildJob
       return
 
     if not self.built_at:
-      self.built_at = datetime.utcnow().replace( tzinfo=utc )
+      self.built_at = datetime.now( timezone.utc )
 
-    self.ran_at = datetime.utcnow().replace( tzinfo=utc )
+    self.ran_at = datetime.now( timezone.utc )
     self.full_clean()
     self.save()
 
@@ -321,7 +318,7 @@ BuildJob
     if self.reported_at is None:
       raise ValidationError( 'Can not Acknoledge un-reported jobs' )
 
-    self.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+    self.acknowledged_at = datetime.now( timezone.utc )
     self.full_clean()
     self.save()
 
@@ -373,7 +370,7 @@ BuildJob
     self.full_clean()
     self.save()
 
-  @cinp.action( return_type='String', paramater_type_list=[ 'Integer', { 'type': 'String', 'is_array': True } ] )
+  @cinp.action( return_type='String', paramater_type_list=[ 'String', 'Integer', { 'type': 'String', 'is_array': True } ] )
   def addPackageFiles( self, name, index, package_files ):
     resource_map = json.loads( self.resources )
     try:
@@ -429,8 +426,6 @@ BuildJob
     for pos in range( 0, len( config_list ) ):
       config = Resource.config( config_list[ pos ][ 'config' ] )
       values = getSystemConfigValues( config=config, profile=config.profile )
-      values[ 'system_serial_number' ] = config.target.system_serial_number
-      values[ 'chassis_serial_number' ] = config.target.chassis_serial_number
       values[ 'config_values' ] = config.config_values
       values[ 'timestamp' ] = values[ 'timestamp' ].strftime( '%Y-%m-%d %H:%M:%S' )
       results[ index + pos ] = values

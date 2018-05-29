@@ -1,3 +1,6 @@
+CONTRACTOR_HOST = 'http://127.0.0.1:8080'
+CONTRACTOR_PROXY = None
+
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'
 
@@ -8,14 +11,10 @@ GITHUB_PASS = 'mcp'
 GITHUB_PROXY = None
 # to set a http_proxy for git use `git config --system http.proxy <http proxy>`
 
-PACKRAT_HOST = 'http://packrat/'
+PACKRAT_HOST = 'http://packrat'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
 PACKRAT_PSK = 'mcp'
-
-VMHOST = 1
-TARGET_SUBNET = 1
-TARGET_POD = 'test'
 
 HARDWARE_PROFILE = 'mcp-resource'
 CONFIGURE_PRIORITY_NORMAL = 50
@@ -46,15 +45,15 @@ MCP_PROXY = None
 # Application definition
 
 INSTALLED_APPS = (
-  'mcp.Processor',
-  'mcp.Project',
-  'mcp.Resource',
-  'mcp.Users',
-  'django.contrib.admin',
-  'django.contrib.auth',
-  'django.contrib.contenttypes',
-  'django.contrib.sessions',
-  'django.contrib.messages'
+    'mcp.Processor',
+    'mcp.Project',
+    'mcp.Resource',
+    'mcp.User',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages'
 )
 
 MIDDLEWARE_CLASSES = (
@@ -89,3 +88,5 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_L10N = True
+
+USE_TZ = True

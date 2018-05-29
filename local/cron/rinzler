@@ -5,7 +5,10 @@
 #
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 import logging
 import sys
@@ -14,9 +17,9 @@ import json
 import shutil
 import socket
 from ssl import SSLError
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import SysLogHandler
-from django.utils.timezone import utc
+
 from django.conf import settings
 from django.db.models import ProtectedError
 
@@ -28,6 +31,7 @@ from mcp.lib.Slack import Slack
 
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
+PID_FILE = '/opt/mcp/rinzler.pid'
 
 # when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'docs', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
 
@@ -320,7 +324,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
     commit.postInProcess()
 
-  project.last_checked = datetime.utcnow().replace( tzinfo=utc )
+  project.last_checked = datetime.now( timezone.utc )
   project.full_clean()
   project.save()
 

@@ -7,14 +7,17 @@
 
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 import sys
 import logging
 import json
 from logging.handlers import SysLogHandler
-from datetime import datetime, timedelta
-from django.utils.timezone import utc
+from datetime import datetime, timezone, timedelta
+
 from django.conf import settings
 
 from mcp.Processor.models import QueueItem, BuildJob, BuildJobNetworkResource
@@ -26,6 +29,7 @@ CLEANUP_DELAY = 0.2
 AUTO_ACKNOLEDGE_DELAY = 24.0
 
 PID_FILE = '/var/run/sark.pid'
+PID_FILE = '/opt/mcp/sark.pid'
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -138,7 +142,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
   # all done, set to built
   if ready:
     logging.info( 'Setting job "{0}" to Built.'.format( job.id ) )
-    job.built_at = datetime.utcnow().replace( tzinfo=utc )
+    job.built_at = datetime.now( timezone.utc )
     job.full_clean()
     job.save()
 
@@ -158,7 +162,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     logging.info( 'Job has nothing to report to, hopfully that was intentional' )
 
   logging.info( 'Setting job "{0}" to Reported.'.format( job.id ) )
-  job.reported_at = datetime.utcnow().replace( tzinfo=utc )
+  job.reported_at = datetime.now( timezone.utc )
   job.full_clean()
   job.save()
 
@@ -186,14 +190,14 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 # iterate over the Reported jobs that are not manual and look to see if the resources are all released
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=True, released_at__isnull=True, manual=False ):
   if job.suceeded:  # sucess auto Acknoledges
-    job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+    job.acknowledged_at = datetime.now( timezone.utc )
     job.full_clean()
     job.save()
     continue
 
   # auto acknoledge after AUTO_ACKNOLEDGE_DELAY
-  if job.reported_at < ( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=AUTO_ACKNOLEDGE_DELAY ) ):
-    job.acknowledged_at = datetime.utcnow().replace( tzinfo=utc )
+  if job.reported_at < ( datetime.now( timezone.utc ) - timedelta( hours=AUTO_ACKNOLEDGE_DELAY ) ):
+    job.acknowledged_at = datetime.now( timezone.utc )
     job.full_clean()
     job.save()
     continue
@@ -227,13 +231,13 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   # resources all released, set job to released
   if ready:
     logging.info( 'Setting job "{0}" to Released.'.format( job.id ) )
-    job.released_at = datetime.utcnow().replace( tzinfo=utc )
+    job.released_at = datetime.now( timezone.utc )
     job.full_clean()
     job.save()
 
 
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
-for job in BuildJob.objects.filter( released_at__lt=( datetime.utcnow().replace( tzinfo=utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
+for job in BuildJob.objects.filter( released_at__lt=( datetime.now( timezone.utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
   logging.info( 'Cleaning up job "{0}".'.format( job.id ) )
   for bjnr in job.buildjobnetworkresource_set.all():
     bjnr.delete()

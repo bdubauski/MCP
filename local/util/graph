@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 from mcp.Project.models import Project, Build, Package, BuildDependancy
 

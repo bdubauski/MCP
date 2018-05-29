@@ -6,7 +6,10 @@
 #
 import os
 
-os.environ.setdefault( "DJANGO_SETTINGS_MODULE", "mcp.settings" )
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
 
 import logging
 import sys
@@ -19,6 +22,8 @@ from mcp.lib.Packrat import Packrat
 from mcp.lib.Slack import Slack
 
 PID_FILE = '/var/run/tron.pid'
+PID_FILE = '/opt/mcp/tron.pid'
+
 QUEUE_PRIORITY = 100
 
 logging.basicConfig()
@@ -34,9 +39,6 @@ elif '-c' in sys.argv:
 else:
   logger.setLevel( logging.INFO )
 
-logging.info( 'Connecting to Packrat...' )
-packrat = Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKRAT_USERNAME, settings.PACKRAT_PSK )
-
 if os.path.exists( PID_FILE ):
   logging.error( 'pid file exists, bailing...' )
   sys.exit( 0 )
@@ -44,6 +46,9 @@ if os.path.exists( PID_FILE ):
 tmp = open( PID_FILE, 'w' )
 tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
+
+logging.info( 'Connecting to Packrat...' )
+packrat = Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKRAT_USERNAME, settings.PACKRAT_PSK )
 
 slack = Slack( 'tron', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 

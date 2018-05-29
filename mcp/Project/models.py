@@ -214,7 +214,7 @@ This is a Generic Project
 
     return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
 
-  @cinp.list_filter( name='my_projects', paramater_type_list=[ { 'type': '__USER__' } ] )
+  @cinp.list_filter( name='my_projects', paramater_type_list=[ { 'type': '_USER_' } ] )
   @staticmethod
   def filter_my_projects( user ):
     if user.is_anonymous():
@@ -572,7 +572,7 @@ A Single Commit of a Project
 
   @cinp.list_filter( name='in_process', paramater_type_list=[] )
   @staticmethod
-  def filter_in_process( project ):
+  def filter_in_process():
     return Commit.objects.objects.filter( done_at__isnull=True )
 
   @cinp.check_auth()

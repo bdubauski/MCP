@@ -1,7 +1,6 @@
 import json
-import urllib
-import urllib2
 import logging
+from urllib import request, parse
 
 
 class Slack():
@@ -20,9 +19,9 @@ class Slack():
     self.user_name = 'mcp({0})-{1}'.format( site, proc ) if site else 'mcp-{0}'.format( proc )
     self.slack_api_base_url = 'https://slack.com/api'
     if proxy:
-      self.opener = urllib2.build_opener( urllib2.ProxyHandler( { 'http': proxy, 'https': proxy } ) )
+      self.opener = request.build_opener( request.ProxyHandler( { 'http': proxy, 'https': proxy } ) )
     else:
-      self.opener = urllib2.build_opener( urllib2.ProxyHandler( {} ) )
+      self.opener = request.build_opener( request.ProxyHandler( {} ) )
 
   def post_message( self, message, emoji=NOTSET ):
     if self.api_token is None:
@@ -37,7 +36,7 @@ class Slack():
     }
 
     url = '{0}/{1}'.format( self.slack_api_base_url, 'chat.postMessage' )
-    data = urllib.urlencode( data )
+    data = parse.urlencode( data )
     try:
       resp = self.opener.open( url, data=data )
     except Exception as e:

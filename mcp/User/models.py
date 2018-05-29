@@ -12,6 +12,48 @@ from mcp.lib.GitHub import GitHub, GitHubException
 cinp = CInP( 'Users', '0.1' )
 
 
+def getUser( auth_id, auth_token ):
+  return None
+  # try:
+  #   session = Session.objects.get( user=auth_id, token=auth_token )
+  # except ( Session.DoesNotExist, User.DoesNotExist ):
+  #   return None
+  #
+  # if not session.user.isActive:
+  #   return None
+  #
+  # if not session.isActive:
+  #   return None
+  #
+  # return session.user
+
+
+# class Backend( ModelBackend ):
+#   def authenticate( self, username=None, password=None ):
+#     try:
+#       user = User.objects.get( username=username )
+#     except User.DoesNotExist:
+#       return None
+#
+#     try:
+#       user = user.mcpuser
+#     except MCPUser.DoesNotExist:
+#       pass
+#
+#     if isinstance( user, MCPUser ):
+#       if user.login( password ):
+#         return user
+#       else:
+#         return None
+#
+#     # no github, check local password
+#     if user.check_password( password ):
+#       return user
+#
+#     # no luck
+#     return None
+
+
 @cinp.model( not_allowed_verb_list=[ 'LIST', 'UPDATE', 'CREATE', 'DELETE' ], show_field_list=[ 'username', 'first_name', 'last_name', 'email', 'github_username', 'slack_handle' ] )
 class MCPUser( User ):
   """
@@ -65,7 +107,7 @@ class MCPUser( User ):
 
     return { 'github_username': user.github_username, 'slack_handle': user.slack_handle, 'first_name': user.first_name, 'last_name': user.last_name, 'email': user.email }
 
-  @cinp.action( return_type='Boolean', paramater_type_list=[ '_USER_', 'String', 'String', 'String' ] )
+  @cinp.action( return_type='Boolean', paramater_type_list=[ '_USER_', 'String', 'String', 'String', 'String' ] )
   @staticmethod
   def updateProfile( user, first_name, last_name, email, slack_handle ):
     if user.is_anonymous():

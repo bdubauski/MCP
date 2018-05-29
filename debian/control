@@ -8,6 +8,6 @@ X-Python-Version: >= 3.4
 
 Package: mcp
 Architecture: all
-Depends: python3 (>= 3.4), python3-django, python3-simplejson, python3-cinp (>= 0.9), graphviz, git, make, python3-github, ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+Depends: python3 (>= 3.4), python3-django, python3-simplejson, python3-cinp (>= 0.9), graphviz, git, make, python3-github, python3-gunicorn, ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
 Description: MCP
   MCP - Master Control Program
