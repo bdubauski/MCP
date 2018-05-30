@@ -1,4 +1,4 @@
-CONTRACTOR_HOST = 'http://127.0.0.1:8080'
+CONTRACTOR_HOST = 'http://contractor:8080'
 CONTRACTOR_PROXY = None
 
 GIT_LOCAL_PATH = '/var/www/git'
@@ -6,7 +6,7 @@ GIT_HOST = 'http://git/'
 
 GITHUB_API_HOST = 'https://github/api/v3'
 GITHUB_HOST = 'https://github/'
-GITHUB_USER = 'mcp'
+GITHUB_USER = 'mcp'  # if using auth token, set the username to the token and set GITHUB_PASS to None
 GITHUB_PASS = 'mcp'
 GITHUB_PROXY = None
 # to set a http_proxy for git use `git config --system http.proxy <http proxy>`

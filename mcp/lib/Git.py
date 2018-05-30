@@ -24,6 +24,7 @@ class Git():
     except Exception as e:
       raise Exception( 'Exception {0} while executing "{1}"'.format( e, args ) )
 
+    stdout = stdout.decode()
     logging.debug( 'git: rc: {0}'.format( proc.returncode ) )
     logging.debug( 'git: output:\n----------\n{0}\n---------'.format( stdout ) )
 

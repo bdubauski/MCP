@@ -282,7 +282,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
       commit.docs_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
 
-    commit.build_results = json.dumps( commit.builkd_results )
+    commit.build_results = json.dumps( commit.build_results )
 
     if branch == 'master':
       logging.info( 'Updating Builds info...' )

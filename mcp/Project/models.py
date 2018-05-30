@@ -193,8 +193,13 @@ This is a Generic Project
 
   @property
   def clone_git_url( self ):
+    if settings.GITHUB_PASS is not None:
+      auth = '{0}:{1}'.format( settings.GITHUB_USER, settings.GITHUB_PASS )
+    else:
+      auth = settings.GITHUB_USER
+
     try:  # for now we only support git based projects
-      return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://{0}:{1}@'.format( settings.GITHUB_USER, settings.GITHUB_PASS ) )
+      return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://{0}@'.format( auth ) )
     except ObjectDoesNotExist:
       pass
 
@@ -245,7 +250,7 @@ This is a Generic Project
     return 'Project "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CALL' ] )
 class GitProject( Project ):
   """
 This is a Git Project
@@ -261,7 +266,7 @@ This is a Git Project
     return 'Git Project "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CALL' ] )
 class GitHubProject( Project ):
   """
 This is a GitHub Project

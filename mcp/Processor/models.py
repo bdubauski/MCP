@@ -8,7 +8,7 @@ from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
 from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
-from mcp.Users.models import MCPUser
+from mcp.User.models import User
 
 
 cinp = CInP( 'Processor', '0.1' )
@@ -90,7 +90,7 @@ QueueItem
   target = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 )  # higher the value, higer the priority
   manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
-  user = models.ForeignKey( MCPUser, null=True, blank=True, on_delete=models.SET_NULL )
+  user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
   resource_status = models.TextField( default='{}' )
   resource_groups = models.ManyToManyField( ResourceGroup, help_text='' )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
@@ -217,9 +217,6 @@ QueueItem
   def __str__( self ):
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
-  class Meta:
-    permissions = ( ( 'can_build', 'Can Queue Builds' ), )
-
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=( 'state', 'suceeded', 'score' ), constant_set_map={ 'state': BUILDJOB_STATE_LIST } )
 class BuildJob( models.Model ):
@@ -237,7 +234,7 @@ BuildJob
   acknowledged_at = models.DateTimeField( editable=False, blank=True, null=True )
   released_at = models.DateTimeField( editable=False, blank=True, null=True )
   manual = models.BooleanField()
-  user = models.ForeignKey( MCPUser, null=True, blank=True, on_delete=models.SET_NULL )
+  user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   networks = models.ManyToManyField( NetworkResource, through='BuildJobNetworkResource', help_text='' )
@@ -479,9 +476,6 @@ BuildJob
   def __str__( self ):
     return 'BuildJob "{0}" for build "{1}"'.format( self.pk, self.build.name )
 
-  class Meta:
-    permissions = ( ( 'can_ack', 'Can Acknowledge Builds' ), ( 'can_ran', 'Can Flag a Build as "ran"' ) )
-
   # TODO: these can only be called by jobs, need some kind of auth for them
   # 'updateResourceState': ,
   # 'setResourceSuccess': ,
@@ -497,10 +491,16 @@ BuildJob
   # 'acknowledge': ,
 
 
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class BuildJobNetworkResource( models.Model ):
   buildjob = models.ForeignKey( BuildJob, on_delete=models.CASCADE )
   networkresource = models.ForeignKey( NetworkResource, on_delete=models.CASCADE )
   name = models.CharField( max_length=100 )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
 
   def __str__( self ):
     return 'BuildJobNetworkResource for BuildJob "{0}" NetworkResource "{1}" Named "{2}"'.format( self.buildjob, self.networkresource, self.name )

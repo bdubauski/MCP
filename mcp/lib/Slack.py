@@ -38,7 +38,7 @@ class Slack():
     url = '{0}/{1}'.format( self.slack_api_base_url, 'chat.postMessage' )
     data = parse.urlencode( data )
     try:
-      resp = self.opener.open( url, data=data )
+      resp = self.opener.open( url, data=data.encode() )
     except Exception as e:
       logging.warning( 'Slack: Got Exception "{0}" when posting message'.format( e ) )
       return

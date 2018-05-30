@@ -14,7 +14,7 @@ print( 'rankdir=LR' )
 for project in Project.objects.all().order_by( 'name' ):
   if project.name[0] == '_':
     continue
-  print( 'PRJ_{0} [shape="box3d"][label="%s"]'.format( project.name.replace( '-', '_' ), project.name ) )
+  print( 'PRJ_{0} [shape="box3d"][label="{1}"]'.format( project.name.replace( '-', '_' ), project.name ) )
 
 for build in Build.objects.all().order_by( 'name' ):
   if build.name[0] == '_' or build.project.name[0] == '_':

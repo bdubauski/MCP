@@ -16,7 +16,10 @@ class GitHub():
     else:
       proxy_save = None
 
-    self.conn = Github( login_or_token=user, password=password, base_url=host, user_agent='MCP' )
+    if password is not None:
+      self.conn = Github( login_or_token=user, password=password, base_url=host, user_agent='MCP' )
+    else:
+      self.conn = Github( login_or_token=user, base_url=host, user_agent='MCP' )
 
     self.user = self.conn.get_user()
 

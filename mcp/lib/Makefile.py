@@ -23,6 +23,7 @@ class Makefile():
     except Exception as e:
       raise MakeException( 'Exception {0} while makeing target "{1}"'.format( e, target ) )
 
+    stdout = stdout.decode()
     logging.debug( 'make: rc: {0}'.format( proc.returncode ) )
     logging.debug( 'make: output:\n----------\n{0}\n---------'.format( stdout ) )
 

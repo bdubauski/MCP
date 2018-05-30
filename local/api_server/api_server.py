@@ -41,10 +41,10 @@ if __name__ == '__main__':
   app = WerkzeugServer( root_path='/api/v1/', root_version='1.0', debug=DEBUG, get_user=getUser, cors_allow_list=[ '*' ] )
   logger.debug( 'Registering Models...' )
 
-  app.registerNamespace( '/', 'mcp.Users' )
-  app.registerNamespace( '/', 'mcp.Processor' )
-  app.registerNamespace( '/', 'mcp.Project' )
+  app.registerNamespace( '/', 'mcp.User' )
   app.registerNamespace( '/', 'mcp.Resource' )
+  app.registerNamespace( '/', 'mcp.Project' )
+  app.registerNamespace( '/', 'mcp.Processor' )
 
   logger.info( 'Validating...' )
   app.validate()
