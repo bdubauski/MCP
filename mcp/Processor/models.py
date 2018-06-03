@@ -1,4 +1,4 @@
-import json
+import uuid
 from datetime import datetime, timezone
 
 from django.db import models
@@ -6,8 +6,10 @@ from django.core.exceptions import ValidationError, PermissionDenied
 
 from cinp.orm_django import DjangoCInP as CInP
 
+from mcp.fields import MapField, StringListField
+
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
-from mcp.Resource.models import Resource, ResourceGroup, NetworkResource
+from mcp.Resource.models import Resource, NetworkResource, Site
 from mcp.User.models import User
 
 
@@ -91,8 +93,7 @@ QueueItem
   priority = models.IntegerField( default=50 )  # higher the value, higer the priority
   manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
-  resource_status = models.TextField( default='{}' )
-  resource_groups = models.ManyToManyField( ResourceGroup, help_text='' )
+  resource_status_map = MapField( blank=True )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -101,50 +102,45 @@ QueueItem
   def checkResources( self ):
     compute = {}
     network = {}
-    for group in self.resource_groups.all():
-      if not group.available():
-        compute[ group.name ] = 'Not Available'
-
-    if compute:
-      return compute, network
+    total_ips = 0
 
     for buildresource in self.build.buildresource_set.all():
       quanity = buildresource.quanity
-      resource = buildresource.resource.native
+      resource = buildresource.resource.subclass
       tmp = resource.available( quanity )
       if not tmp:
         compute[ resource.name ] = 'Not Available'
 
-    have = len( NetworkResource.objects.filter( buildjob=None ) )
-    need = len( json.loads( self.build.networks ) )
-    if have < need:
-      network[ 'network' ] = 'Need: {0}   Available: {1}'.format( need, have )
+      total_ips += quanity
 
-    return ( compute, network )
+    target_network = None
+    for resource in NetworkResource.objects.all().order_by( '-preference' ):
+      if resource.available( total_ips ):
+        target_network = resource
+        break
 
-  def allocateResources( self, job ):  # warning, dosen't check first, make sure you are sure there are resources available before calling
+    if target_network is None:
+      network[ 'network' ] = 'Need: {0}'.format( total_ips )
+
+    return ( compute, network, target_network )
+
+  def allocateResources( self, job, target_network ):  # warning, this dosen't check first, make sure you are sure there are resources available before calling
     compute = {}
     network = {}
-    group_config_list = []
-    for group in self.resource_groups.all():
-      group_config_list += group.config_list
+
+    resource_list = list( NetworkResource.objects.all() )
+    for name in self.build.network_map:
+      network[ name ] = resource_list.pop( 0 )
 
     for buildresource in self.build.buildresource_set.all():
       name = buildresource.name
       quanity = buildresource.quanity
-      resource = buildresource.resource.native
+      resource = buildresource.resource.subclass
       config_list = []
-      if group_config_list:  # should we have an option that prevents from allocating from outside the group_config_list?
-        config_list = resource.allocate( job, name, quanity, config_id_list=group_config_list )  # first try to allocated from resource groups
-      config_list = resource.allocate( job, name, quanity - len( config_list ) )  # now allocated from general pool
+      config_list = resource.allocate( job, name, quanity - len( config_list ), target_network )
       compute[ name ] = []
       for config in config_list:
         compute[ name ].append( { 'status': 'Allocated', 'config': config } )
-
-    networks = json.loads( self.build.networks )
-    resource_list = list( NetworkResource.objects.filter( buildjob=None ) )
-    for name in networks:
-      network[ name ] = resource_list.pop( 0 )
 
     return ( compute, network )
 
@@ -206,11 +202,6 @@ QueueItem
     super().clean( *args, **kwargs )
     errors = {}
 
-    try:
-      json.loads( self.resource_status )
-    except ValueError:
-      errors[ 'resource_status' ] = 'must be valid JSON'
-
     if errors:
       raise ValidationError( errors )
 
@@ -218,7 +209,7 @@ QueueItem
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=( 'state', 'suceeded', 'score' ), constant_set_map={ 'state': BUILDJOB_STATE_LIST } )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, 'suceeded', 'score' ] )
 class BuildJob( models.Model ):
   """
 BuildJob
@@ -227,7 +218,6 @@ BuildJob
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
-  resources = models.TextField( default='{}' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -237,7 +227,6 @@ BuildJob
   user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
-  networks = models.ManyToManyField( NetworkResource, through='BuildJobNetworkResource', help_text='' )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -269,10 +258,9 @@ BuildJob
       return None
 
     result = True
-    resource_map = json.loads( self.resources )
-    for target in resource_map:
-      for i in range( 0, len( resource_map[ target ] ) ):
-        result &= resource_map[ target ][ i ].get( 'success', True )
+    for target in self.resource_map:
+      for i in range( 0, len( self.resource_map[ target ] ) ):
+        result &= self.resource_map[ target ][ i ].get( 'success', True )
 
     return result
 
@@ -282,10 +270,9 @@ BuildJob
       return None
 
     score_list = []
-    resource_map = json.loads( self.resources )
-    for target in resource_map:
-      for i in range( 0, len( resource_map[ target ] ) ):
-        score_list.append( resource_map[ target ][ i ].get( 'score', None ) )
+    for target in self.resource_map:
+      for i in range( 0, len( self.resource_map[ target ] ) ):
+        score_list.append( self.resource_map[ target ][ i ].get( 'score', None ) )
 
     return score_list
 
@@ -319,71 +306,10 @@ BuildJob
     self.full_clean()
     self.save()
 
-  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'String' ] )
-  def updateResourceState( self, name, index, status ):
-    resource_map = json.loads( self.resources )
-    try:
-      resource_map[ name ][ index ][ 'status' ] = status
-    except ( IndexError, KeyError ):
-      return
-
-    self.resources = json.dumps( resource_map )
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'Boolean' ] )
-  def setResourceSuccess( self, name, index, success ):
-    resource_map = json.loads( self.resources )
-    try:
-      resource_map[ name ][ index ][ 'success' ] = bool( success )
-    except ( IndexError, KeyError ):
-      return
-
-    self.resources = json.dumps( resource_map )
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'String' ] )
-  def setResourceResults( self, name, index, results ):
-    resource_map = json.loads( self.resources )
-    try:
-      resource_map[ name ][ index ][ 'results' ] = results
-    except ( IndexError, KeyError ):
-      return
-
-    self.resources = json.dumps( resource_map )
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'Float' ] )
-  def setResourceScore( self, name, index, score ):
-    resource_map = json.loads( self.resources )
-    try:
-      resource_map[ name ][ index ][ 'score' ] = score
-    except ( IndexError, KeyError ):
-      return
-
-    self.resources = json.dumps( resource_map )
-    self.full_clean()
-    self.save()
-
-  @cinp.action( return_type='String', paramater_type_list=[ 'String', 'Integer', { 'type': 'String', 'is_array': True } ] )
-  def addPackageFiles( self, name, index, package_files ):
-    resource_map = json.loads( self.resources )
-    try:
-      resource_map[ name ][ index ][ 'package_files' ] = package_files
-    except ( IndexError, KeyError ):
-      return
-
-    self.resources = json.dumps( resource_map )
-    self.full_clean()
-    self.save()
-
   @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
   def getConfigStatus( self, name, index=None, count=None ):
-    resource_map = json.loads( self.resources )
     try:
-      config_list = resource_map[ name ]
+      config_list = self.resource_map[ name ]
     except KeyError:
       return {}
 
@@ -404,9 +330,8 @@ BuildJob
 
   @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
   def getProvisioningInfo( self, name, index=None, count=None ):
-    resource_map = json.loads( self.resources )
     try:
-      config_list = resource_map[ name ]
+      config_list = self.resource_map[ name ]
     except KeyError:
       return {}
 
@@ -429,28 +354,6 @@ BuildJob
 
     return results
 
-  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ] )
-  def getNetworkInfo( self, name ):
-    try:
-      network = self.buildjobnetworkresource_set.get( name=name )
-    except BuildJobNetworkResource.DoesNotExist:
-      return {}
-
-    try:
-      subnet = SubNet.objects.get( pk=network.networkresource.subnet )
-    except ( SubNet.DoesNotExist, NetworkResource.DoesNotExist ):
-      return {}
-
-    results = { 'description': network.name, 'network': subnet.network, 'prefix': subnet.prefix }
-    if subnet.gateway:
-      results[ 'gateway' ] = subnet.gateway
-    if subnet.broadcast:
-      results[ 'broadcast' ] = subnet.broadcast
-    if subnet.vlan:
-      results[ 'vlan' ] = subnet.vlan
-
-    return results
-
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
@@ -465,37 +368,133 @@ BuildJob
     super().clean( *args, **kwargs )
     errors = {}
 
-    try:
-      json.loads( self.resources )
-    except ValueError:
-      errors[ 'resources' ] = 'Must be valid JSON'
-
     if errors:
       raise ValidationError( errors )
 
   def __str__( self ):
     return 'BuildJob "{0}" for build "{1}"'.format( self.pk, self.build.name )
 
-  # TODO: these can only be called by jobs, need some kind of auth for them
-  # 'updateResourceState': ,
-  # 'setResourceSuccess': ,
-  # 'setResourceResults': ,
-  # 'setResourceScore':,
-  # 'addPackageFiles':
-  # 'getConfigStatus': ,
-  # getProvisioningInfo  # called by UI
-  # getNetworkInfo
-  # # run by both
-  # 'jobRan': ,
-  # # these are normal
-  # 'acknowledge': ,
+
+def getCookie():
+  return str( uuid.uuid4() )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class BuildJobNetworkResource( models.Model ):
-  buildjob = models.ForeignKey( BuildJob, on_delete=models.CASCADE )
-  networkresource = models.ForeignKey( NetworkResource, on_delete=models.CASCADE )
-  name = models.CharField( max_length=100 )
+class Instance( models.Model ):
+  resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
+  network = models.ForeignKey( NetworkResource, on_delete=models.PROTECT )
+  cookie = models.CharField( max_length=36, default=getCookie )
+  foundation = models.CharField( max_length=100, blank=True, null=True )
+  structure = models.CharField( max_length=100, blank=True, null=True )
+  hostname = models.CharField( max_length=100 )
+  # build info
+  buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
+  name = models.CharField( max_length=50 )
+  index = models.IntegerField()
+  config_values = MapField( blank=True )
+  status = models.CharField( max_length=20, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released
+  # results info
+  success = models.BooleanField( default=False )
+  results = models.TextField( blank=True, null=True )
+  score = models.FloatField( blank=True, null=True )
+  package_files = StringListField( blank=True, null=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @cinp.action( paramater_type_list=[ 'String' ] )
+  def foundationBuild( self, cookie ):  # called from webhook
+    if self.cookie != self.cookie:
+      return
+
+    self.state = 'Built1'
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String' ] )
+  def structureBuild( self, cookie ):  # called from webhook
+    if self.cookie != self.cookie:
+      return
+
+    self.state = 'Built'
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String' ] )
+  def structureDestroyed( self, cookie ):  # called from webhook
+    if self.cookie != self.cookie:
+      return
+
+    self.state = 'Released1'
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String' ] )
+  def foundationDestroyed( self, cookie ):  # called from webhook
+    if self.cookie != self.cookie:
+      return
+
+    self.state = 'Released'
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
+  def updateResourceState( self, cookie, status ):
+    if self.cookie != self.cookie:
+      return
+
+    self.status = status
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'Boolean' ] )
+  def setResourceSuccess( self, cookie, success ):
+    if self.cookie != self.cookie:
+      return
+
+    self.success = success
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
+  def setResourceResults( self, cookie, results ):
+    if self.cookie != self.cookie:
+      return
+
+    self.results = results
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'Float' ] )
+  def setResourceScore( self, cookie, score ):
+    if self.cookie != self.cookie:
+      return
+
+    self.score = score
+    self.full_clean()
+    self.save()
+
+  @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'String', 'is_array': True } ] )
+  def addPackageFiles( self, cookie, package_files ):
+    if self.cookie != self.cookie:
+      return
+
+    self.package_files = package_files
+    self.full_clean()
+    self.save()
+
+  def release( self ):
+    self.resource.release()
+
+  def build():
+    pass
+
+  @property
+  def built( self ):
+    return self.state == 'Built'
+
+  @property
+  def released( self ):
+    return self.state == 'Released'
 
   @cinp.check_auth()
   @staticmethod
@@ -503,7 +502,4 @@ class BuildJobNetworkResource( models.Model ):
     return True
 
   def __str__( self ):
-    return 'BuildJobNetworkResource for BuildJob "{0}" NetworkResource "{1}" Named "{2}"'.format( self.buildjob, self.networkresource, self.name )
-
-  class Meta:
-    unique_together = ( ( 'buildjob', 'networkresource' ), ( 'buildjob', 'name' ) )
+    return 'Instance "{0}" for BuildJob "{1}" Named "{2}"'.format( self.pk. self.buildjob, self.hostname )

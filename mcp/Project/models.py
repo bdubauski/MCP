@@ -1,6 +1,5 @@
 import re
 import difflib
-import json
 
 from django.db import models
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
@@ -8,7 +7,7 @@ from django.conf import settings
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.fields import name_regex
+from mcp.fields import MapField, name_regex
 from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
 
@@ -359,7 +358,7 @@ This is a Version of a Package
     unique_together = ( 'package', 'version' )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=( 'state' ), constant_set_map={ 'state': COMMIT_STATE_LIST } )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=[ { 'name': 'state', 'choices': COMMIT_STATE_LIST } ] )
 class Commit( models.Model ):
   """
 A Single Commit of a Project
@@ -368,10 +367,10 @@ A Single Commit of a Project
   owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
-  lint_results = models.TextField( default='{}' )
-  test_results = models.TextField( default='{}' )
-  build_results = models.TextField( default='{}')
-  docs_results = models.TextField( default='{}' )
+  lint_results = MapField( blank=True )
+  test_results = MapField( blank=True )
+  build_results = MapField( blank=True )
+  docs_results = MapField( blank=True )
   lint_at = models.DateTimeField( editable=False, blank=True, null=True )
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -424,50 +423,47 @@ A Single Commit of a Project
   def results( self ):  # for now in Markdown format
     result = {}
 
-    if self.lint_results:
-      tmp = json.loads( self.lint_results )
-      wrk = {}
-      for distro in tmp:
+    wrk = {}
+    for distro in self.lint_results:
+      tmp = self.lint_results[ distro ]
+      if tmp.get( 'results', None ) is not None:
+        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+
+    if wrk:
+      result[ 'lint' ] = wrk
+
+    wrk = {}
+    for distro in self.test_results:
+      tmp = self.test_results[ distro ]
+      if tmp.get( 'results', None ) is not None:
+        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+
+    if wrk:
+      result[ 'test' ] = wrk
+
+    wrk = {}
+    for target in self.build_results:
+      wrk[ target ] = {}
+      tmp = self.build_results[ target ]
+      for distro in tmp[ target ]:
         if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
+          wrk[ target ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
 
-      if wrk:
-        result[ 'lint' ] = wrk
+    if wrk:
+      result[ 'build' ] = wrk
 
-    if self.test_results:
-      tmp = json.loads( self.test_results )
-      wrk = {}
-      for distro in tmp:
-        if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
+    wrk = {}
+    for distro in self.docs_results:
+      tmp = self.docs_results[ distro ]
+      if tmp.get( 'results', None ) is not None:
+        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
 
-      if wrk:
-        result[ 'test' ] = wrk
-
-    if self.build_results:
-      tmp = json.loads( self.build_results )
-      wrk = {}
-      for target in tmp:
-        wrk[ target ] = {}
-        for distro in tmp[ target ]:
-          if tmp[ target ][ distro ].get( 'results', None ) is not None:
-            wrk[ target ][ distro ] = ( tmp[ target ][ distro ].get( 'success', False ), tmp[ target ][ distro ][ 'results' ], tmp[ target ][ distro ].get( 'score', None ) )
-
-      if wrk:
-        result[ 'build' ] = wrk
-
-    if self.docs_results:
-      tmp = json.loads( self.docs_results )
-      wrk = {}
-      for distro in tmp:
-        if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
-
-      if wrk:
-        result[ 'docs' ] = wrk
+    if wrk:
+      result[ 'docs' ] = wrk
 
     if not result:
       return None
+
     else:
       return result
 
@@ -479,36 +475,24 @@ A Single Commit of a Project
     results = resources[ 'target' ][0].get( 'results', None )
 
     if target == 'lint':
-      status = json.loads( self.lint_results )
-      distro = build_name
-      status[ distro ][ 'status' ] = 'done'
-      status[ distro ][ 'success' ] = sucess
-      status[ distro ][ 'results' ] = results
-      self.lint_results = json.dumps( status )
+      self.lint_results[ build_name ][ 'status' ] = 'done'
+      self.lint_results[ build_name ][ 'success' ] = sucess
+      self.lint_results[ build_name ][ 'results' ] = results
 
     elif target == 'test':
-      status = json.loads( self.test_results )
-      distro = build_name
-      status[ distro ][ 'status' ] = 'done'
-      status[ distro ][ 'success' ] = sucess
-      status[ distro ][ 'results' ] = results
-      self.test_results = json.dumps( status )
+      self.test_results[ build_name ][ 'status' ] = 'done'
+      self.test_results[ build_name ][ 'success' ] = sucess
+      self.test_results[ build_name ][ 'results' ] = results
 
     elif target == 'docs':
-      status = json.loads( self.docs_results )
-      distro = build_name
-      status[ distro ][ 'status' ] = 'done'
-      status[ distro ][ 'success' ] = sucess
-      status[ distro ][ 'results' ] = results
-      self.docs_results = json.dumps( status )
+      self.docs_results[ build_name ][ 'status' ] = 'done'
+      self.docs_results[ build_name ][ 'success' ] = sucess
+      self.docs_results[ build_name ][ 'results' ] = results
 
     else:
-      status = json.loads( self.build_results )
-      distro = build_name
-      status[ target ][ distro ][ 'status' ] = 'done'
-      status[ target ][ distro ][ 'success' ] = sucess
-      status[ target ][ distro ][ 'results' ] = results
-      self.build_results = json.dumps( status )
+      self.build_results[ target ][ build_name ][ 'status' ] = 'done'
+      self.build_results[ target ][ build_name ][ 'success' ] = sucess
+      self.build_results[ target ][ build_name ][ 'results' ] = results
 
     self.full_clean()
     self.save()
@@ -589,21 +573,6 @@ A Single Commit of a Project
     super().clean( *args, **kwargs )
     errors = {}
 
-    try:
-      json.loads( self.lint_results )
-    except ValueError:
-      errors[ 'lint_results' ] = 'Must be valid JSON'
-
-    try:
-      json.loads( self.test_results )
-    except ValueError:
-      errors[ 'test_results' ] = 'Must be valid JSON'
-
-    try:
-      json.loads( self.build_results )
-    except ValueError:
-      errors[ 'build_results' ] = 'Must be valid JSON'
-
     if errors:
       raise ValidationError( errors )
 
@@ -621,7 +590,7 @@ This is a type of Build that can be done
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
   resources = models.ManyToManyField( Resource, through='BuildResource', help_text='' )
-  networks = models.TextField( default='{}' )
+  network_map = MapField( blank=True )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -644,11 +613,6 @@ This is a type of Build that can be done
 
     if not name_regex.match( self.name ):
       errors[ 'name' ] = 'Invalid'
-
-    try:
-      json.loads( self.networks )
-    except ValueError:
-      errors[ 'networks' ] = 'Must be valid JSON'
 
     if errors:
       raise ValidationError( errors )

@@ -13,7 +13,6 @@ django.setup()
 import logging
 import sys
 import glob
-import json
 import shutil
 import socket
 from ssl import SSLError
@@ -122,7 +121,7 @@ def _makeBuild( build_name, project, manual ):
   for name in network_list:
     network[ name ] = ''
 
-  build.networks = json.dumps( network )
+  build.network_map = network
   build.full_clean()
   build.save()
 
@@ -257,7 +256,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       logging.error( 'Error Retreiving Test Distros from Makefile "{0}", ignorning commit.'.format( e ) )
       continue
 
-    commit.lint_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
+    commit.lint_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
     commit.test_results = commit.lint_results
     commit.build_results = {}
 
@@ -280,9 +279,9 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       except MakeException as e:
         distro_list = []
 
-      commit.docs_results = json.dumps( dict( zip( distro_list, [{}] * len( distro_list ) ) ) )
+      commit.docs_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
 
-    commit.build_results = json.dumps( commit.build_results )
+    commit.build_results = commit.build_results
 
     if branch == 'master':
       logging.info( 'Updating Builds info...' )

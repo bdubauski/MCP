@@ -49,7 +49,6 @@ INSTALLED_APPS = (
     'mcp.Project',
     'mcp.Resource',
     'mcp.User',
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',

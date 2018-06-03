@@ -14,13 +14,12 @@ django.setup()
 
 import sys
 import logging
-import json
 from logging.handlers import SysLogHandler
 from datetime import datetime, timezone, timedelta
 
 from django.conf import settings
 
-from mcp.Processor.models import QueueItem, BuildJob, BuildJobNetworkResource
+from mcp.Processor.models import QueueItem, BuildJob
 from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
 
@@ -58,24 +57,24 @@ slack = Slack( 'sark', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, setting
 for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the biggest number first
   try:
     # Check to see if resources are aviable
-    ( compute_status, network_status ) = item.checkResources()
+    ( compute_status, network_status, target_network ) = item.checkResources()
     if compute_status:
       logging.info( 'Queue Item "{0}" waiting for compute "{1}"'.format( item, compute_status ) )
-      item.resource_status = json.dumps( { 'compute': compute_status } )
+      item.resource_status_map = { 'compute': compute_status }
       item.full_clean()
       item.save()
       continue
 
     if network_status:
       logging.info( 'Queue Item "{0}" waiting for network "{1}"'.format( item, network_status ) )
-      item.resource_status = json.dumps( { 'network': network_status } )
+      item.resource_status_map = { 'network': network_status }
       item.full_clean()
       item.save()
       continue
 
   except Exception as e:
     logging.exception( 'Exception "{0}" checking resources for item "{1}", skiping...'.format( e, item.pk ) )
-    item.resource_status = json.dumps( { 'error': 'Exception: "{0}"'.format( e ) } )
+    item.resource_status_map = { 'error': 'Exception: "{0}"'.format( e ) }
     item.full_clean()
     item.save()
     continue
@@ -96,27 +95,14 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.save()
 
     # allocate the Resources
-    ( compute_resources, network_resources ) = item.allocateResources( job )
+    ( compute_resources, network_resources ) = item.allocateResources( job, target_network )
     logging.info( 'Starting Queue Item "{0}" with Compute "{1}", Network "{2}", as job "{3}"'.format( item, compute_resources, network_resources, job.id ) )
-    job.resources = json.dumps( compute_resources )
-    job.full_clean()
-    job.save()
-    for network in network_resources:
-      bjnr = BuildJobNetworkResource()
-      bjnr.buildjob = job
-      bjnr.networkresource = network_resources[ network ]
-      bjnr.name = network
-      bjnr.full_clean()
-      bjnr.save()
 
   except Exception as e:
     logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
-    if job and job.pk:
-      for bjnr in job.buildjobnetworkresource_set.all():
-        bjnr.delete()
-      job.delete()
+    job.delete()  # will probably raise an exception, find out what that is and catch it here
 
-    item.resource_status = json.dumps( { 'error': 'Exception: "{0}"'.format( e ) } )
+    item.resource_status_map = { 'error': 'Exception: "{0}"'.format( e ) }
     item.full_clean()
     item.save()
     continue
@@ -129,13 +115,12 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
 # Iterate over the build new jobs
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
-  resource_map = json.loads( job.resources )
-  for name in resource_map:
-    for index in range( 0, len( resource_map[ name ] ) ):
-      if resource_map[ name ][ index ][ 'status' ] not in ( 'Allocated', 'Building' ):
+  for name in job.resource_map:
+    for index in range( 0, len( job.resource_map[ name ] ) ):
+      if job.resource_map[ name ][ index ][ 'status' ] not in ( 'Allocated', 'Building' ):
         continue  # don't want to overwrite any new status that might of been put in by something else, hopfully that something else waited till it was built, b/c we are going to assume it is, really should keep track of feedback status and building status seperately
 
-      tmp = Resource.built( resource_map[ name ][ index ][ 'config' ] )
+      tmp = Resource.built( job.resource_map[ name ][ index ][ 'config' ] )
       ready &= tmp
       job.updateResourceState( name, index, 'Built' if tmp else 'Building' )
 
@@ -153,7 +138,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
-    job.commit.signalComplete( job.target, job.build.name, json.loads( job.resources ) )
+    job.commit.signalComplete( job.target, job.build.name, job.resource_map )
 
   elif job.promotion is not None:
     job.promotion.signalComplete( job.build )
@@ -167,11 +152,10 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   job.save()
 
   results = ''
-  resource_map = json.loads( job.resources )
-  for target in resource_map:
+  for target in job.resource_map:
     results += 'Target: *{0}*\n'.format( target )
-    for index in range( 0, len( resource_map[ target ] ) ):
-      tmp = resource_map[ target ][ index ]
+    for index in range( 0, len( job.resource_map[ target ] ) ):
+      tmp = job.resource_map[ target ][ index ]
       results += 'Index {0}\n'.format( index )
       try:
         results += 'Sucess: *{0}*\n'.format( tmp[ 'success' ] )
@@ -205,28 +189,25 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
-  resource_map = json.loads( job.resources )
-  for name in resource_map:
-    for index in range( 0, len( resource_map[ name ] ) ):
-      if resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
+  for name in job.resource_map:
+    for index in range( 0, len( job.resource_map[ name ] ) ):
+      if job.resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
         logging.info( 'Releasing resource "{0}" "{1}" of job "{2}".'.format( name, index, job.id ) )
-        if Resource.release( resource_map[ name ][ index ][ 'config' ]  ) is None:
+        if Resource.release( job.resource_map[ name ][ index ][ 'config' ] ) is None:
           job.updateResourceState( name, index, 'Released' )
         else:
           job.updateResourceState( name, index, 'Releasing' )
 
-  resource_map = json.loads( job.resources )
-  for name in resource_map:
-    for index in range( 0, len( resource_map[ name ] ) ):
-      if resource_map[ name ][ index ][ 'status' ] == 'Releasing':
-        if Resource.released( resource_map[ name ][ index ][ 'config' ] ):
+  for name in job.resource_map:
+    for index in range( 0, len( job.resource_map[ name ] ) ):
+      if job.resource_map[ name ][ index ][ 'status' ] == 'Releasing':
+        if Resource.released( job.resource_map[ name ][ index ][ 'config' ] ):
           job.updateResourceState( name, index, 'Released' )
 
-  resource_map = json.loads( job.resources )
   ready = True
-  for name in resource_map:
-    for index in range( 0, len( resource_map[ name ] ) ):
-      ready &= resource_map[ name ][ index ][ 'status' ] == 'Released'
+  for name in job.resource_map:
+    for index in range( 0, len( job.resource_map[ name ] ) ):
+      ready &= job.resource_map[ name ][ index ][ 'status' ] == 'Released'
 
   # resources all released, set job to released
   if ready:

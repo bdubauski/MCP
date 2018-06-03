@@ -14,7 +14,6 @@ django.setup()
 
 import sys
 import logging
-import json
 from logging.handlers import SysLogHandler
 from datetime import datetime, timezone
 
@@ -54,9 +53,7 @@ slack = Slack( 'recognizer', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, s
 
 # check for commits that need to be linted
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):
-  status = json.loads( commit.lint_results )
-
-  if not status:
+  if not commit.lint_results:
     slack.post_message( 'No Lint for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
     commit.lint_at = datetime.now( timezone.utc )
     commit.full_clean()
@@ -65,20 +62,19 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
 
   done = True
   success = True
-  for distro in status:
-    if not status[ distro ].get( 'status', None ):
+  for distro in commit.lint_results:
+    if not commit.lint_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Lint job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
         item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'lint', QUEUE_PRIORITY, commit )
-        status[ distro ][ 'status' ] = 'building'
+        commit.lint_results[ distro ][ 'status' ] = 'building'
       except Exception as e:
-        status[ distro ][ 'status' ] = 'done'
-        status[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+        print( e )
+        commit.lint_results[ distro ][ 'status' ] = 'done'
+        commit.lint_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-    done &= status[ distro ][ 'status' ] == 'done'
-    success &= status[ distro ].get( 'success', False )
-
-  commit.lint_results = json.dumps( status )
+    done &= commit.lint_results[ distro ][ 'status' ] == 'done'
+    success &= commit.lint_results[ distro ].get( 'success', False )
 
   if done:
     logging.info( 'Lint Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
@@ -97,9 +93,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True 
 
 # check for commits that need testing
 for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=True ):
-  status = json.loads( commit.test_results )
-
-  if not status:
+  if not commit.test_results:
     slack.post_message( 'No Test for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
     commit.test_at = datetime.now( timezone.utc )
     commit.full_clean()
@@ -108,20 +102,18 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   done = True
   success = True
-  for distro in status:
-    if not status[ distro ].get( 'status', None ):
+  for distro in commit.test_results:
+    if not commit.test_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Test job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
         item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit )
-        status[ distro ][ 'status' ] = 'building'
+        commit.test_results[ distro ][ 'status' ] = 'building'
       except Exception as e:
-        status[ distro ][ 'status' ] = 'done'
-        status[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+        commit.test_results[ distro ][ 'status' ] = 'done'
+        commit.test_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-    done &= status[ distro ][ 'status' ] == 'done'
-    success &= status[ distro ].get( 'success', False )
-
-  commit.test_results = json.dumps( status )
+    done &= commit.test_results[ distro ][ 'status' ] == 'done'
+    success &= commit.test_results[ distro ].get( 'success', False )
 
   if done:
     logging.info( 'Test Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
@@ -147,9 +139,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     commit.save()
     continue
 
-  status = json.loads( commit.build_results )
-
-  if not status:
+  if not commit.build_results:
     slack.post_message( 'No Build for "{0}".'.format( commit.project.name, slack.INFO ) )
     commit.build_at = datetime.now( timezone.utc )
     commit.full_clean()
@@ -158,21 +148,19 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   done = True
   success = True
-  for target in status:
-    for distro in status[ target ]:
-      if not status[ target ][ distro ].get( 'status', None ):
+  for target in commit.build_results:
+    for distro in commit.build_results[ target ]:
+      if not commit.build_results[ target ][ distro ].get( 'status', None ):
         logging.info( 'Queuing up "{0}" job for "{1}", branch "{2}", distro "{3}"'.format( target, commit.project.name, commit.branch, distro ) )
         try:
           item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit )
-          status[ target ][ distro ][ 'status' ] = 'building'
+          commit.build_results[ target ][ distro ][ 'status' ] = 'building'
         except Exception as e:
-          status[ target ][ distro ][ 'status' ] = 'done'
-          status[ target ][ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+          commit.build_results[ target ][ distro ][ 'status' ] = 'done'
+          commit.build_results[ target ][ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-      done &= status[ target ][ distro ][ 'status' ] == 'done'
-      success &= status[ target ][ distro ].get( 'success', False )
-
-    commit.build_results = json.dumps( status )
+      done &= commit.build_results[ target ][ distro ][ 'status' ] == 'done'
+      success &= commit.build_results[ target ][ distro ].get( 'success', False )
 
   if done:
     logging.info( 'Build Complete for "{0}" of "{1}" branch "{2}" Complete'.format( commit.commit, commit.project.name, commit.branch ) )
@@ -198,9 +186,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     commit.save()
     continue
 
-  status = json.loads( commit.docs_results )
-
-  if not status:
+  if not commit.docs_results:
     slack.post_message( 'No Docs for "{0}".'.format( commit.project.name ), slack.INFO )
     commit.docs_at = datetime.now( timezone.utc )
     commit.full_clean()
@@ -209,20 +195,18 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
 
   done = True
   success = True
-  for distro in status:
-    if not status[ distro ].get( 'status', None ):
+  for distro in commit.docs_results:
+    if not commit.docs_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Docs job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
         item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'docs', QUEUE_PRIORITY, commit )
-        status[ distro ][ 'status' ] = 'building'
+        commit.docs_results[ distro ][ 'status' ] = 'building'
       except Exception as e:
-        status[ distro ][ 'status' ] = 'done'
-        status[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+        commit.docs_results[ distro ][ 'status' ] = 'done'
+        commit.docs_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-    done &= status[ distro ][ 'status' ] == 'done'
-    success &= status[ distro ].get( 'success', False )
-
-  commit.docs_results = json.dumps( status )
+    done &= commit.docs_results[ distro ][ 'status' ] == 'done'
+    success &= commit.docs_results[ distro ].get( 'success', False )
 
   if done:  # failed doc building dosen't block anything, just make the comment and move on
     logging.info( 'Docs Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
