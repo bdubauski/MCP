@@ -5,7 +5,7 @@ var cinpBuilder = {};
 
   cinpBuilder = function()
   {
-    var cinp = { host: '',
+    var cinp = { host: 'http://127.0.0.1:8888/',
                   auth_id: '',
                   auth_token: '',
                   on_server_error: null };
@@ -40,7 +40,7 @@ var cinpBuilder = {};
         dataType: 'json',
         headers: $.extend( {}, headers,
         {
-          'CInP-Version': '0.1'
+          'CInP-Version': '0.9'
         } ),
         data: JSON.stringify( data ),
         contentType: 'application/json',

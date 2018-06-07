@@ -20,7 +20,6 @@ from datetime import datetime, timezone, timedelta
 from django.conf import settings
 
 from mcp.Processor.models import QueueItem, BuildJob
-from mcp.Resource.models import Resource
 from mcp.lib.Slack import Slack
 
 # in Hours
@@ -95,12 +94,11 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.save()
 
     # allocate the Resources
-    ( compute_resources, network_resources ) = item.allocateResources( job, target_network )
-    logging.info( 'Starting Queue Item "{0}" with Compute "{1}", Network "{2}", as job "{3}"'.format( item, compute_resources, network_resources, job.id ) )
+    item.allocateResources( job, target_network )
+    logging.info( 'Starting Queue Item "{0}" as job "{1}"'.format( item, job.id ) )
 
   except Exception as e:
     logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
-    job.delete()  # will probably raise an exception, find out what that is and catch it here
 
     item.resource_status_map = { 'error': 'Exception: "{0}"'.format( e ) }
     item.full_clean()
@@ -115,14 +113,8 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
 # Iterate over the build new jobs
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
-  for name in job.resource_map:
-    for index in range( 0, len( job.resource_map[ name ] ) ):
-      if job.resource_map[ name ][ index ][ 'status' ] not in ( 'Allocated', 'Building' ):
-        continue  # don't want to overwrite any new status that might of been put in by something else, hopfully that something else waited till it was built, b/c we are going to assume it is, really should keep track of feedback status and building status seperately
-
-      tmp = Resource.built( job.resource_map[ name ][ index ][ 'config' ] )
-      ready &= tmp
-      job.updateResourceState( name, index, 'Built' if tmp else 'Building' )
+  for instance in job.instance_set.all():
+    ready &= instance.built
 
   # all done, set to built
   if ready:
@@ -131,9 +123,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
     job.full_clean()
     job.save()
 
-
 # the Job will flag it's self as Ran
-
 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
@@ -189,25 +179,13 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
-  for name in job.resource_map:
-    for index in range( 0, len( job.resource_map[ name ] ) ):
-      if job.resource_map[ name ][ index ][ 'status' ] not in ( 'Releasing', 'Released' ):
-        logging.info( 'Releasing resource "{0}" "{1}" of job "{2}".'.format( name, index, job.id ) )
-        if Resource.release( job.resource_map[ name ][ index ][ 'config' ] ) is None:
-          job.updateResourceState( name, index, 'Released' )
-        else:
-          job.updateResourceState( name, index, 'Releasing' )
-
-  for name in job.resource_map:
-    for index in range( 0, len( job.resource_map[ name ] ) ):
-      if job.resource_map[ name ][ index ][ 'status' ] == 'Releasing':
-        if Resource.released( job.resource_map[ name ][ index ][ 'config' ] ):
-          job.updateResourceState( name, index, 'Released' )
+  for instance in job.instance_set.all():
+    if instance.built:
+      instance.release()
 
   ready = True
-  for name in job.resource_map:
-    for index in range( 0, len( job.resource_map[ name ] ) ):
-      ready &= job.resource_map[ name ][ index ][ 'status' ] == 'Released'
+  for instance in job.instance_set.all():
+    ready &= instance.released
 
   # resources all released, set job to released
   if ready:

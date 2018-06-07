@@ -32,3 +32,41 @@ class Contractor():
 
   def getStructures( self, id_list ):
     return self.cinp.getObjets( '/api/v1/Building/Structure', id_list ).values()
+
+  def createInstance( self, site_id, complex_id, blueprint_id, hostname, config_values, addressblock_id ):
+    foundation = self.cinp.call( '/api/v1/Building/Complex:{0}:(createFoundation)'.format( complex_id ), { 'hostname': hostname, 'can_auto_locate': True } )
+
+    data = {}
+    data[ 'site' ] = '/api/v1/Site/Site:{0}:'.format( site_id )
+    data[ 'foundation' ] = '/api/v1/Building/Foundation:{0}:'.format( self.cinp.uri.extractIds( foundation )[0] )
+    data[ 'hostname' ] = hostname
+    data[ 'blueprint' ] = '/api/v1/BluePrint/StructureBluePrint:{0}:'.format( blueprint_id )
+    data[ 'config_values' ] = config_values
+    data[ 'auto_build' ] = True  # Static stuff builds when it can
+    structure = self.cinp.create( '/api/v1/Building/Structure', data )[0]
+
+    data = {}
+    data[ 'structure' ] = structure
+    data[ 'interface_name' ] = 'eth0'
+    data[ 'is_primary' ] = True
+    address = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(nextAddress)'.format( addressblock_id ), data )
+
+    logging.debug( 'Created "{0}" on "{1}" at {2}'.format( structure, foundation, address ) )
+
+  # def registerWebHook( self, target, job_id, target_id, token ):
+  #   data = {}
+  #   data[ target ] = '/api/v1/Building/{0}:{1}:'.format( target.title(), target_id )
+  #   data[ 'one_shot' ] = True
+  #   data[ 'extra_data' ] = { 'token': token, 'target': target }
+  #   data[ 'type' ] = 'call'
+  #   data[ 'url' ] = '{0}api/v1/Builder/Job:{1}:(jobNotify)'.format( settings.MCP_HOST, job_id )
+  #   if target == 'foundation':
+  #     self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )
+  #   else:
+  #     self.cinp.create( '/api/v1/PostOffice/StructureBox', data )
+  #
+  #   def destroyFoundation( self, id ):
+  #     self.cinp.call( '/api/v1/Building/Foundation:{0}:(doDestroy)'.format( id ), {} )
+  #
+  #   def destroyStructure( self, id ):
+  #     self.cinp.call( '/api/v1/Building/Structure:{0}:(doDestroy)'.format( id ), {} )

@@ -48,7 +48,7 @@ respkg-requires:
 	echo respkg
 
 respkg:
-	cd blueprints && respkg -b ../mcp_blueprints_0.0.respkg -n mcp_blueprints -e 0.0 -c "MCP Blueprints for loading into Contractor" -t load_contractor_data.sh -d resources
+	cd contractor && respkg -b ../mcp-contractor_0.0.respkg -n mcp-contractor -e 0.0 -c "MCP Blueprints for Contractor" -t load_data.sh -d resources -s contractor-os-base
 	touch respkg
 
 respkg-file:

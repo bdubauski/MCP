@@ -17,25 +17,34 @@ from mcp.fields import name_regex
 cinp = CInP( 'Resource', '0.1' )
 
 
-def config_values( job, name, index ):
+def config_values_common():
   return {
            'mcp_host': settings.MCP_HOST,
            'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
-           'mcp_job_id': job.pk,
-           'mcp_resource_name': name,
-           'mcp_resource_index': index,
-           'mcp_git_url': job.project.internal_git_url,
-           'mcp_git_branch': job.branch,
-           'mcp_make_target': job.target
-          }
+           'packrat_host': 'http://packrat',
+           'packrat_builder_name': 'mcp',
+           'packrat_builder_psk': 'mcp',
+           'confluence_host': 'http://confluence',
+           'confluence_username': 'mcp',
+           'confluence_password': 'mcp',
+         }
+
+
+def config_values( job, name, index ):
+  result = config_values_common()
+  result.update( {
+                   'mcp_job_id': job.pk,
+                   'mcp_resource_name': name,
+                   'mcp_resource_index': index,
+                   'mcp_git_url': job.project.internal_git_url,
+                   'mcp_git_branch': job.branch,
+                   'mcp_make_target': job.target
+                  } )
+  return result
 
 
 def config_values_prealloc():
-  return {
-           'mcp_host': settings.MCP_HOST,
-           'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
-           'mcp_prealloc': True
-          }
+  return config_values_common()
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -99,6 +108,12 @@ Resource
   def allocate( self, job, name, quantity ):  # called second to allocate the resources to the project
     return None  # the id of the allocated resource
 
+  def build( self, instance ):
+    raise Exception( 'Not Implemented' )
+
+  def release( self, instance ):
+    raise Exception( 'Not Implemented' )
+
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
@@ -151,11 +166,14 @@ class DynamicResource( Resource ):
 
   def _replentishPreAllocate( self, network ):
     Instance = apps.get_model( 'Processor', 'Instance' )
-    while self.instance_set.filter( build_job__isnull=True ).count() < self.build_ahead_count:  # TODO: make sure there is room for more vms in the subnet
+    while self.instance_set.filter( buildjob__isnull=True ).count() < self.build_ahead_count:  # TODO: make sure there is room for more vms in the subnet
       instance = Instance( resource=self, network=network )
-      instance.hostname = 'mcp-preallocate--{0}'.format( instance.pk )
-      instance.description = '{0}.{1}'.format( instance.hostname, instance.site.domain )
+      instance.hostname = 'mcp-preallocate--{0}-'.format( self.name )
       instance.config_values = config_values_prealloc()
+      instance.full_clean()
+      instance.save()
+
+      instance.hostname = 'mcp-preallocate--{0}-{1}'.format( self.name, instance.pk )
       instance.full_clean()
       instance.save()
 
@@ -168,12 +186,16 @@ class DynamicResource( Resource ):
       instance = next( instance_list, None )
 
       if instance is not None:
-        print( instance )
         self._takeOver( instance, job, name, index )
       else:
         self._createNew( network, job, name, index )
 
     self._replentishPreAllocate( network )
+
+  def build( self, instance ):
+    contractor = getContractor()
+
+    contractor.createInstance( self.site.name, self.complex, self.blueprint, instance.hostname, instance.config_values, instance.network.name )
 
   @cinp.check_auth()
   @staticmethod
@@ -209,7 +231,6 @@ class StaticResource( Resource ):
       config.config_values = config_values( job, name, index )
       config.profile = profile
       config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
-      config.description = '{0}.{1}'.format( config.hostname, config.pod.domain )
       config.full_clean()
       config.save()
       results.append( config.pk )
@@ -240,7 +261,6 @@ NetworkResource, name is the name of the SubNet/AddressBlock.  Really only used 
     contractor = getContractor()
 
     network = contractor.getNetworkUsage( self.name )
-    print( network )
     if int( network[ 'total' ] ) - ( int( network[ 'static' ] ) + int( network[ 'dynamic' ] ) + int( network[ 'reserved' ] ) ) < quantity:
       return False
 

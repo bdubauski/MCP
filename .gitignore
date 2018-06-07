@@ -1,8 +1,8 @@
 *.pyc
+*.respkg
 
 www/static/*
 
 build
 dpkg
-
-.idea/
+respkg

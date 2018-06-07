@@ -9,7 +9,7 @@ from cinp.orm_django import DjangoCInP as CInP
 from mcp.fields import MapField, StringListField
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
-from mcp.Resource.models import Resource, NetworkResource, Site
+from mcp.Resource.models import Resource, NetworkResource
 from mcp.User.models import User
 
 
@@ -125,24 +125,11 @@ QueueItem
     return ( compute, network, target_network )
 
   def allocateResources( self, job, target_network ):  # warning, this dosen't check first, make sure you are sure there are resources available before calling
-    compute = {}
-    network = {}
-
-    resource_list = list( NetworkResource.objects.all() )
-    for name in self.build.network_map:
-      network[ name ] = resource_list.pop( 0 )
-
     for buildresource in self.build.buildresource_set.all():
       name = buildresource.name
       quanity = buildresource.quanity
       resource = buildresource.resource.subclass
-      config_list = []
-      config_list = resource.allocate( job, name, quanity - len( config_list ), target_network )
-      compute[ name ] = []
-      for config in config_list:
-        compute[ name ].append( { 'status': 'Allocated', 'config': config } )
-
-    return ( compute, network )
+      resource.allocate( job, name, quanity, target_network )
 
   @staticmethod
   def inQueueBuild( build, branch, manual, priority, promotion=None ):
@@ -218,6 +205,7 @@ BuildJob
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
+  value_map = MapField()  # for the job to store work values
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -306,6 +294,16 @@ BuildJob
     self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'String' ] )
+  def updateResourceState( self, name, index, status  ):
+    try:
+      self.resource_map[ name ][ index ][ 'status' ] = status
+    except ( IndexError, KeyError ):
+      return
+
+    self.full_clean()
+    self.save()
+
   @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
   def getConfigStatus( self, name, index=None, count=None ):
     try:
@@ -354,6 +352,12 @@ BuildJob
 
     return results
 
+  @cinp.action( paramater_type_list=[ 'Map' ] )
+  def setValue( self, value_map ):
+    self.value_map.update( value_map )
+    self.full_clean()
+    self.save()
+
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
@@ -379,7 +383,7 @@ def getCookie():
   return str( uuid.uuid4() )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ] )
 class Instance( models.Model ):
   resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
   network = models.ForeignKey( NetworkResource, on_delete=models.PROTECT )
@@ -389,8 +393,8 @@ class Instance( models.Model ):
   hostname = models.CharField( max_length=100 )
   # build info
   buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
-  name = models.CharField( max_length=50 )
-  index = models.IntegerField()
+  name = models.CharField( max_length=50, blank=True, null=True  )
+  index = models.IntegerField( blank=True, null=True )
   config_values = MapField( blank=True )
   status = models.CharField( max_length=20, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released
   # results info
@@ -406,7 +410,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.state = 'Built1'
+    self.status = 'Built1'
     self.full_clean()
     self.save()
 
@@ -415,7 +419,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.state = 'Built'
+    self.status = 'Built'
     self.full_clean()
     self.save()
 
@@ -424,7 +428,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.state = 'Released1'
+    self.status = 'Released1'
     self.full_clean()
     self.save()
 
@@ -433,16 +437,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.state = 'Released'
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
-  def updateResourceState( self, cookie, status ):
-    if self.cookie != self.cookie:
-      return
-
-    self.status = status
+    self.status = 'Released'
     self.full_clean()
     self.save()
 
@@ -482,19 +477,39 @@ class Instance( models.Model ):
     self.full_clean()
     self.save()
 
-  def release( self ):
-    self.resource.release()
+  def build( self ):
+    if self.status in ( 'Building', 'Built1', 'Built' ):
+      return
 
-  def build():
-    pass
+    if self.status in ( 'Releaseing', 'Released1', 'Released' ):
+      raise Exception( 'Can not build while released/releasing' )
+
+    self.resource.subclass.build( self )
+
+    self.status = 'Building'
+    self.full_clean()
+    self.save()
+
+  def release( self ):
+    if self.status in ( 'Releaseing', 'Released1', 'Released' ):
+      return
+
+    if self.status != 'Built':
+      raise Exception( 'Can not release when not built' )
+
+    self.resource.subclass.release( self )
+
+    self.status = 'Releasing'
+    self.full_clean()
+    self.save()
 
   @property
   def built( self ):
-    return self.state == 'Built'
+    return self.status == 'Built'
 
   @property
   def released( self ):
-    return self.state == 'Released'
+    return self.status == 'Released'
 
   @cinp.check_auth()
   @staticmethod
@@ -502,4 +517,4 @@ class Instance( models.Model ):
     return True
 
   def __str__( self ):
-    return 'Instance "{0}" for BuildJob "{1}" Named "{2}"'.format( self.pk. self.buildjob, self.hostname )
+    return 'Instance "{0}" for BuildJob "{1}" Named "{2}"'.format( self.pk, self.buildjob, self.hostname )

@@ -78,8 +78,10 @@ class StringListField( models.TextField ):
   def __init__( self, *args, **kwargs ):
     if 'default' not in kwargs:
       kwargs[ 'default' ] = []
-    if 'null' in kwargs:
+    try:
       del kwargs[ 'null' ]
+    except KeyError:
+      pass
 
     if not isinstance( kwargs[ 'default' ], list ):
       raise ValueError( 'default value must be a list' )
@@ -90,6 +92,9 @@ class StringListField( models.TextField ):
     if value is None:
       return value
 
+    if value == '':
+      return []
+
     return value.split( '\t' )
 
   def to_python( self, value ):
@@ -98,6 +103,9 @@ class StringListField( models.TextField ):
 
     if isinstance( value, list ):
       return value
+
+    if value == '':
+      return []
 
     return value.split( '\t' )
 
