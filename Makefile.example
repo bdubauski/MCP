@@ -290,7 +290,7 @@ endif
 # two notes, one we again touch the target (in this case it was installcheck)
 # and two, one of the resources needs to run "nullunitInterface --signal-ran" indicate
 # the build is done.... when --signal-ran is called, MCP looks to see if the exit codes
-# of all nodes are sucessfull, if one is missing or is non-zero, the build fails
+# of all nodes are successfull, if one is missing or is non-zero, the build fails
 <target>:
 ifeq (tsdb, $(RESOURCE_NAME))
 	cd tests && ./installcheck.tsdb

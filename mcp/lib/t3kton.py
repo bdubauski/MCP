@@ -53,20 +53,46 @@ class Contractor():
 
     logging.debug( 'Created "{0}" on "{1}" at {2}'.format( structure, foundation, address ) )
 
-  # def registerWebHook( self, target, job_id, target_id, token ):
-  #   data = {}
-  #   data[ target ] = '/api/v1/Building/{0}:{1}:'.format( target.title(), target_id )
-  #   data[ 'one_shot' ] = True
-  #   data[ 'extra_data' ] = { 'token': token, 'target': target }
-  #   data[ 'type' ] = 'call'
-  #   data[ 'url' ] = '{0}api/v1/Builder/Job:{1}:(jobNotify)'.format( settings.MCP_HOST, job_id )
-  #   if target == 'foundation':
-  #     self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )
-  #   else:
-  #     self.cinp.create( '/api/v1/PostOffice/StructureBox', data )
-  #
-  #   def destroyFoundation( self, id ):
-  #     self.cinp.call( '/api/v1/Building/Foundation:{0}:(doDestroy)'.format( id ), {} )
-  #
-  #   def destroyStructure( self, id ):
-  #     self.cinp.call( '/api/v1/Building/Structure:{0}:(doDestroy)'.format( id ), {} )
+    self.registerWebHook( )
+
+    return ( self.cinp.uri.extractIds( foundation )[0], self.cinp.uri.extractIds( structure )[0] )
+
+  def destroyInstance( self, foundation_id, structure_id ):
+    raise Exception( 'not yet' )
+
+  def destroyFoundation( self, id ):
+    self.cinp.call( '/api/v1/Building/Foundation:{0}:(doDestroy)'.format( id ), {} )
+
+  def destroyStructure( self, id ):
+    self.cinp.call( '/api/v1/Building/Structure:{0}:(doDestroy)'.format( id ), {} )
+
+  def updateConfig( self, instance_id, config_values, hostname ):
+    data = {}
+    data[ 'config_values' ] = config_values
+    data[ 'hostname' ] = hostname
+    self.cinp.update( '/api/v1/Building/Structure:{0}:'.format( instance_id ), data )
+
+    logging.debug( 'Updated config of Structure "{0}" to "{1}"'.format( instance_id, config_values ) )
+
+  def registerWebHook( self, instance, on_build ):
+    data = {}
+    data[ 'foundation' ] = '/api/v1/Building/Foundation:{9}:'.format( instance.foundation_id )
+    data[ 'one_shot' ] = True
+    data[ 'extra_data' ] = { 'cookie': instance.cookie }
+    data[ 'type' ] = 'call'
+    if on_build:
+      data[ 'url' ] = '{0}api/v1/Builder/Instance:{1}:(foundationBuild)'.format( settings.MCP_HOST, instance.pk )
+    else:
+      data[ 'url' ] = '{0}api/v1/Builder/Instance:{1}:(foundationDestroyed)'.format( settings.MCP_HOST, instance.pk )
+    self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )
+
+    data = {}
+    data[ 'structure' ] = '/api/v1/Building/Structure:{0}:'.format( instance.structure_id )
+    data[ 'one_shot' ] = True
+    data[ 'extra_data' ] = { 'cookie': instance.cookie }
+    data[ 'type' ] = 'call'
+    if on_build:
+      data[ 'url' ] = '{0}api/v1/Builder/Instance:{1}:(structureBuild)'.format( settings.MCP_HOST, instance.pk )
+    else:
+      data[ 'url' ] = '{0}api/v1/Builder/Instance:{1}:(structureDestroyed)'.format( settings.MCP_HOST, instance.pk )
+    self.cinp.create( '/api/v1/PostOffice/StructureBox', data )

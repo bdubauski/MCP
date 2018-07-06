@@ -39,7 +39,7 @@ TEMPLATE_DEBUG = True
 TEMPLATE_DIRS = (
 )
 
-MCP_HOST = 'http://mcp/'
+MCP_HOST = 'http://mcp'
 MCP_PROXY = None
 
 # Application definition

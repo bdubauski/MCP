@@ -218,7 +218,7 @@ function hashChange( event )
                 var lintResults = ( item.lint_results )
                 if( !jQuery.isEmptyObject( lintResults ) )
                 {
-                  var lintResults = jQuery.parseJSON( lintResults )
+                  //var lintResults = jQuery.parseJSON( lintResults )
                   for(var key in lintResults)
                   {
                     var lintResult = lintResults[ key ].results
@@ -239,7 +239,7 @@ function hashChange( event )
                 var testResults = ( item.test_results )
                 if( !jQuery.isEmptyObject( testResults ) )
                 {
-                  var testResults = jQuery.parseJSON( testResults )
+                  //var testResults = jQuery.parseJSON( testResults )
                   for(var key in testResults)
                   {
                     var testResult = testResults[ key ].results
@@ -261,7 +261,7 @@ function hashChange( event )
                 var buildResults = ( item.build_results )
                 if( !jQuery.isEmptyObject( buildResults ) )
                 {
-                  var buildResults = jQuery.parseJSON( buildResults )
+                  //var buildResults = jQuery.parseJSON( buildResults )
 
                   for( var key in buildResults )
                   {
@@ -332,16 +332,16 @@ function hashChange( event )
                 var distro = item.build.split(':')[2]
                 jobEntry += '<div class="panel panel-default"><div class="panel-body" id="build-id-' + buildID + '"><ul class="list-inline"><li>' + targetIcon + '&nbsp;' + item.target + '</li><li>build #' + buildID + '<li>state: ' + item.state + '</li><li>suceded: ' + item.suceeded + '</li><li>score: ' + item.score + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
 
-                var resources = jQuery.parseJSON( item.resources )
+                var resources = item.instance_summary
                 for( var key in resources )
                 {
                   for( var index in resources[ key ] )
                   {
-                    var jobConfig = resources[key][index].config
-                    var jobSuccess = resources[key][index].success
-                    var jobStatus = resources[key][index].status
+                    var instanceId = resources[ key ][ index ].id
+                    var jobSuccess = resources[ key ][ index ].success
+                    var jobStatus = resources[ key ][ index ].status
                     var jobResults = resources[ key ][ index ].results
-                    jobEntry += '<a class="list-group-item" data-toggle="collapse" data-target="#job-' + key + jobConfig + '" data-parent="#build-id-' + buildID + '"><ul class="list-inline">';
+                    jobEntry += '<a class="list-group-item" data-toggle="collapse" data-target="#job-' + instanceId + '" data-parent="#build-id-' + buildID + '"><ul class="list-inline">';
 
                     if( jobSuccess )
                     {
@@ -362,8 +362,8 @@ function hashChange( event )
                       jobEntry += '<li class="text-info">' + jobStatus + '</li>'
                     }
 
-                    jobEntry += '<li><button type="button" class="btn btn-info btn-xs" uri="' + uri + '" name="' + key + '" do="detail">Detail</button></li></ul></a>'
-                    jobEntry += '<div class="sublinks collapse" id="job-' + key + jobConfig +'"><ol class="small">';
+                    jobEntry += '<li><button type="button" class="btn btn-info btn-xs" instance="' + instanceId + '" do="detail">Detail</button></li></ul></a>'
+                    jobEntry += '<div class="sublinks collapse" id="job-' + instanceId + '"><ol class="small">';
                     if( jobResults )
                     {
                       jobEntry += '<li>' + jobResults.replace(/\n/g, "</li><li>") + '</li>';
@@ -472,19 +472,14 @@ function hashChange( event )
       event.stopImmediatePropagation();
       event.preventDefault();
       var self = $( this );
-      $.when( mcp.getProvisioningInfo( self.attr( 'uri' ), self.attr( 'name' ) ) ).then(
+      $.when( mcp.getDetail( self.attr( 'instance' ) ) ).then(
         function( data )
         {
           if( data )
           {
-            var tmp = '';
-            for( index in data.value )
-            {
-              tmp += index + ' - ' + data.value[ index ].address_primary.address + '\n';
-            }
-            alert( tmp );
+            alert( JSON.stringify( data, null, 2 ) );
           } else {
-            alert( 'Unable to get Resource details for "' + self.attr( 'uri' ) + '" "' + self.attr( 'name' ) + '"' );
+            alert( 'Unable to get Resource details for "' + self.attr( 'instance' ) + '"' );
           }
         }
       );

@@ -128,7 +128,8 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
-    job.commit.signalComplete( job.target, job.build.name, job.resource_map )
+    instance = job.instance_set.all()[0]
+    job.commit.signalComplete( job.target, job.build.name, instance.success, instance.results )
 
   elif job.promotion is not None:
     job.promotion.signalComplete( job.build )
@@ -142,28 +143,25 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   job.save()
 
   results = ''
-  for target in job.resource_map:
-    results += 'Target: *{0}*\n'.format( target )
-    for index in range( 0, len( job.resource_map[ target ] ) ):
-      tmp = job.resource_map[ target ][ index ]
-      results += 'Index {0}\n'.format( index )
-      try:
-        results += 'Sucess: *{0}*\n'.format( tmp[ 'success' ] )
-      except KeyError:
-        pass
+  for instance in job.instance_set.all().order_by( 'name' ):
+    results += 'Instance: *{0}*\n'.format( instance )
+    try:
+      results += 'Success: *{0}*\n'.format( instance.success )
+    except KeyError:
+      pass
 
-      try:
-        if tmp[ 'results' ] is not None:
-          results += '```{0}```\n'.format( tmp[ 'results' ][-500:] )
-      except KeyError:
-        pass
+    try:
+      if instance.results is not None:
+        results += '```{0}```\n'.format( instance.results[ -500: ] )
+    except KeyError:
+      pass
 
   slack.post_message( 'Job {0} ( project: "{1}", build: "{2}", branch: "{3}", target: "{4}" ) Completed.\n{5}'.format( job.id, job.project.name, job.build.name, job.branch, job.target, results ), slack.INFO )
 
 
 # iterate over the Reported jobs that are not manual and look to see if the resources are all released
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=True, released_at__isnull=True, manual=False ):
-  if job.suceeded:  # sucess auto Acknoledges
+  if job.suceeded:  # success auto Acknoledges
     job.acknowledged_at = datetime.now( timezone.utc )
     job.full_clean()
     job.save()

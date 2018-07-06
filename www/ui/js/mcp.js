@@ -341,11 +341,11 @@ var mcpBuilder = {};
     };
 
 
-    mcp.getProvisioningInfo = function( job, name )
+    mcp.getDetail = function( instance_id )
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.call( job + '(getProvisioningInfo)', { name: name } ) ).then(
+      $.when( cinp.call( '/api/v1/Processor/Instance:' + instance_id + ':(getDetail)', { name: name } ) ).then(
         function( data )
         {
           deferred.resolve( data.result );

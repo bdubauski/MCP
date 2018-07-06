@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from django.db import models
+from django.conf import settings
 from django.core.exceptions import ValidationError, PermissionDenied
 
 from cinp.orm_django import DjangoCInP as CInP
@@ -196,7 +197,7 @@ QueueItem
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, 'suceeded', 'score' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, 'suceeded', 'score', { 'name': 'instance_summary', 'type': 'Map' } ] )
 class BuildJob( models.Model ):
   """
 BuildJob
@@ -205,7 +206,7 @@ BuildJob
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
-  value_map = MapField()  # for the job to store work values
+  value_map = MapField( default={}, blank=True )  # for the job to store work values
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -237,18 +238,17 @@ BuildJob
 
     return 'new'
 
-  # some jobs have more than one resources, in this case, if a resource hasn't
-  # report a status we will assume it has sucess, due to the fact that many
-  # of the sub resources will never report
+  # some jobs have more than one instances, in this case, if a instance hasn't
+  # report a status we will assume it has success, due to the fact that many
+  # of the sub instances will never report
   @property
   def suceeded( self ):
     if self.ran_at is None:
       return None
 
     result = True
-    for target in self.resource_map:
-      for i in range( 0, len( self.resource_map[ target ] ) ):
-        result &= self.resource_map[ target ][ i ].get( 'success', True )
+    for instance in self.instance_set.all():
+      result &= instance.success
 
     return result
 
@@ -258,17 +258,29 @@ BuildJob
       return None
 
     score_list = []
-    for target in self.resource_map:
-      for i in range( 0, len( self.resource_map[ target ] ) ):
-        score_list.append( self.resource_map[ target ][ i ].get( 'score', None ) )
+    for instance in self.instance_set.all():
+      score_list.append( instance.score )
 
     return score_list
 
-  @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
-  def jobRan( self, user ):
-    if not user.is_anonymous() and not user.has_perm( 'Processor.can_ran' ):  # remove anonymous stuff when nullunit authencates
-      raise PermissionDenied()
+  @property
+  def instance_summary( self ):
+    result = {}
+    for instance in self.instance_set.all():
+      item = {
+                'id': instance.pk,
+                'success': instance.success,
+                'status': instance.status,
+                'results': instance.results
+              }
+      try:
+        result[ instance.name ][ instance.index ] = item
+      except KeyError:
+        result[ instance.name ] = { instance.index: item }
 
+    return result
+
+  def _jobRan( self ):
     if self.ran_at is not None:  # been done, don't touch
       return
 
@@ -278,6 +290,13 @@ BuildJob
     self.ran_at = datetime.now( timezone.utc )
     self.full_clean()
     self.save()
+
+  @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
+  def jobRan( self, user ):
+    if not user.has_perm( 'Processor.can_ran' ):
+      raise PermissionDenied()
+
+    self._jobRan()
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def acknowledge( self, user ):
@@ -291,70 +310,6 @@ BuildJob
       raise ValidationError( 'Can not Acknoledge un-reported jobs' )
 
     self.acknowledged_at = datetime.now( timezone.utc )
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'Integer', 'String' ] )
-  def updateResourceState( self, name, index, status  ):
-    try:
-      self.resource_map[ name ][ index ][ 'status' ] = status
-    except ( IndexError, KeyError ):
-      return
-
-    self.full_clean()
-    self.save()
-
-  @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
-  def getConfigStatus( self, name, index=None, count=None ):
-    try:
-      config_list = self.resource_map[ name ]
-    except KeyError:
-      return {}
-
-    if index is not None:
-      if count is not None:
-        config_list = config_list[ index:index + count ]
-      else:
-        config_list = config_list[ index: ]
-
-    if index is None:
-      index = 0
-
-    results = {}
-    for pos in range( 0, len( config_list ) ):
-      results[ index + pos ] = Resource.config( config_list[ pos ][ 'config' ] ).status
-
-    return results
-
-  @cinp.action( return_type='Map', paramater_type_list=[ 'String', 'Integer', 'Integer' ] )
-  def getProvisioningInfo( self, name, index=None, count=None ):
-    try:
-      config_list = self.resource_map[ name ]
-    except KeyError:
-      return {}
-
-    if index is not None:
-      if count is not None:
-        config_list = config_list[ index:index + count ]
-      else:
-        config_list = config_list[ index: ]
-
-    if index is None:
-      index = 0
-
-    results = {}
-    for pos in range( 0, len( config_list ) ):
-      config = Resource.config( config_list[ pos ][ 'config' ] )
-      values = getSystemConfigValues( config=config, profile=config.profile )
-      values[ 'config_values' ] = config.config_values
-      values[ 'timestamp' ] = values[ 'timestamp' ].strftime( '%Y-%m-%d %H:%M:%S' )
-      results[ index + pos ] = values
-
-    return results
-
-  @cinp.action( paramater_type_list=[ 'Map' ] )
-  def setValue( self, value_map ):
-    self.value_map.update( value_map )
     self.full_clean()
     self.save()
 
@@ -383,20 +338,17 @@ def getCookie():
   return str( uuid.uuid4() )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values' ] )
 class Instance( models.Model ):
   resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
   network = models.ForeignKey( NetworkResource, on_delete=models.PROTECT )
   cookie = models.CharField( max_length=36, default=getCookie )
-  foundation = models.CharField( max_length=100, blank=True, null=True )
-  structure = models.CharField( max_length=100, blank=True, null=True )
   hostname = models.CharField( max_length=100 )
   # build info
   buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
   name = models.CharField( max_length=50, blank=True, null=True  )
   index = models.IntegerField( blank=True, null=True )
-  config_values = MapField( blank=True )
-  status = models.CharField( max_length=20, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released
+  status = models.CharField( max_length=100, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released, and other random stuff from the job
   # results info
   success = models.BooleanField( default=False )
   results = models.TextField( blank=True, null=True )
@@ -405,12 +357,47 @@ class Instance( models.Model ):
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
+  # contractor specific
+  foundation_id = models.CharField( max_length=100, blank=True, null=True )
+  structure_id = models.CharField( max_length=100, blank=True, null=True )
+  foundation_built = models.BooleanField( default=False )
+  structure_built = models.BooleanField( default=False )
+  foundation_released = models.BooleanField( default=False )
+  structure_released = models.BooleanField( default=False )
+
+  @property
+  def config_values( self ):
+    result = {
+               'mcp_host': settings.MCP_HOST,
+               'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
+               'packrat_host': 'http://packrat',
+               'packrat_builder_name': 'mcp',
+               'packrat_builder_psk': 'mcp',
+               'confluence_host': 'http://confluence',
+               'confluence_username': 'mcp',
+               'confluence_password': 'mcp'
+             }
+
+    if self.buildjob is not None:
+      result.update( {
+                       'mcp_job_id': self.buildjob.pk,
+                       'mcp_instance_id': self.pk,
+                       'mcp_instance_cookie': self.cookie,
+                       'mcp_resource_name': self.name,
+                       'mcp_resource_index': self.index,
+                       'mcp_git_url': self.buildjob.project.internal_git_url,
+                       'mcp_git_branch': self.buildjob.branch,
+                       'mcp_make_target': self.buildjob.target
+                      } )
+      return result
+
   @cinp.action( paramater_type_list=[ 'String' ] )
   def foundationBuild( self, cookie ):  # called from webhook
     if self.cookie != self.cookie:
       return
 
     self.status = 'Built1'
+    self.foundation_built = True
     self.full_clean()
     self.save()
 
@@ -420,15 +407,7 @@ class Instance( models.Model ):
       return
 
     self.status = 'Built'
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String' ] )
-  def structureDestroyed( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
-      return
-
-    self.status = 'Released1'
+    self.structure_built = True
     self.full_clean()
     self.save()
 
@@ -438,11 +417,38 @@ class Instance( models.Model ):
       return
 
     self.status = 'Released'
+    self.foundation_released = True
     self.full_clean()
     self.save()
 
+  @cinp.action( paramater_type_list=[ 'String' ] )
+  def structureDestroyed( self, cookie ):  # called from webhook
+    if self.cookie != self.cookie:
+      return
+
+    self.status = 'Released1'
+    self.structure_released = True
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
+  def setStatus( self, cookie, status ):
+    if self.cookie != self.cookie:
+      return
+
+    self.status = status
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String' ] )
+  def jobRan( self, user ):
+    if self.cookie != self.cookie:
+      return
+
+    self.buildjob._jobRan()
+
   @cinp.action( paramater_type_list=[ 'String', 'Boolean' ] )
-  def setResourceSuccess( self, cookie, success ):
+  def setSuccess( self, cookie, success ):
     if self.cookie != self.cookie:
       return
 
@@ -451,7 +457,7 @@ class Instance( models.Model ):
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String', 'String' ] )
-  def setResourceResults( self, cookie, results ):
+  def setResults( self, cookie, results ):
     if self.cookie != self.cookie:
       return
 
@@ -460,7 +466,7 @@ class Instance( models.Model ):
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String', 'Float' ] )
-  def setResourceScore( self, cookie, score ):
+  def setScore( self, cookie, score ):
     if self.cookie != self.cookie:
       return
 
@@ -476,6 +482,24 @@ class Instance( models.Model ):
     self.package_files = package_files
     self.full_clean()
     self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'Map' ] )
+  def setValue( self, cookie, value_map ):
+    if self.cookie != self.cookie:
+      return
+
+    self.buildjob.value_map.update( value_map )
+    self.buildjob.full_clean()
+    self.buildjob.save()
+
+  @cinp.action( return_type='Map' )
+  def getDetail( self ):  # Only called by ui.js, when nuillunitInterface get detail is working again, unify with this one
+    result = {
+               'foundation_id': self.foundation_id,
+               'structure_id': self.structure_id,
+               'hostname': self.hostname
+               }
+    return result
 
   def build( self ):
     if self.status in ( 'Building', 'Built1', 'Built' ):
@@ -494,7 +518,7 @@ class Instance( models.Model ):
     if self.status in ( 'Releaseing', 'Released1', 'Released' ):
       return
 
-    if self.status != 'Built':
+    if self.status not in ( 'Built', 'Ran' ):
       raise Exception( 'Can not release when not built' )
 
     self.resource.subclass.release( self )
@@ -505,11 +529,11 @@ class Instance( models.Model ):
 
   @property
   def built( self ):
-    return self.status == 'Built'
+    return self.foundation_built & self.structure_built
 
   @property
   def released( self ):
-    return self.status == 'Released'
+    return self.foundation_released & self.structure_released
 
   @cinp.check_auth()
   @staticmethod

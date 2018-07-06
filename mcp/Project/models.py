@@ -383,10 +383,10 @@ A Single Commit of a Project
 
   @property
   def state( self ):
-    if self.done_at and self.doced_at and self.build_at and self.test_at and self.lint_at:
+    if self.done_at and self.docs_at and self.build_at and self.test_at and self.lint_at:
       return 'done'
 
-    if self.doced_at and self.build_at and self.test_at and self.lint_at:
+    if self.docs_at and self.build_at and self.test_at and self.lint_at:
       return 'doced'
 
     if self.build_at and self.test_at and self.lint_at:
@@ -445,7 +445,7 @@ A Single Commit of a Project
     for target in self.build_results:
       wrk[ target ] = {}
       tmp = self.build_results[ target ]
-      for distro in tmp[ target ]:
+      for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
           wrk[ target ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
 
@@ -467,31 +467,28 @@ A Single Commit of a Project
     else:
       return result
 
-  def signalComplete( self, target, build_name, resources ):
+  def signalComplete( self, target, build_name, success, results ):
     if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'docs' ):
       return
 
-    sucess = resources[ 'target' ][0].get( 'success', False )
-    results = resources[ 'target' ][0].get( 'results', None )
-
     if target == 'lint':
       self.lint_results[ build_name ][ 'status' ] = 'done'
-      self.lint_results[ build_name ][ 'success' ] = sucess
+      self.lint_results[ build_name ][ 'success' ] = success
       self.lint_results[ build_name ][ 'results' ] = results
 
     elif target == 'test':
       self.test_results[ build_name ][ 'status' ] = 'done'
-      self.test_results[ build_name ][ 'success' ] = sucess
+      self.test_results[ build_name ][ 'success' ] = success
       self.test_results[ build_name ][ 'results' ] = results
 
     elif target == 'docs':
       self.docs_results[ build_name ][ 'status' ] = 'done'
-      self.docs_results[ build_name ][ 'success' ] = sucess
+      self.docs_results[ build_name ][ 'success' ] = success
       self.docs_results[ build_name ][ 'results' ] = results
 
     else:
       self.build_results[ target ][ build_name ][ 'status' ] = 'done'
-      self.build_results[ target ][ build_name ][ 'success' ] = sucess
+      self.build_results[ target ][ build_name ][ 'success' ] = success
       self.build_results[ target ][ build_name ][ 'results' ] = results
 
     self.full_clean()

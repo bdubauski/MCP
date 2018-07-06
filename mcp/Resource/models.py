@@ -17,36 +17,6 @@ from mcp.fields import name_regex
 cinp = CInP( 'Resource', '0.1' )
 
 
-def config_values_common():
-  return {
-           'mcp_host': settings.MCP_HOST,
-           'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
-           'packrat_host': 'http://packrat',
-           'packrat_builder_name': 'mcp',
-           'packrat_builder_psk': 'mcp',
-           'confluence_host': 'http://confluence',
-           'confluence_username': 'mcp',
-           'confluence_password': 'mcp',
-         }
-
-
-def config_values( job, name, index ):
-  result = config_values_common()
-  result.update( {
-                   'mcp_job_id': job.pk,
-                   'mcp_resource_name': name,
-                   'mcp_resource_index': index,
-                   'mcp_git_url': job.project.internal_git_url,
-                   'mcp_git_branch': job.branch,
-                   'mcp_make_target': job.target
-                  } )
-  return result
-
-
-def config_values_prealloc():
-  return config_values_common()
-
-
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Site( models.Model ):
   """
@@ -146,9 +116,11 @@ class DynamicResource( Resource ):
     instance.name = name
     instance.index = index
     instance.hostname = 'mcp-auto--{0}-{1}-{2}'.format( buildjob.pk, name, index )
-    instance.config_values = config_values( buildjob, name, index )
     instance.full_clean()
     instance.save()
+
+    contractor = getContractor()
+    contractor.updateConfig( instance.structure_id, instance.config_values, instance.hostname )
 
   def _createNew( self, network, buildjob, name, index ):
     Instance = apps.get_model( 'Processor', 'Instance' )
@@ -158,7 +130,6 @@ class DynamicResource( Resource ):
     instance.name = name
     instance.index = index
     instance.hostname = 'mcp-auto--{0}-{1}-{2}'.format( buildjob.pk, name, index )
-    instance.config_values = config_values( buildjob, name, index )
     instance.full_clean()
     instance.save()
 
@@ -169,7 +140,6 @@ class DynamicResource( Resource ):
     while self.instance_set.filter( buildjob__isnull=True ).count() < self.build_ahead_count:  # TODO: make sure there is room for more vms in the subnet
       instance = Instance( resource=self, network=network )
       instance.hostname = 'mcp-preallocate--{0}-'.format( self.name )
-      instance.config_values = config_values_prealloc()
       instance.full_clean()
       instance.save()
 
@@ -195,7 +165,17 @@ class DynamicResource( Resource ):
   def build( self, instance ):
     contractor = getContractor()
 
-    contractor.createInstance( self.site.name, self.complex, self.blueprint, instance.hostname, instance.config_values, instance.network.name )
+    ( foundation_id, structure_id ) = contractor.createInstance( self.site.name, self.complex, self.blueprint, instance.hostname, instance.config_values, instance.network.name )
+    instance.foundation_id = foundation_id
+    instance.structure_id = structure_id
+    instance.full_clean()
+    instance.save()
+    contractor.registerWebHook( instance, True )
+
+  def release( self, instance ):
+    contractor = getContractor()
+    contractor.registerWebHook( instance, False )
+    contractor.destroyInstance( instance.foundation_id, instance.structure_id )
 
   @cinp.check_auth()
   @staticmethod
@@ -228,7 +208,6 @@ class StaticResource( Resource ):
     results = []
     for index in range( 0, quantity ):
       config = config_list.pop( 0 )
-      config.config_values = config_values( job, name, index )
       config.profile = profile
       config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
       config.full_clean()
