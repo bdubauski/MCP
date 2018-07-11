@@ -21,7 +21,7 @@ def load_builtins( app, schema_editor ):
   BuildResource = app.get_model( 'Project', 'BuildResource' )
   Resource = app.get_model( 'Resource', 'Resource' )
 
-  for name in ( 'ubuntu-trusty', 'ubuntu-precise', 'ubuntu-xenial', 'centos-6' ):
+  for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6' ):
     b = Build( name=name, project=p )
     b.manual = False
     b.key = '{0}_{1}'.format( b.project.name, b.name )  # from full_clean

@@ -2,10 +2,6 @@
   description = 'MCP Base'
   config_values = { '>packages' = ' nullunit' }
 
-[ structure.mcp-ubuntu-precise ]
-  parents = [ 'ubuntu-precise-base', 'mcp-base' ]
-  description = 'MCP Precise'
-
 [ structure.mcp-ubuntu-trusty ]
   parents = [ 'ubuntu-trusty-base', 'mcp-base' ]
   description = 'MCP Trusty'
