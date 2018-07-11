@@ -147,6 +147,11 @@ function hashChange( event )
       queueEntries = $( '#project-queued-jobs' );
       buildEntries = $( '#project-builds' );
 
+      commitEntries.empty();
+      jobEntries.empty();
+      queueEntries.empty();
+      buildEntries.empty();
+
       $.when( mcp.getObject( id ) ).then(
         function( data )
         {
@@ -288,7 +293,7 @@ function hashChange( event )
                 commitEntry += '</ol></div></div></ul></div>'
                 commitEntries.html(commitEntry)
                 $("#project-commit-list").sortDivs();
-                latestCommitEntry.empty().html($('.panel:first').clone().attr('id', 'latest'))
+                latestCommitEntry.html($('.panel:first').clone().attr('id', 'latest'))
               }
               $('#latest').each(function() {
                 $( this ).find('.panel-body').attr( 'id', $( this ).find('.panel-body').attr( 'id' ) + '-latest' );
@@ -394,7 +399,7 @@ function hashChange( event )
                 queueEntry += '<a class="list-group-item"><ul class="list-inline"><li>priority: ' + item.priority + '<li>build: ' + item.build + '</li><li>branch: ' + item.branch + '</li><li>target: ' + item.target + '</li><li>status: ' + item.resource_status + '</li><li>manual: ' + item.manual + '</li><li>created: ' + item.created + '</li><li>updated: ' + item.updated + '</li></ul></a>'
               }
               queueEntry += '</ul>'
-              queueEntries.empty().html(queueEntry)
+              queueEntries.html(queueEntry)
             }
           ).fail(
             function( reason )
@@ -427,7 +432,7 @@ function hashChange( event )
                 buildEntry += '</dl></div></div></div></div>'
 
               }
-              buildEntries.empty().html(buildEntry)
+              buildEntries.html(buildEntry)
             }
           ).fail(
             function( reason )

@@ -47,7 +47,7 @@ class Migration(migrations.Migration):
                 ('hostname', models.CharField(max_length=100)),
                 ('name', models.CharField(blank=True, max_length=50, null=True)),
                 ('index', models.IntegerField(blank=True, null=True)),
-                ('status', models.CharField(default='Allocated', max_length=100)),
+                ('status', models.CharField(default='Allocated', max_length=200)),
                 ('success', models.BooleanField(default=False)),
                 ('results', models.TextField(blank=True, null=True)),
                 ('score', models.FloatField(blank=True, null=True)),

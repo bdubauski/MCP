@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError, PermissionDenied
 
 from cinp.orm_django import DjangoCInP as CInP
 
+from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, StringListField
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
@@ -170,8 +171,8 @@ QueueItem
   @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build } ] )
   @staticmethod
   def queue( user, build ):
-    if not user.has_perm( 'Processor.can_build' ):
-      raise PermissionDenied()
+    # if not user.has_perm( 'Processor.can_build' ):
+    #   raise PermissionDenied()
 
     item = QueueItem.inQueueBuild( build, 'master', True, 100 )
     return item.pk
@@ -197,7 +198,8 @@ QueueItem
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, 'suceeded', 'score', { 'name': 'instance_summary', 'type': 'Map' } ] )
+#  TODO: { 'name': 'score', 'type': 'Float', 'is_array': True }
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, { 'name': 'suceeded', 'type': 'Boolean' }, { 'name': 'score', 'is_array': True }, { 'name': 'instance_summary', 'type': 'Map' } ] )
 class BuildJob( models.Model ):
   """
 BuildJob
@@ -293,15 +295,15 @@ BuildJob
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def jobRan( self, user ):
-    if not user.has_perm( 'Processor.can_ran' ):
-      raise PermissionDenied()
+    # if not user.has_perm( 'Processor.can_ran' ):
+    #   raise PermissionDenied()
 
     self._jobRan()
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def acknowledge( self, user ):
-    if not user.has_perm( 'Processor.can_ack' ):
-      raise PermissionDenied()
+    # if not user.has_perm( 'Processor.can_ack' ):
+    #   raise PermissionDenied()
 
     if self.acknowledged_at is not None:  # been done, don't touch
       return
@@ -348,7 +350,7 @@ class Instance( models.Model ):
   buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
   name = models.CharField( max_length=50, blank=True, null=True  )
   index = models.IntegerField( blank=True, null=True )
-  status = models.CharField( max_length=100, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released, and other random stuff from the job
+  status = models.CharField( max_length=200, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released, and other random stuff from the job
   # results info
   success = models.BooleanField( default=False )
   results = models.TextField( blank=True, null=True )
@@ -389,7 +391,8 @@ class Instance( models.Model ):
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target
                       } )
-      return result
+
+    return result
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def foundationBuild( self, cookie ):  # called from webhook
@@ -400,6 +403,9 @@ class Instance( models.Model ):
     self.foundation_built = True
     self.full_clean()
     self.save()
+
+    contractor = getContractor()
+    contractor.createStructure( self.structure_id )
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def structureBuild( self, cookie ):  # called from webhook
@@ -416,8 +422,12 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
+    contractor = getContractor()
+    contractor.deleteFoundation( self.foundation_id )
+
     self.status = 'Released'
     self.foundation_released = True
+    self.foundation_id = None
     self.full_clean()
     self.save()
 
@@ -426,8 +436,13 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
+    contractor = getContractor()
+    contractor.deleteStructure( self.structure_id )
+    contractor.destroyFoundation( self.foundation_id )
+
     self.status = 'Released1'
     self.structure_released = True
+    self.structure_id = None
     self.full_clean()
     self.save()
 
@@ -436,7 +451,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.status = status
+    self.status = status[ -200: ]
     self.full_clean()
     self.save()
 
@@ -505,7 +520,10 @@ class Instance( models.Model ):
     if self.status in ( 'Building', 'Built1', 'Built' ):
       return
 
-    if self.status in ( 'Releaseing', 'Released1', 'Released' ):
+    if self.built:
+      return
+
+    if self.status in ( 'Releaseing', 'Released1', 'Released' ):  # TODO: with the status being used by mis stuff, this needs to be re-thought
       raise Exception( 'Can not build while released/releasing' )
 
     self.resource.subclass.build( self )
@@ -518,12 +536,15 @@ class Instance( models.Model ):
     if self.status in ( 'Releaseing', 'Released1', 'Released' ):
       return
 
-    if self.status not in ( 'Built', 'Ran' ):
+    if self.released:
+      return
+
+    if not self.built:
       raise Exception( 'Can not release when not built' )
 
     self.resource.subclass.release( self )
 
-    self.status = 'Releasing'
+    self.status = 'Releaseing'
     self.full_clean()
     self.save()
 

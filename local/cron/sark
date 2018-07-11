@@ -196,8 +196,9 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
 for job in BuildJob.objects.filter( released_at__lt=( datetime.now( timezone.utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
   logging.info( 'Cleaning up job "{0}".'.format( job.id ) )
-  for bjnr in job.buildjobnetworkresource_set.all():
-    bjnr.delete()
+  for instance in job.instance_set.all():
+    instance.delete()
+
   job.delete()
 
 

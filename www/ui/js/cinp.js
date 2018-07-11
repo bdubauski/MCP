@@ -124,7 +124,7 @@ var cinpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      var request = this.makeRequest( 'LIST', uri, { 'filter': filter, 'values': values }, { 'Position': position, 'Count': count } );
+      var request = this.makeRequest( 'LIST', uri, values, { 'filter': filter, 'Position': position, 'Count': count } );
 
       console.info( 'List: "' + request.url + '"' );
 

@@ -6,7 +6,6 @@ from django.apps import apps
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.lib.t3kton import getContractor
-
 from mcp.fields import name_regex
 
 # NOTE: these are not "thread safe", there is not per-instance resource reservation
@@ -171,11 +170,12 @@ class DynamicResource( Resource ):
     instance.full_clean()
     instance.save()
     contractor.registerWebHook( instance, True )
+    contractor.createFoundation( instance.foundation_id )
 
   def release( self, instance ):
     contractor = getContractor()
     contractor.registerWebHook( instance, False )
-    contractor.destroyInstance( instance.foundation_id, instance.structure_id )
+    contractor.destroyStructure( instance.structure_id )
 
   @cinp.check_auth()
   @staticmethod

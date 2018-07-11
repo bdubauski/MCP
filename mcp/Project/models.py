@@ -218,13 +218,18 @@ This is a Generic Project
 
     return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
 
-  @cinp.list_filter( name='my_projects', paramater_type_list=[ { 'type': '_USER_' } ] )
+  @cinp.list_filter( name='my_projects' )
   @staticmethod
-  def filter_my_projects( user ):
-    if user.is_anonymous():
-      return Project.objects.all()
+  def filter_my_projects():
+    return Project.objects.all()
 
-    return Project.objects.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
+  # @cinp.list_filter( name='my_projects', paramater_type_list=[ { 'type': '_USER_' } ] )
+  # @staticmethod
+  # def filter_my_projects( user ):
+  #   if user.is_anonymous():
+  #     return Project.objects.all()
+  #
+  #   return Project.objects.filter( project__in=user.projects.all().order_by( 'name' ).values_list( 'name', flat=True ) )
 
   @cinp.check_auth()
   @staticmethod
@@ -554,12 +559,12 @@ A Single Commit of a Project
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
-    return Commit.objects.objects.filter( project=project ).order_by( '-created' )
+    return Commit.objects.filter( project=project ).order_by( '-created' )
 
   @cinp.list_filter( name='in_process', paramater_type_list=[] )
   @staticmethod
   def filter_in_process():
-    return Commit.objects.objects.filter( done_at__isnull=True )
+    return Commit.objects.filter( done_at__isnull=True )
 
   @cinp.check_auth()
   @staticmethod
@@ -595,7 +600,7 @@ This is a type of Build that can be done
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
-    return Build.objects.objects.filter( project=project )
+    return Build.objects.filter( project=project )
 
   @cinp.check_auth()
   @staticmethod

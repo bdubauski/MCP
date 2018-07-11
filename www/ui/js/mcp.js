@@ -133,7 +133,7 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.list( '/api/v1/Project/Project', 'my_projects', null, 0, 100 ) ).then(
+      $.when( cinp.list( '/api/v1/Project/Project', 'my_projects', {}, 0, 100 ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(
