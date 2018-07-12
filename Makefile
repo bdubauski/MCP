@@ -1,8 +1,29 @@
 DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
 
 all:
+	./setup.py build
+
+install:
+	mkdir -p $(DESTDIR)/var/www/mcp/ui
+	mkdir -p $(DESTDIR)/var/www/mcp/static
+	mkdir -p $(DESTDIR)/var/www/mcp/api
+	mkdir -p $(DESTDIR)/etc/apache2/sites-available
+	mkdir -p $(DESTDIR)/etc/mcp
+	mkdir -p $(DESTDIR)/usr/lib/mcp/cron
+	mkdir -p $(DESTDIR)/usr/lib/mcp/util
+	mkdir -p $(DESTDIR)/usr/lib/mcp/setup
+	cp -a ui/* $(DESTDIR)/var/www/mcp/ui
+	install -m 644 api/mcp.wsgi $(DESTDIR)/var/www/mcp/api
+	install -m 644 apache.conf $(DESTDIR)/etc/apache2/sites-available/mcp.conf
+	install -m 644 master.conf.sample $(DESTDIR)/etc/mcp
+	install -m 755 lib/cron/* $(DESTDIR)/usr/lib/mcp/cron
+	install -m 755 lib/util/* $(DESTDIR)/usr/lib/mcp/util
+	install -m 755 lib/setup/* $(DESTDIR)/usr/lib/mcp/setup
+
+	./setup.py install --root $(DESTDIR) --install-purelib=/usr/lib/python3/dist-packages/ --prefix=/usr --no-compile -O0
 
 clean:
+	./setup.py clean
 	$(RM) -r build
 	$(RM) dpkg
 	dh_clean
@@ -39,7 +60,7 @@ dpkg:
 dpkg-file:
 	echo $(shell ls ../mcp_*.deb):bionic
 
-.PHONY:: dpkg-distros dpkg-requires dpkg dpkg-file
+.PHONY:: dpkg-distros dpkg-requires dpkg-file
 
 respkg-distros:
 	echo bionic

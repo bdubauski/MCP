@@ -22,21 +22,21 @@ case "$1" in
     configure)
         if [ ! -f /etc/mcp/master.conf ] ;
         then
-          echo "Creating starter mcp.conf..."
           cp /etc/mcp/master.conf.sample /etc/mcp/master.conf
         fi
-        if [ ! -h /usr/share/pyshared/mcp/settings.py ] ;
+        if [ ! -h /usr/lib/python3/dist-packages/mcp/settings.py ] ;
         then
-          echo "Fixing settings.py..."
-          ln -sf /etc/mcp/master.conf /usr/share/pyshared/mcp/settings.py
+          ln -sf /etc/mcp/master.conf /usr/lib/python3/dist-packages/mcp/settings.py
         fi
-        echo "Reloading cron..."
-        /etc/init.d/cron reload
-        echo "Enabeling Site..."
+
+        mkdir -p /var/www/git
+
+        systemctl reload cron
+
         a2ensite mcp.conf
         a2enmod	wsgi
-        echo "Restarting Apache..."
-        /etc/init.d/apache2 restart
+
+        systemctl restart apache2
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)

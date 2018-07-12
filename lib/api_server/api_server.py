@@ -10,9 +10,7 @@ import sys
 import logging
 
 from gunicorn.app.base import BaseApplication
-from cinp.server_werkzeug import WerkzeugServer
-
-from mcp.User.models import getUser
+from mcp.app import get_app
 
 DEBUG = True
 
@@ -38,16 +36,7 @@ if __name__ == '__main__':
   logger.info( 'Starting up...' )
 
   logger.debug( 'Creating Server...' )
-  app = WerkzeugServer( root_path='/api/v1/', root_version='1.0', debug=DEBUG, get_user=getUser, cors_allow_list=[ '*' ] )
-  logger.debug( 'Registering Models...' )
-
-  app.registerNamespace( '/', 'mcp.User' )
-  app.registerNamespace( '/', 'mcp.Resource' )
-  app.registerNamespace( '/', 'mcp.Project' )
-  app.registerNamespace( '/', 'mcp.Processor' )
-
-  logger.info( 'Validating...' )
-  app.validate()
+  app = get_app( DEBUG )
 
   logger.info( 'Starting Server...' )
   # GunicornApp( app, { 'bind': '0.0.0.0:8888', 'loglevel': 'info' } ).run()
