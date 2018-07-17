@@ -51,7 +51,7 @@ dpkg-distros:
 	echo bionic
 
 dpkg-requires:
-	echo dpkg-dev debhelper cdbs python-dev python-setuptools
+	echo dpkg-dev debhelper python-dev python-setuptools
 
 dpkg:
 	dpkg-buildpackage -b -us -uc

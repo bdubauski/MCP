@@ -55,7 +55,7 @@ def _diffMarkDown( a, b ):
 def _markdownResults( valueCur, valuePrev=None ):
   result = ''
 
-  for target in ( 'lint', 'test', 'build', 'docs' ):
+  for target in ( 'lint', 'test', 'build', 'doc' ):
     if target not in valueCur:
       continue
 
@@ -375,11 +375,11 @@ A Single Commit of a Project
   lint_results = MapField( blank=True )
   test_results = MapField( blank=True )
   build_results = MapField( blank=True )
-  docs_results = MapField( blank=True )
+  doc_results = MapField( blank=True )
   lint_at = models.DateTimeField( editable=False, blank=True, null=True )
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
-  docs_at = models.DateTimeField( editable=False, blank=True, null=True )
+  doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
   passed = models.NullBooleanField( editable=False, blank=True, null=True )
   built = models.NullBooleanField( editable=False, blank=True, null=True )
@@ -388,10 +388,10 @@ A Single Commit of a Project
 
   @property
   def state( self ):
-    if self.done_at and self.docs_at and self.build_at and self.test_at and self.lint_at:
+    if self.done_at and self.doc_at and self.build_at and self.test_at and self.lint_at:
       return 'done'
 
-    if self.docs_at and self.build_at and self.test_at and self.lint_at:
+    if self.doc_at and self.build_at and self.test_at and self.lint_at:
       return 'doced'
 
     if self.build_at and self.test_at and self.lint_at:
@@ -458,13 +458,13 @@ A Single Commit of a Project
       result[ 'build' ] = wrk
 
     wrk = {}
-    for distro in self.docs_results:
-      tmp = self.docs_results[ distro ]
+    for distro in self.doc_results:
+      tmp = self.doc_results[ distro ]
       if tmp.get( 'results', None ) is not None:
         wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
 
     if wrk:
-      result[ 'docs' ] = wrk
+      result[ 'doc' ] = wrk
 
     if not result:
       return None
@@ -473,7 +473,7 @@ A Single Commit of a Project
       return result
 
   def signalComplete( self, target, build_name, success, results ):
-    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'docs' ):
+    if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc' ):
       return
 
     if target == 'lint':
@@ -486,10 +486,10 @@ A Single Commit of a Project
       self.test_results[ build_name ][ 'success' ] = success
       self.test_results[ build_name ][ 'results' ] = results
 
-    elif target == 'docs':
-      self.docs_results[ build_name ][ 'status' ] = 'done'
-      self.docs_results[ build_name ][ 'success' ] = success
-      self.docs_results[ build_name ][ 'results' ] = results
+    elif target == 'doc':
+      self.doc_results[ build_name ][ 'status' ] = 'done'
+      self.doc_results[ build_name ][ 'success' ] = success
+      self.doc_results[ build_name ][ 'results' ] = results
 
     else:
       self.build_results[ target ][ build_name ][ 'status' ] = 'done'

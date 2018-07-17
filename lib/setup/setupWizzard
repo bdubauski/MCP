@@ -6,41 +6,74 @@ then
   exit 1
 fi
 
-if [ -f /usr/local/mcp/setup/setupCompleted ];
+if [ -f /usr/lib/mcp/setup/setupCompleted ];
 then
   echo "The setup wizzard has allready be run..."
   echo "It is not safe to run setupWizard again."
   exit 1
 fi
 
+if [ "x$1" != "x" ];
+then
+  if [ ! -r $1 ];
+  then
+    echo "Unable read answer file $1..."
+    exit 1
+  fi
+  . $1
+else
+  read -p "Install Postgres locally (y/n)? " POSTGRES_LOCAL
+
+  if [ "x$POSTGRES_LOCAL" != "xy" ] && [ "x$POSTGRES_HOST" == "x" ] ;
+  then
+    read -p "Postgres Hostname:" POSTGRES_HOST
+    echo "Create database \"packrat\", owned by \"packrat\" (password \"packrat\") on host \"$POSTGRES_HOST\"."
+    read -p "Press <enter> to continue"
+  else
+    POSTGRES_HOST="127.0.0.1"
+  fi
+fi
+
+echo
+echo "-- Setting up packrat master --"
+echo "Install Postgres: $POSTGRES_LOCAL"
+echo "Postgres Host: $POSTGRES_HOST"
+
+echo
+echo
+
+if [ "x$1" == "x" ];
+then
+  read -p "Ready to setup. Everything look correct and your ready to proced? [y/n] " TMP
+  if [ "x$TMP" != "xy" ];
+  then
+    echo "Aborting..."
+    exit 1
+  fi
+fi
+
+
 set -e
 set -x
 
-echo "Creating database..."
-su postgres -c "echo \"CREATE ROLE mcp WITH PASSWORD 'mcp' NOSUPERUSER NOCREATEDB NOCREATEROLE LOGIN;\" | psql"
-su postgres -c "createdb -O mcp mcp"
+if [ "x$POSTGRES_LOCAL" == "xy" ];
+then
+  echo "Installing postgres..."
+  apt-get install -y postgresql
+  echo "Creating database..."
+  su postgres -c "echo \"CREATE ROLE packrat WITH PASSWORD 'packrat' NOSUPERUSER NOCREATEDB NOCREATEROLE LOGIN;\" | psql"
+  su postgres -c "createdb -O packrat packrat"
+fi
 
-echo "Fixing cinp migrations..."  #when we are off precise this can go away
-rm -fr /usr/lib/python2.7/dist-packages/cinp/migrations
-mv /usr/lib/python2.7/dist-packages/cinp/migrations_south /usr/lib/python2.7/dist-packages/cinp/migrations
 
 echo "Populating db..."
-/usr/local/mcp/util/manage.py syncdb --noinput --database=mcp
-/usr/local/mcp/util/manage.py syncdb --all --database=mcp
-/usr/local/mcp/util/manage.py migrate --fake cinp --database=mcp
-/usr/local/mcp/util/manage.py migrate --fake mcp.Users --database=mcp
-/usr/local/mcp/util/manage.py migrate --fake mcp.Processor --database=mcp
-/usr/local/mcp/util/manage.py migrate --fake mcp.Project --database=mcp
-/usr/local/mcp/util/manage.py migrate --fake mcp.Resource --database=mcp
-
-/usr/local/mcp/util/manage.py loaddata initial_data --database=mcp
-/usr/local/mcp/util/manage.py loaddata initial_data --database=default
+/usr/lib/mcp/util/manage.py migrate
 
 echo "Creating super user..."
-/usr/local/mcp/util/manage.py createsuperuser --noinput --username=root --email=test@test.com --database=mcp
+/usr/lib/mcp/util/manage.py createsuperuser --noinput --username=root --email=test@test.com
 
 echo "Creating basic objects..."
-/usr/local/mcp/setup/setupHelper.py
+/usr/lib/mcp/setup/setupHelper.py
 
 echo "Done!"
-touch /usr/local/mcp/setup/setupCompleted
+touch /usr/lib/mcp/setup/setupCompleted

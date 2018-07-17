@@ -32,6 +32,7 @@ class Makefile():
         return []
 
     if proc.returncode != 0:
+      logging.error( 'make returned "{0}":\n{1}'.format( proc.returncode, stdout ) )
       raise MakeException( 'make returned "{0}"'.format( proc.returncode ) )
 
     result = []
@@ -58,8 +59,8 @@ class Makefile():
   def testDistros( self ):
     return self._execute( 'test-distros' )
 
-  def docsDistros( self ):
-    return self._execute( 'docs-distros' )
+  def docDistros( self ):
+    return self._execute( 'doc-distros' )
 
   def packageDistros( self, type ):  # type in dpkg, rpm, respkg, resource
     return self._execute( '{0}-distros'.format( type ) )

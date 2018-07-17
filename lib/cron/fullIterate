@@ -22,20 +22,20 @@ fi
 touch /var/run/mcpIterate.lock
 
 # get packages up to date
-/usr/local/mcp/cron/tron $ARGS
+/usr/lib/mcp/cron/tron $ARGS
 
 # get the latest from git
-/usr/local/mcp/cron/rinzler $ARGS
+/usr/lib/mcp/cron/rinzler $ARGS
 
 # check the commits
-/usr/local/mcp/cron/recognizer $ARGS
+/usr/lib/mcp/cron/recognizer $ARGS
 
 # run thoes jobs
-/usr/local/mcp/cron/sark $ARGS
+/usr/lib/mcp/cron/sark $ARGS
 
 # update the dependancy graph
-/usr/local/mcp/util/graph | dot -Tpng -o/var/www/mcp/static/graph.png
-/usr/local/mcp/util/graph | dot -Tpdf -o/var/www/mcp/static/graph.pdf
+/usr/lib/mcp/util/graph | dot -Tpng -o/var/www/mcp/static/graph.png
+/usr/lib/mcp/util/graph | dot -Tpdf -o/var/www/mcp/static/graph.pdf
 
 rm /var/run/mcpIterate.lock
 exit 0
