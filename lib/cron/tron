@@ -26,6 +26,9 @@ PID_FILE = '/opt/mcp/tron.pid'
 
 QUEUE_PRIORITY = 100
 
+PACKAGE_PROMOTION_START = 'dev'  # what 'new' becomes to start things off
+PACKAGE_PROMOTION_STAGES = { 'dev': 'intgr', 'intgr': 'stage' }
+
 logging.basicConfig()
 logger = logging.getLogger()
 handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
@@ -58,8 +61,11 @@ for uri in uri_release_map:
   release_uri_map[ uri_release_map[ uri ] ] = uri
 
 
-def _queuePromotion( pkg_version, packrat_id, state, to_state ):
+def _queuePromotion( pkg_version, packrat_id ):
+  from_state = pkg_version.state
+  to_state = to_state = PACKAGE_PROMOTION_STAGES[ pkg_version.state ]
   package = pkg_version.package
+
   promotion = None
   try:  # TODO: the filter().distinct().get() buesines is due to a djngo bug that will return a Promotion for each package_version.... someday look into this
     promotion = Promotion.objects.filter( promotionpkgversion__package_version__package=package ).distinct().get()
@@ -82,18 +88,19 @@ def _queuePromotion( pkg_version, packrat_id, state, to_state ):
     promotion_pkg_version.save()
     return
 
-  dependancy_list = BuildDependancy.objects.filter( package=package, state=state )
+  dependancy_list = BuildDependancy.objects.filter( package=package, from_state=from_state )
   if len( dependancy_list ) == 0:
-    logging.info( 'No Dependancies for package "{0}" version "{1}" at state "{2}", promoting to "{3}"...'.format( package.name, pkg_version.version, state, to_state ) )
+    logging.info( 'No Dependancies for package "{0}" version "{1}" at state "{2}", promoting to "{3}"...'.format( package.name, pkg_version.version, from_state, to_state ) )
     packrat.promote( packrat_id, release_uri_map[ to_state ] )
     pkg_version.state = to_state
     pkg_version.full_clean()
     pkg_version.save()
-    slack.post_message( 'No Dependancies for package "{0}" version "{1}" at state "{2}", promoting to "{3}"...'.format( package.name, pkg_version.version, state, to_state  ), slack.SUCCESS )
+    slack.post_message( 'No Dependancies for package "{0}" version "{1}" at state "{2}", promoting to "{3}"...'.format( package.name, pkg_version.version, from_state, to_state  ), slack.SUCCESS )
     return
 
-  logging.info( 'Creating Promotion for package "{0}" version "{1}" to state "{2}"...'.format( package.name, pkg_version.version, to_state ) )
+  logging.info( 'Creating Promotion for package "{0}" version "{1}" at state "{2}" to "{3}"...'.format( package.name, pkg_version.version, from_state, to_state ) )
   promotion = Promotion()
+  promotion.from_state = from_state
   promotion.to_state = to_state
   promotion.full_clean()
   promotion.save()
@@ -147,52 +154,39 @@ for name in packrat.packages():
     package.full_clean()
     package.save()
 
-  version_map = packrat.package_files( package.name )
-  for packrat_id in version_map.keys():
-    version = version_map[ packrat_id ]
-    release = uri_release_map[ version[ 'release' ] ]
-
-    if release in ( 'depr', 'prod', 'stage' ):
+  for ( package_file_uri, package_file ) in packrat.package_files( package.name ):
+    if package_file[ 'release' ] not in [ 'new' ] + list( PACKAGE_PROMOTION_STAGES.keys() ):
       continue
 
-    if release == 'new':
-      logging.info( 'Promoting new package "{0}" version "{1}" to "ci"...'.format( package.name, version[ 'version' ] ) )
-      packrat.promote( packrat_id, release_uri_map[ 'ci' ] )
-      logging.info( 'Creating new package version for "{0}" version "{1}"...'.format( package.name, version[ 'version' ] ) )
+    if package_file[ 'release' ] == 'new':
+      logging.info( 'Promoting new package "{0}" version "{1}" to "{2}"...'.format( package.name, package_file[ 'version' ], PACKAGE_PROMOTION_START ) )
+      packrat.promote( package_file_uri, release_uri_map[ PACKAGE_PROMOTION_START ] )
+      logging.info( 'Creating new package version for "{0}" version "{1}"...'.format( package.name, package_file[ 'version' ] ) )
       pkg_version = PackageVersion()
       pkg_version.package = package
-      pkg_version.state = 'ci'
-      pkg_version.version = version[ 'version' ]
+      pkg_version.state = PACKAGE_PROMOTION_START
+      pkg_version.version = package_file[ 'version' ]
       pkg_version.full_clean()
       pkg_version.save()
-      slack.post_message( 'Promoting new package "{0}" version "{1}" to "ci"...'.format( package.name, version[ 'version' ] ), slack.SUCCESS )
-      release = 'ci'
+      slack.post_message( 'Promoting new package "{0}" version "{1}" to "ci"...'.format( package.name, package_file[ 'version' ] ), slack.SUCCESS )
+      package_file[ 'release' ] = PACKAGE_PROMOTION_START
 
     else:
       try:
-        pkg_version = PackageVersion.objects.get( package=package, version=version[ 'version' ] )
+        pkg_version = PackageVersion.objects.get( package=package, version=package_file[ 'version' ] )
 
       except PackageVersion.DoesNotExist:
-        logging.warning( 'Existing package for "{0}" version "{1}" not found'.format( package.name, version[ 'version' ] ) )  # someone manually moved something, hopfully they see this warning
+        logging.warning( 'Existing package for "{0}" version "{1}" not found'.format( package.name, package_file[ 'version' ] ) )  # someone manually moved something, hopfully they see this warning
         continue
 
     if pkg_version.promotion_set.all().count() > 0:  # this package is being worked on
       continue
 
-    if pkg_version.state != release:
-      logging.warning( 'PackageFile on Packrat release level dose not match internal tracking, Package: "{0}", Version: "{1}", Packrat: "{2}", Internal: "{3}"... Skipping PackageFile.'.format( pkg_version.package.name, pkg_version.version, release, pkg_version.state ) )
+    if pkg_version.state != package_file[ 'release' ]:  # TODO: should we yank it back?  or let it go.
+      logging.warning( 'PackageFile on Packrat release level dose not match internal tracking, Package: "{0}", Version: "{1}", Packrat: "{2}", Internal: "{3}"... Skipping PackageFile.'.format( pkg_version.package.name, pkg_version.version, package_file[ 'release' ], pkg_version.state ) )
       continue
 
-    if pkg_version.state == 'ci':
-      to_state = 'dev'
-
-    elif pkg_version.state == 'dev':
-      to_state = 'stage'
-
-    else:
-      raise Exception( 'Unknown state "{0}"'.format( pkg_version.state ) )
-
-    _queuePromotion( pkg_version, packrat_id, pkg_version.state, to_state )
+    _queuePromotion( pkg_version, package_file_uri )
 
 packrat.logout()
 

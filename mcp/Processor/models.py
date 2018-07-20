@@ -3,14 +3,14 @@ from datetime import datetime, timezone
 
 from django.db import models
 from django.conf import settings
-from django.core.exceptions import ValidationError, PermissionDenied
+from django.core.exceptions import ValidationError
 
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, StringListField
 
-from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH, RELEASE_TYPE_CHOICES
+from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH
 from mcp.Resource.models import Resource, NetworkResource
 from mcp.User.models import User
 
@@ -28,7 +28,8 @@ BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'rele
 class Promotion( models.Model ):
   package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion', help_text='' )
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH, choices=RELEASE_TYPE_CHOICES )
+  from_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
+  to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -44,7 +45,7 @@ class Promotion( models.Model ):
     return True
 
   def __str__( self ):
-    return 'Promotion for package/versions {0} to "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.to_state )
+    return 'Promotion for package/versions {0} from "{1}" to "{2}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.from_state, self.to_state )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )

@@ -59,7 +59,7 @@ class Migration(migrations.Migration):
             name='BuildDependancy',
             fields=[
                 ('key', models.CharField(editable=False, max_length=250, primary_key=True, serialize=False)),
-                ('state', models.CharField(choices=[('ci', 'CI'), ('dev', 'Development'), ('stage', 'Staging'), ('prod', 'Production'), ('depr', 'Deprocated')], max_length=5)),
+                ('from_state', models.CharField(max_length=10)),
                 ('build', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Project.Build')),
             ],
         ),
@@ -108,7 +108,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('version', models.CharField(max_length=50)),
-                ('state', models.CharField(choices=[('ci', 'CI'), ('dev', 'Development'), ('stage', 'Staging'), ('prod', 'Production'), ('depr', 'Deprocated')], max_length=5)),
+                ('state', models.CharField( max_length=10)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),
                 ('package', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Project.Package')),
