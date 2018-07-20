@@ -5,29 +5,31 @@ import shutil
 
 GIT_CMD = '/usr/bin/git'
 
-class Git( object ):
+
+class Git():
   def __init__( self, dir ):
     self.dir = dir
 
   def _execute( self, args, cwd=None ):
-    logging.debug( 'git: running "%s"' % args )
+    logging.debug( 'git: running "{0}"'.format( args ) )
 
     try:
       if cwd is None:
         args = [ GIT_CMD, '--git-dir', self.dir ] + args
       else:
         args = [ GIT_CMD ] + args
-      logging.debug( 'git: executing "%s"' % args )
+      logging.debug( 'git: executing "{0}"'.format( args ) )
       proc = subprocess.Popen( args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=cwd )
       ( stdout, _ ) = proc.communicate()
     except Exception as e:
-      raise Exception( 'Exception %s while executing "%s"' % ( e, args ) )
+      raise Exception( 'Exception {0} while executing "{1}"'.format( e, args ) )
 
-    logging.debug( 'git: rc: %s' % proc.returncode )
-    logging.debug( 'git: output:\n----------\n%s\n---------' % stdout )
+    stdout = stdout.decode()
+    logging.debug( 'git: rc: {0}'.format( proc.returncode ) )
+    logging.debug( 'git: output:\n----------\n{0}\n---------'.format( stdout ) )
 
     if proc.returncode != 0:
-      raise Exception( 'git returned "%s"' % proc.returncode )
+      raise Exception( 'git returned "{0}"'.format( proc.returncode ) )
 
     result = []
     for line in stdout.strip().splitlines():
@@ -38,15 +40,15 @@ class Git( object ):
   def setup( self, url, parent_path ):
     self._execute( [ 'clone', '--bare', url ], cwd=parent_path )
     self._execute( [ 'update-server-info' ] )
-    os.rename( '%s/hooks/post-update.sample' % self.dir, '%s/hooks/post-update' % self.dir )
+    os.rename( '{0}/hooks/post-update.sample'.format( self.dir ), '{0}/hooks/post-update'.format( self.dir ) )
 
   def update( self ):
     self._execute( [ 'fetch', 'origin', '+refs/heads/*:refs/heads/*', '--force' ] )
-    self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
+    self._execute( [ 'update-server-info' ] )  # should not have to run this... the hook/post-update should be doing this
 
   def fetch_branch( self, remote_name, local_name ):
-    self._execute( [ 'fetch', 'origin', '%s:%s' % ( remote_name, local_name ), '--force' ] )
-    self._execute( [ 'update-server-info' ] ) # should not have to run this... the hook/post-update should be doing this
+    self._execute( [ 'fetch', 'origin', '{0}:{1}'.format( remote_name, local_name ), '--force' ] )
+    self._execute( [ 'update-server-info' ] )  # should not have to run this... the hook/post-update should be doing this
 
   def remove_branch( self, branch ):
     if branch == 'master':

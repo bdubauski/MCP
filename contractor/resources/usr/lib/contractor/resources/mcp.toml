@@ -1,0 +1,23 @@
+[ structure.mcp-base ]
+  description = 'MCP Base'
+  config_values = { '>packages' = ' nullunit' }
+
+[ structure.mcp-ubuntu-trusty ]
+  parents = [ 'ubuntu-trusty-base', 'mcp-base' ]
+  description = 'MCP Trusty'
+
+[ structure.mcp-ubuntu-xenial ]
+  parents = [ 'ubuntu-xenial-base', 'mcp-base' ]
+  description = 'MCP Xenial'
+
+[ structure.mcp-ubuntu-bionic ]
+  parents = [ 'ubuntu-bionic-base', 'mcp-base' ]
+  description = 'MCP Bionic'
+
+[ structure.mcp-centos-6 ]
+  parents = [ 'centos-6-base', 'mcp-base' ]
+  description = 'MCP Centos 6'
+
+[ structure.mcp-centos-7 ]
+  parents = [ 'centos-7-base', 'mcp-base' ]
+  description = 'MCP Centos 7'

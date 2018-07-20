@@ -1,0 +1,79 @@
+#!/bin/bash
+
+if [ $( id -u ) != 0 ];
+then
+  echo "Must be root"
+  exit 1
+fi
+
+if [ -f /usr/lib/mcp/setup/setupCompleted ];
+then
+  echo "The setup wizzard has allready be run..."
+  echo "It is not safe to run setupWizard again."
+  exit 1
+fi
+
+if [ "x$1" != "x" ];
+then
+  if [ ! -r $1 ];
+  then
+    echo "Unable read answer file $1..."
+    exit 1
+  fi
+  . $1
+else
+  read -p "Install Postgres locally (y/n)? " POSTGRES_LOCAL
+
+  if [ "x$POSTGRES_LOCAL" != "xy" ] && [ "x$POSTGRES_HOST" == "x" ] ;
+  then
+    read -p "Postgres Hostname:" POSTGRES_HOST
+    echo "Create database \"packrat\", owned by \"packrat\" (password \"packrat\") on host \"$POSTGRES_HOST\"."
+    read -p "Press <enter> to continue"
+  else
+    POSTGRES_HOST="127.0.0.1"
+  fi
+fi
+
+echo
+echo "-- Setting up packrat master --"
+echo "Install Postgres: $POSTGRES_LOCAL"
+echo "Postgres Host: $POSTGRES_HOST"
+
+echo
+echo
+
+if [ "x$1" == "x" ];
+then
+  read -p "Ready to setup. Everything look correct and your ready to proced? [y/n] " TMP
+  if [ "x$TMP" != "xy" ];
+  then
+    echo "Aborting..."
+    exit 1
+  fi
+fi
+
+
+set -e
+set -x
+
+if [ "x$POSTGRES_LOCAL" == "xy" ];
+then
+  echo "Installing postgres..."
+  apt-get install -y postgresql
+  echo "Creating database..."
+  su postgres -c "echo \"CREATE ROLE packrat WITH PASSWORD 'packrat' NOSUPERUSER NOCREATEDB NOCREATEROLE LOGIN;\" | psql"
+  su postgres -c "createdb -O packrat packrat"
+fi
+
+
+echo "Populating db..."
+/usr/lib/mcp/util/manage.py migrate
+
+echo "Creating super user..."
+/usr/lib/mcp/util/manage.py createsuperuser --noinput --username=root --email=test@test.com
+
+echo "Creating basic objects..."
+/usr/lib/mcp/setup/setupHelper.py
+
+echo "Done!"
+touch /usr/lib/mcp/setup/setupCompleted

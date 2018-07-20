@@ -1,0 +1,33 @@
+#!/usr/bin/env python3
+import os
+
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
+
+from mcp.Project.models import Project, Build, Package, BuildDependancy
+
+print( 'strict graph {' )
+print( 'rankdir=LR' )
+
+for project in Project.objects.all().order_by( 'name' ):
+  if project.name[0] == '_':
+    continue
+  print( 'PRJ_{0} [shape="box3d"][label="{1}"]'.format( project.name.replace( '-', '_' ), project.name ) )
+
+for build in Build.objects.all().order_by( 'name' ):
+  if build.name[0] == '_' or build.project.name[0] == '_':
+    continue
+  print( 'BLD_{0}_{1} [shape="doubleoctagon"][label="{2}"][color="{3}"]'.format( build.name.replace( '-', '_' ), build.project.name.replace( '-', '_' ), build.name, ( 'red' if build.manual else 'green' ) ) )
+  print( 'PRJ_{0} -- BLD_{1}_{2} [color=blue]'.format( build.project.name.replace( '-', '_' ), build.name.replace( '-', '_' ), build.project.name.replace( '-', '_' ) ) )
+
+for package in Package.objects.all().order_by( 'name' ):
+  if package.name[0] == '_':
+    continue
+  print( 'PKG_{0} [shape="tab"][label="{1}"]'.format( package.name.replace( '-', '_' ), package.name ) )
+
+for builddep in BuildDependancy.objects.all():
+  print( 'PKG_{0} -- BLD_{1}_{2} [label="{3}"][color=red]'.format( builddep.package.name.replace( '-', '_' ), builddep.build.name.replace( '-', '_' ), builddep.build.project.name.replace( '-', '_' ), builddep.state ) )
+
+print( '}' )

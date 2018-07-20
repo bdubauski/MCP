@@ -1,0 +1,41 @@
+#!/bin/bash
+
+set -e
+
+if [ "x$1" == "xi" ]
+then
+  set -x
+  ARGS=""
+else
+  ARGS="-c"
+fi
+
+if [ -e /var/run/mcpIterate.lock ];
+then
+  if [ "x$1" == "xi" ]
+  then
+    echo "Iterate lock exists, bailing"
+  fi
+  exit 1
+fi
+
+touch /var/run/mcpIterate.lock
+
+# get packages up to date
+/usr/lib/mcp/cron/tron $ARGS
+
+# get the latest from git
+/usr/lib/mcp/cron/rinzler $ARGS
+
+# check the commits
+/usr/lib/mcp/cron/recognizer $ARGS
+
+# run thoes jobs
+/usr/lib/mcp/cron/sark $ARGS
+
+# update the dependancy graph
+/usr/lib/mcp/util/graph | dot -Tpng -o/var/www/mcp/static/graph.png
+/usr/lib/mcp/util/graph | dot -Tpdf -o/var/www/mcp/static/graph.pdf
+
+rm /var/run/mcpIterate.lock
+exit 0

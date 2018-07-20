@@ -1,0 +1,333 @@
+#!/usr/bin/env python3
+#
+# rinzler
+#   check for updates in the repo, then load the build targets and dependancies into the database
+#
+import os
+
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
+
+import logging
+import sys
+import glob
+import shutil
+import socket
+from ssl import SSLError
+from datetime import datetime, timezone
+from logging.handlers import SysLogHandler
+
+from django.conf import settings
+from django.db.models import ProtectedError
+
+from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
+from mcp.Resource.models import Resource
+from mcp.lib.Makefile import Makefile, MakeException
+from mcp.lib.Git import Git
+from mcp.lib.Slack import Slack
+
+WORK_DIR = '/tmp/rinzler'
+PID_FILE = '/var/run/rinzler.pid'
+PID_FILE = '/opt/mcp/rinzler.pid'
+
+# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
+
+logging.basicConfig()
+logger = logging.getLogger()
+handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
+handler.setFormatter( logging.Formatter( fmt='recognizer[%(process)d]: %(message)s' ) )
+logger.addHandler( handler )
+logging.info( 'Starting...' )
+if '-v' in sys.argv:
+  logger.setLevel( logging.DEBUG )
+elif '-c' in sys.argv:
+  logger.setLevel( logging.ERROR )
+else:
+  logger.setLevel( logging.INFO )
+
+if os.path.exists( PID_FILE ):
+  logging.error( 'pid file exists, bailing...' )
+  sys.exit( 0 )
+
+tmp = open( PID_FILE, 'w' )
+tmp.write( '{0}\n'.format( os.getpid() ) )
+tmp.close()
+
+slack = Slack( 'rinzler', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+
+
+def _makeBuild( build_name, project, manual ):
+  dependancy_list = make.depends( build_name )
+  resource_list = make.resources( build_name )
+  network_list = make.networks( build_name )
+  logging.debug( 'Build: "{0}" depends: "{1}" resources: "{2}" networks: "{3}".'.format( build_name, dependancy_list, resource_list, network_list ) )
+  try:
+    build = project.build_set.get( name=build_name )
+    build.manual = manual
+    build.full_clean()
+    build.save()
+
+    for item in build.buildresource_set.all():  # TODO: update instead of delete and re-add
+      item.delete()
+
+    for item in build.builddependancy_set.all():
+      item.delete()
+
+  except Build.DoesNotExist:
+    build = Build()
+    build.name = build_name
+    build.project = project
+    build.manual = manual
+    build.full_clean()
+    build.save()
+
+  for dependancy in dependancy_list:
+    ( package_name, from_state ) = dependancy.split( ':' )
+    try:
+      package = Package.objects.get( name=package_name )
+
+    except Package.DoesNotExist:
+      logging.warning( 'Package "{0}" for dependancy for build "{1}" does not exist, skipped.'.format( package_name, build_name ) )
+      continue
+
+    builddep = BuildDependancy()
+    builddep.build = build
+    builddep.package = package
+    builddep.from_state = from_state
+    builddep.full_clean()
+    builddep.save()
+
+  for resource in resource_list:
+    ( name, quanity, resource_name ) = resource.split( ':' )
+    try:
+      resource = Resource.objects.get( name=resource_name )
+
+    except Resource.DoesNotExist:
+      logging.error( 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( resource_name, build_name ) )
+      build.delete()
+      return
+
+    buildres = BuildResource()
+    buildres.build = build
+    buildres.resource = resource
+    buildres.name = name
+    buildres.quanity = quanity
+    buildres.full_clean()
+    buildres.save()
+
+  network = {}
+  for name in network_list:
+    network[ name ] = ''
+
+  build.network_map = network
+  build.full_clean()
+  build.save()
+
+
+# where project dosen't have any queue items
+for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_checked' ):
+  if project.name.startswith( '_' ):
+    continue
+
+  # nor have any commits in flight
+  if project.commit_set.filter( done_at__isnull=True ).count() > 0:
+    continue
+
+  # nor manual jobs that have not run
+  # nor auto jobs that have not reported
+  ready = True
+  for job in project.buildjob_set.all():
+    if job.manual:
+      ready &= job.state in ( 'ran', 'reported', 'acknowledged', 'released' )
+    else:
+      ready &= job.state in ( 'reported', 'acknowledged', 'released' )
+
+  if not ready:
+    continue
+
+  url = project.clone_git_url
+
+  if url is None:  # for now we only support Git based projects
+    continue
+
+  # it's good let's do this
+  logging.info( 'Checking project "{0}"'.format( project.name ) )
+
+  if not project.local_path:
+    project.local_path = '{0}/{1}'.format( project.pk, os.path.basename( url ) )
+    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
+    parent_path = '/'.join( path.split( '/' )[ :-1 ] )
+    logging.debug( 'Creating "{0}" for "{1}"...'.format( parent_path, project.name ) )
+    try:
+      os.makedirs( parent_path )
+
+    except OSError as e:
+      if e.errno == 17:  # allready exists
+        pass
+
+      else:
+        raise e
+
+    git = Git( path )
+    git.setup( url, parent_path )
+    project.full_clean()
+    project.save()
+
+  else:
+    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
+    logging.debug( 'Updating "{0}" for "{1}"...'.format( path, project.name ) )
+    git = Git( path )
+
+  git.update()
+
+  github = None
+
+  if project.type == 'GitHubProject':
+    try:
+      github = project.githubproject.github
+    except ( socket.timeout, socket.error, SSLError ):
+      logging.warning( 'Connection Error connecting to github, will try again later.' )
+      continue
+
+  if github is not None:
+    try:
+      pull_list = github.getPullRequests()
+    except ( socket.timeout, socket.error, SSLError ):
+      logging.warning( 'Connection Error getting PRs from github, will try again later.' )
+      continue
+
+    for branch in git.ref_map():
+      if branch.startswith( '_PR' ):
+        number = int( branch[3:] )
+        if number not in pull_list:
+          logging.debug( 'Cleaning up branch "{0}"'.format( branch ) )
+          git.remove_branch( branch )
+
+    for pull in pull_list:
+      branch_name = '_PR{0}'.format( pull )
+      if project.commit_set.filter( branch=branch_name, done_at__isnull=True ).count() > 0:
+        continue
+
+      logging.info( '  Pulling PR #{0}'.format( pull ) )
+      git.fetch_branch( 'refs/pull/{0}/head'.format( pull ), branch_name )
+
+  branch_map = git.ref_map()
+
+  logging.debug( 'Branches: "{0}"'.format( branch_map ) )
+
+  for branch in branch_map.keys():
+    try:
+      commit = Commit.objects.get( project=project, branch=branch, commit=branch_map[ branch ] )
+      continue  # allready there, don't need to worry about it
+    except Commit.DoesNotExist:
+      pass
+
+    owner = None
+    if branch.startswith( '_PR' ) and github is not None:
+      try:
+        owner = github.getPullRequestOwner( int( branch[3:] ) )
+      except ( socket.timeout, socket.error, SSLError ):
+        logging.warning( 'Connection Error gettting PR owner, will try again later.' )
+        continue
+
+    if owner is not None:
+      logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}" owned by "{3}"...'.format( branch_map[ branch ], branch, project.name, owner ) )
+      slack.post_message( 'New Commit "{0}" on Branch "{1}"({2}) of Project "{3}".'.format( branch_map[ branch ], branch, owner, project.name ), slack.INFO )
+    else:
+      logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}"...'.format( branch_map[ branch ], branch, project.name ) )
+      slack.post_message( 'New Commit "{0}" on Branch "{1}" of Project "{2}".'.format( branch_map[ branch ], branch, project.name ), slack.INFO )
+
+    git.checkout( WORK_DIR, branch )
+
+    make = Makefile( glob.glob( '{0}/*'.format( WORK_DIR ) )[0] )
+
+    commit = Commit()
+    commit.project = project
+    commit.branch = branch
+    commit.commit = branch_map[ branch ]
+    if owner is not None:
+      commit.owner_override = owner
+
+    try:
+      distro_list = make.testDistros()
+    except MakeException as e:
+      logging.error( 'Error Retreiving Test Distros from Makefile "{0}", ignorning commit.'.format( e ) )
+      continue
+
+    commit.lint_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+    commit.test_results = commit.lint_results
+    commit.build_results = {}
+
+    if branch == 'master':
+      logging.info( 'Adding Package Build...' )
+
+      for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
+        try:
+          distro_list = make.packageDistros( tmp )
+        except MakeException as e:
+          logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
+          continue
+
+        if distro_list:
+          commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+
+      logging.info( 'Adding Doc Build...' )
+      try:
+        distro_list = make.docDistros()
+      except MakeException as e:
+        distro_list = []
+
+      commit.doc_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+
+    commit.build_results = commit.build_results
+
+    if branch == 'master':
+      logging.info( 'Updating Builds info...' )
+      try:
+        build_list = make.autoBuilds()
+      except MakeException as e:
+        logging.error( 'Error Retreiving Auto Builds from Makefile "{0}", ignorning commit.'.format( e ) )
+        continue
+
+      logging.debug( 'Auto Builds "{0}".'.format( build_list ) )
+
+      existing_builds = [ i.name for i in project.build_set.all() ]
+
+      for build_name in set( existing_builds ) - set( build_list ):
+        build = project.build_set.get( name=build_name )
+        try:
+          build.delete()  # this could cause an error if there is a build curently operating, if so, punt to later
+        except ProtectedError:
+          logging.warning( 'Build "{0}" is not longer defined, however it is still in use, will try to delete again next time.'.format( build_name ) )
+          pass  # can't delete now, will try on next update
+
+      for build in build_list:
+        _makeBuild( build, project, False )
+
+      try:
+        build_list = make.manualBuilds()
+      except MakeException as e:
+        logging.error( 'Error Retreiving Manual Builds from Makefile "{0}", ignorning commit.'.format( e ) )
+        continue
+
+      logging.debug( 'Manual Builds "{0}".'.format( build_list ) )
+      for build in build_list:
+        _makeBuild( build, project, True )
+
+    logging.debug( 'Cleaning up work dir.' )
+    shutil.rmtree( WORK_DIR )
+    commit.full_clean()
+    commit.save()
+
+    commit.postInProcess()
+
+  project.last_checked = datetime.now( timezone.utc )
+  project.full_clean()
+  project.save()
+
+os.unlink( PID_FILE )
+logging.info( 'Done!' )
+logging.shutdown()
+sys.exit( 0 )

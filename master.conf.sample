@@ -1,21 +1,20 @@
+CONTRACTOR_HOST = 'http://contractor:8080'
+CONTRACTOR_PROXY = None
+
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'
 
 GITHUB_API_HOST = 'https://github/api/v3'
 GITHUB_HOST = 'https://github/'
-GITHUB_USER = 'mcp'
+GITHUB_USER = 'mcp'  # if using auth token, set the username to the token and set GITHUB_PASS to None
 GITHUB_PASS = 'mcp'
 GITHUB_PROXY = None
 # to set a http_proxy for git use `git config --system http.proxy <http proxy>`
 
-PACKRAT_HOST = 'http://packrat/'
+PACKRAT_HOST = 'http://packrat'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
 PACKRAT_PSK = 'mcp'
-
-VMHOST = 1
-TARGET_SUBNET = 1
-TARGET_POD = 'test'
 
 HARDWARE_PROFILE = 'mcp-resource'
 CONFIGURE_PRIORITY_NORMAL = 50
@@ -37,88 +36,56 @@ DEBUG = False
 
 TEMPLATE_DEBUG = True
 
-ALLOWED_HOSTS = []
+TEMPLATE_DIRS = (
+)
 
-MCP_HOST = 'http://mcp/'
+MCP_HOST = 'http://mcp'
 MCP_PROXY = None
 
 # Application definition
 
 INSTALLED_APPS = (
-  'django.contrib.admin',
-  'django.contrib.auth',
-  'django.contrib.contenttypes',
-  'django.contrib.sessions',
-  'south',
-  'cinp',
-  'mcp.Processor',
-  'mcp.Project',
-  'mcp.Resource',
-  'mcp.Users',
-  'plato.Base',
-  'plato.Pod',
-  'plato.DataCenter',
-  'plato.Asset',
-  'plato.Config',
-  'plato.Device',
-  'plato.Network',
-  'plato.Power',
-  'plato.Storage',
-  'plato.Provisioner',
-  'plato.Report'
+    'mcp.Processor',
+    'mcp.Project',
+    'mcp.Resource',
+    'mcp.User',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages'
 )
 
 MIDDLEWARE_CLASSES = (
-  'django.middleware.common.CommonMiddleware',
-  'django.contrib.sessions.middleware.SessionMiddleware',
-  'django.contrib.messages.middleware.MessageMiddleware',
-  'django.contrib.auth.middleware.AuthenticationMiddleware',
-)
-
-AUTHENTICATION_BACKENDS = (
-  'mcp.Users.backend.Backend',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
 ROOT_URLCONF = 'mcp.urls'
 
-TEMPLATE_DIRS = (
-)
-
-from plato.settings import PROVISIONING_PROFILES, PLATO_HOST_NAME # noqa
+WSGI_APPLICATION = 'mcp.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/1.7/ref/settings/#databases
 
 DATABASES = {
-  'default': {
-      'ENGINE': 'django.db.backends.postgresql_psycopg2',
-      'NAME': 'plato',
-      'USER': 'plato',
-      'PASSWORD': 'plato',
-      'HOST': '127.0.0.1',
-      'PORT': '',
-  },
-  'mcp': {
-    'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    'NAME': 'mcp',
-    'USER': 'mcp',
-    'PASSWORD': 'mcp',
-    'HOST': '127.0.0.1',
-    'PORT': '',
-  }
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': '/opt/mcp/db.sqlite3',
+    }
 }
 
 
-DATABASE_ROUTERS = [ 'mcp.lib.db.MCPRouter' ]
-
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'America/Denver'
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
 USE_L10N = True
 
 USE_TZ = True
-
-STATIC_URL = '/static/'
