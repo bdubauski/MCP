@@ -15,7 +15,7 @@ from mcp.Resource.models import Resource
 cinp = CInP( 'Project', '0.1' )
 
 
-COMMIT_STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'doced', 'done' )
+COMMIT_STATE_LIST = ( 'new', 'tested', 'built', 'doced', 'done' )
 
 
 # from packrat Repos/models.py, length of the ReleaseType name
@@ -375,7 +375,6 @@ A Single Commit of a Project
   test_results = MapField( blank=True )
   build_results = MapField( blank=True )
   doc_results = MapField( blank=True )
-  lint_at = models.DateTimeField( editable=False, blank=True, null=True )
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -387,20 +386,17 @@ A Single Commit of a Project
 
   @property
   def state( self ):
-    if self.done_at and self.doc_at and self.build_at and self.test_at and self.lint_at:
+    if self.done_at and self.doc_at and self.build_at and self.test_at:
       return 'done'
 
-    if self.doc_at and self.build_at and self.test_at and self.lint_at:
+    if self.doc_at and self.build_at and self.test_at:
       return 'doced'
 
-    if self.build_at and self.test_at and self.lint_at:
+    if self.build_at and self.test_at:
       return 'built'
 
-    if self.test_at and self.lint_at:
+    if self.test_at:
       return 'tested'
-
-    if self.lint_at:
-      return 'linted'
 
     return 'new'
 
@@ -410,6 +406,24 @@ A Single Commit of a Project
       return None
 
     result = []
+
+    score_map = {}
+    for distro in self.lint_results:
+      score = self.lint_results[ distro ].get( 'score', None )
+      if score is not None:
+        score_map[ distro ] = score
+
+    if score_map:
+      result.append( 'Lint Score: {0}'.format( score_map ) )
+
+    score_map = {}
+    for distro in self.test_results:
+      score = self.lint_results[ distro ].get( 'score', None )
+      if score is not None:
+        score_map[ distro ] = score
+
+    if score_map:
+      result.append( 'Test Score: {0}'.format( score_map ) )
 
     if self.passed is True:
       result.append( 'Passed: True' )
@@ -451,7 +465,7 @@ A Single Commit of a Project
       tmp = self.build_results[ target ]
       for distro in tmp:
         if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ target ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
+          wrk[ target ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], None )
 
     if wrk:
       result[ 'build' ] = wrk
@@ -460,7 +474,7 @@ A Single Commit of a Project
     for distro in self.doc_results:
       tmp = self.doc_results[ distro ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], None )
 
     if wrk:
       result[ 'doc' ] = wrk
@@ -471,7 +485,7 @@ A Single Commit of a Project
     else:
       return result
 
-  def signalComplete( self, target, build_name, success, results ):
+  def signalComplete( self, target, build_name, success, results, score ):
     if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc' ):
       return
 
@@ -479,11 +493,13 @@ A Single Commit of a Project
       self.lint_results[ build_name ][ 'status' ] = 'done'
       self.lint_results[ build_name ][ 'success' ] = success
       self.lint_results[ build_name ][ 'results' ] = results
+      self.lint_results[ build_name ][ 'score' ] = score
 
     elif target == 'test':
       self.test_results[ build_name ][ 'status' ] = 'done'
       self.test_results[ build_name ][ 'success' ] = success
       self.test_results[ build_name ][ 'results' ] = results
+      self.test_results[ build_name ][ 'score' ] = score
 
     elif target == 'doc':
       self.doc_results[ build_name ][ 'status' ] = 'done'

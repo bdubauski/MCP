@@ -84,7 +84,6 @@ class Migration(migrations.Migration):
                 ('test_results', mcp.fields.MapField(blank=True, default={})),
                 ('build_results', mcp.fields.MapField(blank=True, default={})),
                 ('doc_results', mcp.fields.MapField(blank=True, default={})),
-                ('lint_at', models.DateTimeField(blank=True, editable=False, null=True)),
                 ('test_at', models.DateTimeField(blank=True, editable=False, null=True)),
                 ('build_at', models.DateTimeField(blank=True, editable=False, null=True)),
                 ('doc_at', models.DateTimeField(blank=True, editable=False, null=True)),

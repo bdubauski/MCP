@@ -129,7 +129,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
     instance = job.instance_set.all()[0]
-    job.commit.signalComplete( job.target, job.build.name, instance.success, instance.results )
+    job.commit.signalComplete( job.target, job.build.name, instance.success, instance.results, instance.score )
 
   elif job.promotion is not None:
     job.promotion.signalComplete( job.build )
