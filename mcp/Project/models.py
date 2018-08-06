@@ -107,9 +107,9 @@ def _markdownResults( valueCur, valuePrev=None ):
           if valueCur[ target ][ group ][2] is not None:
             result += '  Score: **{0}** -> **{1}**\n'.format( tmp_group[2], valueCur[ target ][ group ][2] )
             try:
-              if float( tmp_group[2] > float( valueCur[ target ][ group ][2] ) ):
+              if float( tmp_group[2] ) > float( valueCur[ target ][ group ][2] ):
                 result += '## WARNING: Score value decreased ##'
-            except ValueError:
+            except ( ValueError, TypeError ):
               pass
           result += _diffMarkDown( tmp_group[1].splitlines(), lines )
 
@@ -118,7 +118,7 @@ def _markdownResults( valueCur, valuePrev=None ):
   return result
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ] )
 class Project( models.Model ):
   """
 This is a Generic Project
@@ -408,19 +408,19 @@ A Single Commit of a Project
     result = []
 
     score_map = {}
-    for distro in self.lint_results:
-      score = self.lint_results[ distro ].get( 'score', None )
+    for name in self.lint_results:
+      score = self.lint_results[ name ].get( 'score', None )
       if score is not None:
-        score_map[ distro ] = score
+        score_map[ name ] = score
 
     if score_map:
       result.append( 'Lint Score: {0}'.format( score_map ) )
 
     score_map = {}
-    for distro in self.test_results:
-      score = self.lint_results[ distro ].get( 'score', None )
+    for name in self.test_results:
+      score = self.lint_results[ name ].get( 'score', None )
       if score is not None:
-        score_map[ distro ] = score
+        score_map[ name ] = score
 
     if score_map:
       result.append( 'Test Score: {0}'.format( score_map ) )
@@ -442,19 +442,19 @@ A Single Commit of a Project
     result = {}
 
     wrk = {}
-    for distro in self.lint_results:
-      tmp = self.lint_results[ distro ]
+    for name in self.lint_results:
+      tmp = self.lint_results[ name ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+        wrk[ name ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
 
     if wrk:
       result[ 'lint' ] = wrk
 
     wrk = {}
-    for distro in self.test_results:
-      tmp = self.test_results[ distro ]
+    for name in self.test_results:
+      tmp = self.test_results[ name ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+        wrk[ name ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
 
     if wrk:
       result[ 'test' ] = wrk
@@ -463,18 +463,18 @@ A Single Commit of a Project
     for target in self.build_results:
       wrk[ target ] = {}
       tmp = self.build_results[ target ]
-      for distro in tmp:
-        if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ target ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], None )
+      for name in tmp:
+        if tmp[ name ].get( 'results', None ) is not None:
+          wrk[ target ][ name ] = ( tmp[ name ].get( 'success', False ), tmp[ name ][ 'results' ], None )
 
     if wrk:
       result[ 'build' ] = wrk
 
     wrk = {}
-    for distro in self.doc_results:
-      tmp = self.doc_results[ distro ]
+    for name in self.doc_results:
+      tmp = self.doc_results[ name ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], None )
+        wrk[ name ] = ( tmp.get( 'success', False ), tmp[ 'results' ], None )
 
     if wrk:
       result[ 'doc' ] = wrk
@@ -485,31 +485,80 @@ A Single Commit of a Project
     else:
       return result
 
-  def signalComplete( self, target, build_name, success, results, score ):
+  def setResults( self, target, name, results ):
     if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc' ):
       return
 
     if target == 'lint':
-      self.lint_results[ build_name ][ 'status' ] = 'done'
-      self.lint_results[ build_name ][ 'success' ] = success
-      self.lint_results[ build_name ][ 'results' ] = results
-      self.lint_results[ build_name ][ 'score' ] = score
+      self.lint_results[ name ][ 'results' ] = results
 
     elif target == 'test':
-      self.test_results[ build_name ][ 'status' ] = 'done'
-      self.test_results[ build_name ][ 'success' ] = success
-      self.test_results[ build_name ][ 'results' ] = results
-      self.test_results[ build_name ][ 'score' ] = score
+      self.test_results[ name ][ 'results' ] = results
 
     elif target == 'doc':
-      self.doc_results[ build_name ][ 'status' ] = 'done'
-      self.doc_results[ build_name ][ 'success' ] = success
-      self.doc_results[ build_name ][ 'results' ] = results
+      self.doc_results[ name ][ 'results' ] = results
 
     else:
-      self.build_results[ target ][ build_name ][ 'status' ] = 'done'
-      self.build_results[ target ][ build_name ][ 'success' ] = success
-      self.build_results[ target ][ build_name ][ 'results' ] = results
+      self.build_results[ target ][ name ][ 'results' ] = results
+
+    self.full_clean()
+    self.save()
+
+  def getResults( self, target ):
+    if target == 'lint':
+      return dict( [ ( i, self.lint_results[i].get( 'results', None ) ) for i in self.lint_results ] )
+
+    elif target == 'test':
+      return dict( [ ( i, self.test_results[i].get( 'results', None ) ) for i in self.test_results ] )
+
+    elif target == 'doc':
+      return dict( [ ( i, self.doc_results[i].get( 'results', None ) ) for i in self.doc_results ] )
+
+    elif target in ( 'rpm', 'dpkg', 'respkg', 'resource' ):
+      return dict( [ ( i, self.build_results[ target ][i].get( 'results', None ) ) for i in self.build_results[ target ] ] )
+
+    return {}
+
+  def setScore( self, target, name, score ):
+    if target not in ( 'lint', 'test' ):
+      return
+
+    if target == 'lint':
+      self.lint_results[ name ][ 'score' ] = score
+
+    elif target == 'test':
+      self.test_results[ name ][ 'score' ] = score
+
+    self.full_clean()
+    self.save()
+
+  def getScore( self, target ):
+    if target == 'lint':
+      return dict( [ ( i, self.lint_results[i].get( 'score', None ) ) for i in self.lint_results ] )
+
+    elif target == 'test':
+      return dict( [ ( i, self.test_results[i].get( 'score', None ) ) for i in self.test_results ] )
+
+    return {}
+
+  def signalComplete( self, target, name, success ):
+    if target not in ( 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc' ):
+      return
+
+    if target == 'test':
+      self.lint_results[ name ][ 'status' ] = 'done'
+      self.lint_results[ name ][ 'success' ] = success
+
+      self.test_results[ name ][ 'status' ] = 'done'
+      self.test_results[ name ][ 'success' ] = success
+
+    elif target == 'doc':
+      self.doc_results[ name ][ 'status' ] = 'done'
+      self.doc_results[ name ][ 'success' ] = success
+
+    else:
+      self.build_results[ target ][ name ][ 'status' ] = 'done'
+      self.build_results[ target ][ name ][ 'success' ] = success
 
     self.full_clean()
     self.save()

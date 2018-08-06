@@ -8,17 +8,17 @@ register git repo with mcp
 stages:
   master branch change:
     for each test-distros
-      build distro, sync code, install depends, `make lint` then `make test`
+      build distro, sync code, install depends (from `make test-requires`), then 'make clean' then `make test-setup` then `make lint` then `make test`
       post results of each stage for each distro to the PRs comments
       if any failes stop at that point
     for each dpkg-distros:
-      build distro, sync code, install depends, `make dpkg`
+      build distro, sync code, install depends (from `make dpkg-requires`), then 'make clean' then `make dpkg-setup`, `make dpkg`
     for each rpm-distros:
-      build distro, sync code, install depends, `make rpm`
+      build distro, sync code, install depends (from `make rpm-requires`), then 'make clean' then `make rpm-setup`, `make rpm`
     for each respkg-distros:
-      build distro, sync code, install depends, `make respkg`
+      build distro, sync code, install depends (from `make respkg-requires`), then 'make clean' then `make respkg-setup`, `make respkg`
     for each resource-distros:
-      build distro, sync code, install depends, `make resource`
+      build distro, sync code, install depends (from `make resource-requires`), then 'make clean' then `make resource-setup`, `make resource`
     promote new -> ci
     run all auto-builds on projects that depend on ci stage
     promote ci -> dev
@@ -36,7 +36,7 @@ stages:
 project distros:
     Called on MCP:
 
-  test-distros: -> distros to run unit tests on (lint will also be run on these distro)
+  test-distros: -> distros to run lint and unit tests
   dpkg-distros: -> distros to build dpkg on
   rpm-distros: -> distros to build rpm on
   respkg-distros: -> distros to build respkg on

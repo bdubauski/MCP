@@ -28,7 +28,7 @@ def load_builtins( app, schema_editor ):
     b.full_clean()
     b.save()
 
-    br = BuildResource( name='target', build=b, resource=Resource.objects.get( pk='{0}-small'.format( name ) ) )
+    br = BuildResource( name=name, build=b, resource=Resource.objects.get( pk='{0}-small'.format( name ) ) )
     br.quanity = 1
     br.key = '{0}_{1}_{2}'.format( br.build.key, br.name, br.resource.name )  # from full_clean
     br.full_clean()

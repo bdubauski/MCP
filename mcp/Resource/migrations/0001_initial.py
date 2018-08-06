@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from django.db import migrations, models
 import django.db.models.deletion
 
-BUILD_AHEAD_COUNT = { 'small': { 'ubuntu-xenial': 4 } }
+BUILD_AHEAD_COUNT = { 'small': { 'ubuntu-xenial': 4, 'ubuntu-bionic': 4 } }
 
 
 def load_sites( app, schema_editor ):

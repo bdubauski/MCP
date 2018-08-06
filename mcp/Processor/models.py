@@ -199,8 +199,7 @@ QueueItem
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
 
-#  TODO: { 'name': 'score', 'type': 'Float', 'is_array': True }
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, { 'name': 'suceeded', 'type': 'Boolean' }, { 'name': 'score', 'is_array': True }, { 'name': 'instance_summary', 'type': 'Map' } ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, { 'name': 'suceeded', 'type': 'Boolean' }, { 'name': 'instance_summary', 'type': 'Map' } ] )
 class BuildJob( models.Model ):
   """
 BuildJob
@@ -256,26 +255,28 @@ BuildJob
     return result
 
   @property
-  def score( self ):
-    if self.ran_at is None:
-      return None
-
-    score_list = []
-    for instance in self.instance_set.all():
-      score_list.append( instance.score )
-
-    return score_list
-
-  @property
   def instance_summary( self ):
+    results_map = self.commit.getResults( self.target )
+    score_map = self.commit.getScore( self.target )
+
     result = {}
     for instance in self.instance_set.all():
       item = {
                 'id': instance.pk,
                 'success': instance.success,
-                'status': instance.status,
-                'results': instance.results
+                'status': instance.status
               }
+
+      try:
+        item[ 'results' ] = results_map[ instance.name ]
+      except KeyError:
+        pass
+
+      try:
+        item[ 'score' ] = score_map[ instance.name ]
+      except KeyError:
+        pass
+
       try:
         result[ instance.name ][ instance.index ] = item
       except KeyError:
@@ -354,12 +355,9 @@ class Instance( models.Model ):
   status = models.CharField( max_length=200, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released, and other random stuff from the job
   # results info
   success = models.BooleanField( default=False )
-  results = models.TextField( blank=True, null=True )
-  score = models.FloatField( blank=True, null=True )
   package_files = StringListField( blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
-
   # contractor specific
   foundation_id = models.CharField( max_length=100, blank=True, null=True )
   structure_id = models.CharField( max_length=100, blank=True, null=True )
@@ -388,6 +386,7 @@ class Instance( models.Model ):
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
+                       'mcp_store_packages': True,
                        'mcp_git_url': self.buildjob.project.internal_git_url,
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target
@@ -472,23 +471,25 @@ class Instance( models.Model ):
     self.full_clean()
     self.save()
 
-  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
-  def setResults( self, cookie, results ):
+  @cinp.action( paramater_type_list=[ 'String', 'String', 'String' ] )
+  def setResults( self, cookie, target, results ):
     if self.cookie != self.cookie:
       return
 
-    self.results = results
-    self.full_clean()
-    self.save()
+    if target != self.buildjob.target and not ( self.buildjob.target == 'test' and target in ( 'test', 'lint' ) ):
+      return
 
-  @cinp.action( paramater_type_list=[ 'String', 'Float' ] )
-  def setScore( self, cookie, score ):
+    self.buildjob.commit.setResults( target, self.name, results )
+
+  @cinp.action( paramater_type_list=[ 'String', 'String', 'Float' ] )
+  def setScore( self, cookie, target, score ):
     if self.cookie != self.cookie:
       return
 
-    self.score = score
-    self.full_clean()
-    self.save()
+    if self.buildjob.target != 'test' or target not in ( 'test', 'lint' ):
+      return
+
+    self.buildjob.commit.setScore( target, self.name, score )
 
   @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'String', 'is_array': True } ] )
   def addPackageFiles( self, cookie, package_files ):
