@@ -386,7 +386,7 @@ class Instance( models.Model ):
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
-                       'mcp_store_packages': True,
+                       'mcp_store_packages': self.buildjob.branch == 'master',
                        'mcp_git_url': self.buildjob.project.internal_git_url,
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target

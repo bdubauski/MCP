@@ -93,12 +93,6 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True 
 
 # check for commits that need building
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=True ):
-  if commit.branch != 'master':  # only build from master branch
-    commit.build_at = datetime.now( timezone.utc )
-    commit.full_clean()
-    commit.save()
-    continue
-
   if not commit.build_results:
     slack.post_message( 'No Build for "{0}".'.format( commit.project.name, slack.INFO ) )
     commit.build_at = datetime.now( timezone.utc )
