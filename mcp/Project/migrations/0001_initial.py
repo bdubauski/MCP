@@ -88,8 +88,6 @@ class Migration(migrations.Migration):
                 ('build_at', models.DateTimeField(blank=True, editable=False, null=True)),
                 ('doc_at', models.DateTimeField(blank=True, editable=False, null=True)),
                 ('done_at', models.DateTimeField(blank=True, editable=False, null=True)),
-                ('passed', models.NullBooleanField(editable=False)),
-                ('built', models.NullBooleanField(editable=False)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),
             ],

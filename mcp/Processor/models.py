@@ -256,7 +256,16 @@ BuildJob
 
   @property
   def instance_summary( self ):
-    results_map = self.commit.getResults( self.target )
+    if self.target == 'test':
+      lint_map = self.commit.getResults( 'lint' )
+      test_map = self.commit.getResults( 'test' )
+      results_map = {}
+      for name in lint_map:
+        results_map[ name ] = 'lint:\n{0}\n\ntest:\n{1}'.format( lint_map[ name ] if lint_map[ name ] is not None else '', test_map[ name ] if test_map[ name ] is not None else '' )
+
+    else:
+      results_map = self.commit.getResults( self.target )
+
     score_map = self.commit.getScore( self.target )
 
     result = {}

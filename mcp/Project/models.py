@@ -213,9 +213,11 @@ This is a Generic Project
     try:
       commit = self.commit_set.filter( branch='master', done_at__isnull=False ).order_by( '-created' )[0]
     except IndexError:
-      return { 'passed': None, 'built': None, 'at': None }
+      return { 'test': None, 'build': None, 'doc': None, 'at': None }
 
-    return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
+    summary = commit.summary
+
+    return { 'test': summary[ 'test' ][ 'status' ], 'build': summary[ 'build' ][ 'status' ], 'doc': summary[ 'doc' ][ 'status' ], 'at': commit.created.isoformat() }
 
   @cinp.list_filter( name='my_projects' )
   @staticmethod
@@ -362,7 +364,7 @@ This is a Version of a Package
     unique_together = ( 'package', 'version' )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=[ { 'name': 'state', 'choices': COMMIT_STATE_LIST } ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=[ { 'name': 'state', 'choices': COMMIT_STATE_LIST }, { 'name': 'summary', 'type': 'Map' } ] )
 class Commit( models.Model ):
   """
 A Single Commit of a Project
@@ -379,8 +381,6 @@ A Single Commit of a Project
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  passed = models.NullBooleanField( editable=False, blank=True, null=True )
-  built = models.NullBooleanField( editable=False, blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -402,40 +402,105 @@ A Single Commit of a Project
 
   @property
   def summary( self ):
-    if self.passed is None and self.built is None:
-      return None
+    result = { 'test': {}, 'lint': {} }
 
-    result = []
+    overall_complete = True
+    overall_success = True
 
-    score_map = {}
-    for name in self.lint_results:
-      score = self.lint_results[ name ].get( 'score', None )
-      if score is not None:
-        score_map[ name ] = score
+    score_list = []
+    complete = True
+    success = True
+    for ( name, value ) in self.lint_results.items():
+      if value.get( 'score', None ) is not None:
+        score_list.append( value[ 'score' ]  )
 
-    if score_map:
-      result.append( 'Lint Score: {0}'.format( score_map ) )
+      complete &= value.get( 'status', '' ) == 'done'
+      success &= value.get( 'success', False )
 
-    score_map = {}
-    for name in self.test_results:
-      score = self.lint_results[ name ].get( 'score', None )
-      if score is not None:
-        score_map[ name ] = score
+    if score_list:
+      result[ 'lint' ][ 'score' ] = sum( score_list ) / len( score_list )
+    else:
+      result[ 'lint' ][ 'score' ] = None
 
-    if score_map:
-      result.append( 'Test Score: {0}'.format( score_map ) )
+    if not complete:
+      result[ 'lint' ][ 'status' ] = 'Incomplete'
+    elif success:
+      result[ 'lint' ][ 'status' ] = 'Success'
+    else:
+      result[ 'lint' ][ 'status' ] = 'Failed'
 
-    if self.passed is True:
-      result.append( 'Passed: True' )
-    elif self.passed is False:
-      result.append( 'Passed: False' )
+    overall_complete &= complete
+    overall_success &= success
 
-    if self.built is True:
-      result.append( 'Built: True' )
-    elif self.built is False:
-      result.append( 'Built: False' )
+    score_list = []
+    complete = True
+    success = True
+    for ( name, value ) in self.test_results.items():
+      if value.get( 'score', None ) is not None:
+        score_list.append( value[ 'score' ]  )
 
-    return '\n'.join( result )
+      complete &= value.get( 'status', '' ) == 'done'
+      success &= value.get( 'success', False )
+
+    if score_list:
+      result[ 'test' ][ 'score' ] = sum( score_list ) / len( score_list )
+    else:
+      result[ 'test' ][ 'score' ] = None
+
+    if not complete:
+      result[ 'test' ][ 'status' ] = 'Incomplete'
+    elif success:
+      result[ 'test' ][ 'status' ] = 'Success'
+    else:
+      result[ 'test' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    complete = True
+    success = True
+    for target in self.build_results:
+      for( name, value ) in self.build_results[ target ].items():
+        complete &= value.get( 'status', '' ) == 'done'
+        success &= value.get( 'success', False )
+
+    result[ 'build' ] = {}
+    if not complete:
+      result[ 'build' ][ 'status' ] = 'Incomplete'
+    elif success:
+      result[ 'build' ][ 'status' ] = 'Success'
+    else:
+      result[ 'build' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    if self.branch == 'master':
+      complete = True
+      success = True
+      for ( name, value ) in self.doc_results.items():
+        complete &= value.get( 'status', '' ) == 'done'
+        success &= value.get( 'success', False )
+
+      result[ 'doc' ] = {}
+      if not complete:
+        result[ 'doc' ][ 'status' ] = 'Incomplete'
+      elif success:
+        result[ 'doc' ][ 'status' ] = 'Success'
+      else:
+        result[ 'doc' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    if not overall_complete:
+      result[ 'status' ] = 'Incomplete'
+    elif overall_success:
+      result[ 'status' ] = 'Success'
+    else:
+      result[ 'status' ] = 'Failed'
+
+    return result
 
   @property
   def results( self ):  # for now in Markdown format
@@ -603,22 +668,36 @@ A Single Commit of a Project
     if self.branch.startswith( '_PR' ):
       summary = self.summary
 
-      if summary is None:
+      if not summary:
         summary = '**Nothing To Do**'
 
-      if self.passed is None and self.built is None:
-        gh.postCommitStatus( self.commit, 'success', description='No Test/Lint/Build to do' )
-      elif self.built is False:
-        gh.postCommitStatus( self.commit, 'error', description='Package Build Error' )
-      elif self.passed is False:
-        gh.postCommitStatus( self.commit, 'failure', description='Test/Lint Failure' )
-      elif self.passed is True:
-        gh.postCommitStatus( self.commit, 'success', description='Test/Lint Passed' )
+      if summary[ 'status' ] == 'Success':
+        gh.postCommitStatus( self.commit, 'success', description='Passed' )
+      elif summary[ 'status' ] == 'Failed':
+        gh.postCommitStatus( self.commit, 'failure', description='Failure' )
+      else:
+        gh.postCommitStatus( self.commit, 'error', description='Bad State "{0}"'.format( summary[ 'status' ] ) )
 
       gh.setOwner()
 
       number = int( self.branch[3:] )
-      gh.postPRComment( number, summary )
+      if 'doc' in summary:
+        gh.postPRComment( number, 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nDoc: {5}\nOverall: {6}\n'.format(
+                                                                                                               summary[ 'lint' ][ 'status' ],
+                                                                                                               '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
+                                                                                                               summary[ 'test' ][ 'status' ],
+                                                                                                               '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
+                                                                                                               summary[ 'build' ][ 'status' ],
+                                                                                                               summary[ 'doc' ][ 'status' ],
+                                                                                                               summary[ 'status' ] ) )
+      else:
+        gh.postPRComment( number, 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nOverall: {5}\n'.format(
+                                                                                                     summary[ 'lint' ][ 'status' ],
+                                                                                                     '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
+                                                                                                     summary[ 'test' ][ 'status' ],
+                                                                                                     '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
+                                                                                                     summary[ 'build' ][ 'status' ],
+                                                                                                     summary[ 'status' ] ) )
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod

@@ -260,19 +260,19 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     commit.test_results = commit.lint_results
     commit.build_results = {}
 
+    logging.info( 'Adding Package Build...' )
+
+    for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
+      try:
+        distro_list = make.packageDistros( tmp )
+      except MakeException as e:
+        logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
+        continue
+
+      if distro_list:
+        commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+
     if branch == 'master':
-      logging.info( 'Adding Package Build...' )
-
-      for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
-        try:
-          distro_list = make.packageDistros( tmp )
-        except MakeException as e:
-          logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
-          continue
-
-        if distro_list:
-          commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
-
       logging.info( 'Adding Doc Build...' )
       try:
         distro_list = make.docDistros()

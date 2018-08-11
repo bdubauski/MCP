@@ -68,6 +68,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True 
       try:
         item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit )
         commit.test_results[ distro ][ 'status' ] = 'building'
+
       except Exception as e:
         commit.test_results[ distro ][ 'status' ] = 'done'
         commit.test_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
@@ -82,11 +83,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True 
       logging.info( 'Test for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
       commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Test for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
-      commit.passed = False
       commit.postResults()
+
     else:
       slack.post_message( 'Test for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
-      commit.passed = True
 
   commit.full_clean()
   commit.save()
@@ -109,6 +109,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
         try:
           item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit )
           commit.build_results[ target ][ distro ][ 'status' ] = 'building'
+
         except Exception as e:
           commit.build_results[ target ][ distro ][ 'status' ] = 'done'
           commit.build_results[ target ][ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
@@ -123,11 +124,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
       logging.info( 'Build for "{0}" of "{1}" branch "{2}" Failed'.format( commit.commit, commit.project.name, commit.branch ) )
       commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Failed.'.format( commit.commit, commit.project.name, commit.branch ), slack.ERROR )
-      commit.built = False
       commit.postResults()
+
     else:
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.SUCCESS )
-      commit.built = True
 
   commit.full_clean()
   commit.save()
@@ -155,6 +155,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
       try:
         item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'doc', QUEUE_PRIORITY, commit )
         commit.doc_results[ distro ][ 'status' ] = 'building'
+
       except Exception as e:
         commit.doc_results[ distro ][ 'status' ] = 'done'
         commit.doc_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
@@ -168,6 +169,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
     if not success:
       logging.info( 'Doc for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
       slack.post_message( 'Doc for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
+
     else:
       slack.post_message( 'Doc for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
 
