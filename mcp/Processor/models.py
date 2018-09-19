@@ -19,6 +19,7 @@ cinp = CInP( 'Processor', '0.1' )
 
 
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
+INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built1', 'built', 'releasing', 'released1', 'released' )
 
 
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
@@ -84,7 +85,7 @@ class PromotionBuild( models.Model ):
     unique_together = ( 'promotion', 'build' )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ] )
 class QueueItem( models.Model ):
   """
 QueueItem
@@ -256,24 +257,30 @@ BuildJob
 
   @property
   def instance_summary( self ):
-    if self.target == 'test':
-      lint_map = self.commit.getResults( 'lint' )
-      test_map = self.commit.getResults( 'test' )
-      results_map = {}
-      for name in lint_map:
-        results_map[ name ] = 'lint:\n{0}\n\ntest:\n{1}'.format( lint_map[ name ] if lint_map[ name ] is not None else '', test_map[ name ] if test_map[ name ] is not None else '' )
+    if self.commit is not None:
+      if self.target == 'test':
+        lint_map = self.commit.getResults( 'lint' )
+        test_map = self.commit.getResults( 'test' )
+        results_map = {}
+        for name in lint_map:
+          results_map[ name ] = 'lint:\n{0}\n\ntest:\n{1}'.format( lint_map[ name ] if lint_map[ name ] is not None else '', test_map[ name ] if test_map[ name ] is not None else '' )
+
+      else:
+        results_map = self.commit.getResults( self.target )
+
+      score_map = self.commit.getScore( self.target )
 
     else:
-      results_map = self.commit.getResults( self.target )
-
-    score_map = self.commit.getScore( self.target )
+      results_map = {}
+      score_map = {}
 
     result = {}
     for instance in self.instance_set.all():
       item = {
                 'id': instance.pk,
                 'success': instance.success,
-                'status': instance.status
+                'state': instance.state,
+                'message': instance.message
               }
 
       try:
@@ -326,6 +333,44 @@ BuildJob
     self.full_clean()
     self.save()
 
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ] )
+  def getInstanceState( self, name=None ):
+    result = {}
+    if name is not None:
+      for instance in self.instance_set.all():
+        if instance.name != name:
+          continue
+
+        result[ instance.index ] = instance.state
+
+    else:
+      for instance in self.instance_set.all():
+        try:
+          result[ instance.name ][ instance.index ] = instance.state
+        except KeyError:
+          result[ instance.name ] = { instance.index: instance.state }
+
+    return result
+
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ] )
+  def getInstanceDetail( self, name=None ):
+    result = {}
+    if name is not None:
+      for instance in self.instance_set.all():
+        if instance.name != name:
+          continue
+
+        result[ instance.index ] = instance.getDetail()
+
+    else:
+      for instance in self.instance_set.all():
+        try:
+          result[ instance.name ][ instance.index ] = instance.getDetail()
+        except KeyError:
+          result[ instance.name ] = { instance.index: instance.getDetail() }
+
+    return result
+
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
@@ -361,7 +406,8 @@ class Instance( models.Model ):
   buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
   name = models.CharField( max_length=50, blank=True, null=True  )
   index = models.IntegerField( blank=True, null=True )
-  status = models.CharField( max_length=200, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released, and other random stuff from the job
+  state = models.CharField( max_length=9, default='allocated', choices=[ ( i, i ) for i in INSTANCE_STATE_LIST ] )
+  message = models.CharField( max_length=200, default='', blank=True )
   # results info
   success = models.BooleanField( default=False )
   package_files = StringListField( blank=True, null=True )
@@ -370,10 +416,6 @@ class Instance( models.Model ):
   # contractor specific
   foundation_id = models.CharField( max_length=100, blank=True, null=True )
   structure_id = models.CharField( max_length=100, blank=True, null=True )
-  foundation_built = models.BooleanField( default=False )
-  structure_built = models.BooleanField( default=False )
-  foundation_released = models.BooleanField( default=False )
-  structure_released = models.BooleanField( default=False )
 
   @property
   def config_values( self ):
@@ -408,8 +450,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.status = 'Built1'
-    self.foundation_built = True
+    self.state = 'built1'
     self.full_clean()
     self.save()
 
@@ -421,8 +462,7 @@ class Instance( models.Model ):
     if self.cookie != self.cookie:
       return
 
-    self.status = 'Built'
-    self.structure_built = True
+    self.state = 'built'
     self.full_clean()
     self.save()
 
@@ -434,8 +474,7 @@ class Instance( models.Model ):
     contractor = getContractor()
     contractor.deleteFoundation( self.foundation_id )
 
-    self.status = 'Released'
-    self.foundation_released = True
+    self.state = 'released'
     self.foundation_id = None
     self.full_clean()
     self.save()
@@ -449,18 +488,26 @@ class Instance( models.Model ):
     contractor.deleteStructure( self.structure_id )
     contractor.destroyFoundation( self.foundation_id )
 
-    self.status = 'Released1'
-    self.structure_released = True
+    self.state = 'released1'
     self.structure_id = None
     self.full_clean()
     self.save()
 
-  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
+  @cinp.action( paramater_type_list=[ 'String', 'String' ] )  # TODO: remove when old nullunit is flushed
   def setStatus( self, cookie, status ):
     if self.cookie != self.cookie:
       return
 
-    self.status = status[ -200: ]
+    self.message = status[ -200: ]
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
+  def setMessage( self, cookie, message ):
+    if self.cookie != self.cookie:
+      return
+
+    self.message = message[ -200: ]
     self.full_clean()
     self.save()
 
@@ -509,8 +556,15 @@ class Instance( models.Model ):
     self.full_clean()
     self.save()
 
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ]  )
+  def getValueMap( self, cookie ):
+    if self.cookie != self.cookie:
+      return
+
+    return self.buildjob.value_map
+
   @cinp.action( paramater_type_list=[ 'String', 'Map' ] )
-  def setValue( self, cookie, value_map ):
+  def updateValueMap( self, cookie, value_map ):
     if self.cookie != self.cookie:
       return
 
@@ -528,44 +582,30 @@ class Instance( models.Model ):
     return result
 
   def build( self ):
-    if self.status in ( 'Building', 'Built1', 'Built' ):
+    if self.state in ( 'building', 'built1', 'built' ):
       return
 
-    if self.built:
-      return
-
-    if self.status in ( 'Releaseing', 'Released1', 'Released' ):  # TODO: with the status being used by mis stuff, this needs to be re-thought
+    if self.state in ( 'releasing', 'released1', 'released' ):
       raise Exception( 'Can not build while released/releasing' )
 
     self.resource.subclass.build( self )
 
-    self.status = 'Building'
+    self.state = 'building'
     self.full_clean()
     self.save()
 
   def release( self ):
-    if self.status in ( 'Releaseing', 'Released1', 'Released' ):
+    if self.state in ( 'releasing', 'released1', 'released' ):
       return
 
-    if self.released:
-      return
-
-    if not self.built:
+    if self.state not in ( 'built', ):
       raise Exception( 'Can not release when not built' )
 
     self.resource.subclass.release( self )
 
-    self.status = 'Releaseing'
+    self.state = 'releasing'
     self.full_clean()
     self.save()
-
-  @property
-  def built( self ):
-    return self.foundation_built & self.structure_built
-
-  @property
-  def released( self ):
-    return self.foundation_released & self.structure_released
 
   @cinp.check_auth()
   @staticmethod

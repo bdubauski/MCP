@@ -344,7 +344,7 @@ function hashChange( event )
                   {
                     var instanceId = resources[ key ][ index ].id
                     var jobSuccess = resources[ key ][ index ].success
-                    var jobStatus = resources[ key ][ index ].status
+                    var jobStatus = resources[ key ][ index ].state
                     var jobResults = resources[ key ][ index ].results
                     jobEntry += '<a class="list-group-item" data-toggle="collapse" data-target="#job-' + instanceId + '" data-parent="#build-id-' + buildID + '"><ul class="list-inline">';
 

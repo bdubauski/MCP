@@ -199,7 +199,7 @@ class StaticResource( Resource ):
     try:
       profile = Profile.objects.get( pk=self.config_profile )
     except Profile.DoesNotExist:
-      raise Exception( 'Profile "{0}" not found'.format( self.config_profile ) )
+      raise ValueError( 'Profile "{0}" not found'.format( self.config_profile ) )
 
     config_list = Config.objects.all()
     config_list = config_list.filter( profile_id=settings.HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).order_by( 'pk' )
