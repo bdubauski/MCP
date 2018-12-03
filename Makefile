@@ -5,7 +5,6 @@ all:
 
 install:
 	mkdir -p $(DESTDIR)/var/www/mcp/ui
-	mkdir -p $(DESTDIR)/var/www/mcp/static
 	mkdir -p $(DESTDIR)/var/www/mcp/api
 	mkdir -p $(DESTDIR)/etc/apache2/sites-available
 	mkdir -p $(DESTDIR)/etc/mcp

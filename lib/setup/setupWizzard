@@ -27,7 +27,7 @@ else
   if [ "x$POSTGRES_LOCAL" != "xy" ] && [ "x$POSTGRES_HOST" == "x" ] ;
   then
     read -p "Postgres Hostname:" POSTGRES_HOST
-    echo "Create database \"packrat\", owned by \"packrat\" (password \"packrat\") on host \"$POSTGRES_HOST\"."
+    echo "Create database \"mcp\", owned by \"mcp\" (password \"mcp\") on host \"$POSTGRES_HOST\"."
     read -p "Press <enter> to continue"
   else
     POSTGRES_HOST="127.0.0.1"
@@ -35,7 +35,7 @@ else
 fi
 
 echo
-echo "-- Setting up packrat master --"
+echo "-- Setting up mcp master --"
 echo "Install Postgres: $POSTGRES_LOCAL"
 echo "Postgres Host: $POSTGRES_HOST"
 

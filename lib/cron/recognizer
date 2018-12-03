@@ -24,7 +24,6 @@ from mcp.Project.models import Commit
 from mcp.lib.Slack import Slack
 
 PID_FILE = '/var/run/recoginzer.pid'
-PID_FILE = '/opt/mcp/recoginzer.pid'
 
 QUEUE_PRIORITY = 100
 

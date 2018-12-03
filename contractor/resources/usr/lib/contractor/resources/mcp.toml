@@ -2,6 +2,14 @@
   description = 'MCP Base'
   config_values = { '>packages' = ' nullunit' }
 
+[ structure.mcp-vmware-esx ]
+  parents = [ 'vmware-esx-base', 'mcp-base' ]
+  description = 'VMWare ESX'
+
+[ structure.mcp-vmware-vca ]
+  parents = [ 'vmware-vca-base', 'mcp-base' ]
+  description = 'VMWare VCenter Appliance'
+
 [ structure.mcp-ubuntu-trusty ]
   parents = [ 'ubuntu-trusty-base', 'mcp-base' ]
   description = 'MCP Trusty'

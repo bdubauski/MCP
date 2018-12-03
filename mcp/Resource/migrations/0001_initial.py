@@ -42,6 +42,26 @@ def load_resources( app, schema_editor ):
       dr.full_clean()
       dr.save()
 
+  dr = DynamicResource( name='vmware-esx' )
+  dr.description = 'Vmware ESX'
+  dr.blueprint = 'mcp-vmware-esx'
+  # dr.complex = 'esx'
+  dr.complex = 'vca'
+  dr.site = site
+  dr.build_ahead_count = 0
+  dr.full_clean()
+  dr.save()
+
+  dr = DynamicResource( name='vmware-vca' )
+  dr.description = 'Vmware VCenter Appliance'
+  dr.blueprint = 'mcp-vmware-vca'
+  # dr.complex = 'esx'
+  dr.complex = 'vca'
+  dr.site = site
+  dr.build_ahead_count = 0
+  dr.full_clean()
+  dr.save()
+
 
 class Migration(migrations.Migration):
 

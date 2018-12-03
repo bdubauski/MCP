@@ -27,7 +27,6 @@ CLEANUP_DELAY = 0.2
 AUTO_ACKNOLEDGE_DELAY = 24.0
 
 PID_FILE = '/var/run/sark.pid'
-PID_FILE = '/opt/mcp/sark.pid'
 
 logging.basicConfig()
 logger = logging.getLogger()

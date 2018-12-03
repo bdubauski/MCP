@@ -30,7 +30,6 @@ from mcp.lib.Slack import Slack
 
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
-PID_FILE = '/opt/mcp/rinzler.pid'
 
 # when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-file', '*-builds', 'target'
 

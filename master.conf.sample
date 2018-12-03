@@ -74,8 +74,12 @@ WSGI_APPLICATION = 'mcp.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': '/opt/mcp/db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'mcp',
+        'USER': 'mcp',
+        'PASSWORD': 'mcp',
+        'HOST': '127.0.0.1',
+        'PORT': '',
     }
 }
 
