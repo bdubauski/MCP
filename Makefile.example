@@ -33,10 +33,11 @@
 #       safely be ignored
 
 # curently avliable distros:
-# precise (Ubuntu LTS 12.04)
-# trusty  (Ubuntu LTS 14.04)
-# xenial  (Ubuntu LTS 16.04)
-# centos6
+# ubuntu-trusty  (Ubuntu LTS 14.04)
+# ubuntu-xenial  (Ubuntu LTS 16.04)
+# ubuntu-bionic  (Ubuntu LTS 18.04)
+# centos-6
+# centos-7
 
 # at times it is nessacary to make decisions depending on the distro/distro version of the system
 # these macros are handy in getting that information
@@ -48,30 +49,35 @@ DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
 # real targets created on the file system.... Some targets such as dpkg, rpm, repkg, and resrouce
 # do produce something and it is acceptable to touch a file to prevent the make system from
 # building it again, be sure to have the clean target clean up any files touched so
-# other users can use your Makefile sanily
+# other users can use your Makefile sainly
+
+# If you would like MCP to tag the git repo with the version when all the stages on
+# the master branch
+version:
+	echo 1.0
 
 ### The Following targets are a part of the lint/test/packaging stages ###
 ## The Following targets are exected on the MCP server ##
 
 # This is exected to know what distro(s) to run the "test" target on
 test-distros:
-	echo trusty
+	echo ubuntu-trusty
 
 # This is exected to know what distro(s) to run the "dpkg" target on
 dpkg-distros:
-	echo trusty precise xenial
+	echo ubuntu-trusty ubuntu-precise ubuntu-xenial
 
 # This is exected to know what distro(s) to run the "rpm" target on
 rpm-distros:
-	echo centos6
+	echo centos-6
 
 # This is exected to know what distro(s) to run the "respkg" target on
 respkg-distros:
-	echo trusty
+	echo ubuntu-trusty
 
 # This is exected to know what distro(s) to run the "resource" target on
 resource-distros:
-	echo precise
+	echo ubuntu-precise
 
 ## The Following targets are executed on the target distro system ##
 
@@ -149,7 +155,7 @@ resource-setup:
 # once again with distro protection
 lint:
 ifeq (trusty, $(DISTRO_NAME))
-	linter -i platoclient/markupsafe -i platoclient/jinja2
+	linter
 endif
 
 # this is executed to do the unit testing
@@ -218,11 +224,11 @@ manual-builds:
 # <target>-depends is only called for auto-builds, this returns the packages and the
 # release level that this build gates
 <target>-depends:
-	echo msg-hbase:stage
-	echo msg-opentsdb:stage
-	echo bus-ma-bridge:stage
-	echo mlx-nsq:dev
-	echo mlx-router:dev
+	echo hbase:stage
+	echo opentsdb:stage
+	echo bus-bridge:stage
+	echo nsq:dev
+	echo router:dev
 
 # this target is execute to retireve the resources required by this build
 # the format is <Resource Name>:<Number of this Reqource>:<resource type required by this resource>
@@ -243,24 +249,24 @@ manual-builds:
 # nodes so they can communicate
 <target>-config:
 ifeq (nsq, $(RESOURCE_NAME))
-	echo mlx_nsqd_enable:1
+	echo nsqd_enable:1
 ifeq (0, $(RESOURCE_INDEX))
-	echo mlx_nsqlookupd_enable:1
-	echo mlx_nsqadmin_enable:1
+	echo nsqlookupd_enable:1
+	echo nsqadmin_enable:1
 endif
 endif
 ifeq (router-int, $(RESOURCE_NAME))
-	echo xml_router_udm_enable:1
+	echo xml_router_enable:1
 endif
 ifeq (router-ext, $(RESOURCE_NAME))
 	echo xml_router_enable:1
 endif
-	echo mlx_nsqd_nodes:'$(shell nullunitInterface -r nsq --primary-ip --json)'
-	echo mlx_nsqlookupd_hosts:[ \"$(shell nullunitInterface -r nsq -i 0 -c 1 --primary-ip)\" ]
-	echo mlx_bridge_nsqlookups:[ \"$(shell nullunitInterface -r nsq -i 0 -c 1 --primary-ip)\" ]
-	echo mlx_bridge_ma_topic:udm
-	echo mlx_bridge_ma_chanel:ma
-	echo mlx_bridge_ma_tsd_nodes:[ \"$(shell nullunitInterface -r tsdb -i 0 -c 1 --primary-ip)\" ]
+	echo nsqd_nodes:'$(shell nullunitInterface -r nsq --primary-ip --json)'
+	echo nsqlookupd_hosts:[ \"$(shell nullunitInterface -r nsq -i 0 -c 1 --primary-ip)\" ]
+	echo bridge_nsqlookups:[ \"$(shell nullunitInterface -r nsq -i 0 -c 1 --primary-ip)\" ]
+	echo bridge_ma_topic:udm
+	echo bridge_ma_chanel:ma
+	echo bridge_ma_tsd_nodes:[ \"$(shell nullunitInterface -r tsdb -i 0 -c 1 --primary-ip)\" ]
 	echo router_internal:$(shell nullunitInterface -r router-int -i 0 -c 1 --primary-ip)
 	echo router_external:$(shell nullunitInterface -r router-ext -i 0 -c 1 --primary-ip)
 
@@ -268,15 +274,15 @@ endif
 # been pushed into plato, so the packages can auto configure when installed
 <target>-requires:
 ifeq (tsdb, $(RESOURCE_NAME))
-	echo msg-hbase msg-opentsdb gnuplot
+	echo hbase opentsdb gnuplot
 else ifeq (nsq, $(RESOURCE_NAME))
-	echo mlx-nsq
+	echo nsq
 else ifeq (bridge, $(RESOURCE_NAME))
 	echo bus-ma-bridge
 else ifeq (router-int, $(RESOURCE_NAME))
-	echo mlx-router
+	echo router
 else ifeq (router-ext, $(RESOURCE_NAME))
-	echo mlx-router
+	echo router
 else ifeq (client, $(RESOURCE_NAME))
 	echo curl wget
 endif

@@ -41,6 +41,21 @@ class Makefile():
 
     return result
 
+  def lint( self ):
+    try:
+      self._execute( '-n' )
+    except MakeException:
+      return False
+
+    return True
+
+  def version( self ):
+    tmp = self._execute( 'version' )
+    if not tmp:
+      return None
+    else:
+      return tmp[0]
+
   def autoBuilds( self ):
     return self._execute( 'auto-builds' )
 

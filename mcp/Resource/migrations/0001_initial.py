@@ -27,7 +27,7 @@ def load_resources( app, schema_editor ):
   site = Site.objects.get( name='mlxlab' )
 
   for size in ( 'small', 'medium' ):
-    for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6' ):
+    for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7' ):
       dr = DynamicResource( name='{0}-{1}'.format( name, size ) )
       dr.description = '{0} of {1}'.format( name.capitalize(), size.capitalize() )
       dr.blueprint = 'mcp-{0}'.format( name )

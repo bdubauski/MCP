@@ -1,4 +1,5 @@
 import re
+import os
 import difflib
 
 from django.db import models
@@ -8,6 +9,7 @@ from django.conf import settings
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.fields import MapField, name_regex
+from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
 
@@ -118,6 +120,29 @@ def _markdownResults( valueCur, valuePrev=None ):
   return result
 
 
+def _commitSumary2Str( summary ):
+  if not summary:
+    return '**Nothing To Do**'
+
+  if 'doc' in summary:
+    return 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nDoc: {5}\nOverall: {6}\n'.format(
+                                                                                         summary[ 'lint' ][ 'status' ],
+                                                                                         '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
+                                                                                         summary[ 'test' ][ 'status' ],
+                                                                                         '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
+                                                                                         summary[ 'build' ][ 'status' ],
+                                                                                         summary[ 'doc' ][ 'status' ],
+                                                                                         summary[ 'status' ] )
+  else:
+    return 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nOverall: {5}\n'.format(
+                                                                               summary[ 'lint' ][ 'status' ],
+                                                                               '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
+                                                                               summary[ 'test' ][ 'status' ],
+                                                                               '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
+                                                                               summary[ 'build' ][ 'status' ],
+                                                                               summary[ 'status' ] )
+
+
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ] )
 class Project( models.Model ):
   """
@@ -144,6 +169,10 @@ This is a Generic Project
       pass
 
     return 'Project'
+
+  @property
+  def git( self ):
+    return Git( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
 
   @property
   def org( self ):
@@ -373,6 +402,7 @@ A Single Commit of a Project
   owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
+  version = models.CharField( max_length=50, blank=True, null=True )
   lint_results = MapField( blank=True )
   test_results = MapField( blank=True )
   build_results = MapField( blank=True )
@@ -437,7 +467,10 @@ A Single Commit of a Project
     success = True
     for ( name, value ) in self.test_results.items():
       if value.get( 'score', None ) is not None:
-        score_list.append( value[ 'score' ]  )
+        try:
+          score_list.append( float( value[ 'score' ] ) )
+        except ValueError:
+          score_list.append( 0.0 )
 
       complete &= value.get( 'status', '' ) == 'done'
       success &= value.get( 'success', False )
@@ -668,9 +701,6 @@ A Single Commit of a Project
     if self.branch.startswith( '_PR' ):
       summary = self.summary
 
-      if not summary:
-        summary = '**Nothing To Do**'
-
       if summary[ 'status' ] == 'Success':
         gh.postCommitStatus( self.commit, 'success', description='Passed' )
       elif summary[ 'status' ] == 'Failed':
@@ -681,23 +711,13 @@ A Single Commit of a Project
       gh.setOwner()
 
       number = int( self.branch[3:] )
-      if 'doc' in summary:
-        gh.postPRComment( number, 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nDoc: {5}\nOverall: {6}\n'.format(
-                                                                                                               summary[ 'lint' ][ 'status' ],
-                                                                                                               '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
-                                                                                                               summary[ 'test' ][ 'status' ],
-                                                                                                               '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
-                                                                                                               summary[ 'build' ][ 'status' ],
-                                                                                                               summary[ 'doc' ][ 'status' ],
-                                                                                                               summary[ 'status' ] ) )
-      else:
-        gh.postPRComment( number, 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nOverall: {5}\n'.format(
-                                                                                                     summary[ 'lint' ][ 'status' ],
-                                                                                                     '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
-                                                                                                     summary[ 'test' ][ 'status' ],
-                                                                                                     '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
-                                                                                                     summary[ 'build' ][ 'status' ],
-                                                                                                     summary[ 'status' ] ) )
+      gh.postPRComment( number, _commitSumary2Str( self.summary ) )
+
+  def tagVersion( self ):
+    if self.version is None:
+      return
+
+    self.project.git.tag( self.version, _commitSumary2Str( self.summary ) )
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
@@ -791,7 +811,7 @@ class BuildDependancy( models.Model ):
       raise ValidationError( errors )
 
   def __str__( self ):
-    return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.state )
+    return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.from_state )
 
   class Meta:
     unique_together = ( 'build', 'package' )

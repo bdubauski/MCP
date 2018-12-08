@@ -37,7 +37,19 @@ class Git():
 
     return result
 
-  def setup( self, url, parent_path ):
+  def setup( self, url ):
+    parent_path = '/'.join( self.dir.split( '/' )[ :-1 ] )
+
+    try:
+      os.makedirs( parent_path )
+
+    except OSError as e:
+      if e.errno == 17:  # allready exists
+        pass
+
+      else:
+        raise e
+
     self._execute( [ 'clone', '--bare', url ], cwd=parent_path )
     self._execute( [ 'update-server-info' ] )
     os.rename( '{0}/hooks/post-update.sample'.format( self.dir ), '{0}/hooks/post-update'.format( self.dir ) )
@@ -67,6 +79,10 @@ class Git():
       result[ ref[11:] ] = ref_hash
 
     return result
+
+  def tag( self, version, comment ):
+    self._execute( [ 'tag', '-a', version, '-m', comment ] )
+    self._execute( [ 'push', 'origin', version ] )
 
   def checkout( self, work_dir, branch ):
     if os.path.exists( work_dir ):

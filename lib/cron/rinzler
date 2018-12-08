@@ -25,7 +25,6 @@ from django.db.models import ProtectedError
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile, MakeException
-from mcp.lib.Git import Git
 from mcp.lib.Slack import Slack
 
 WORK_DIR = '/tmp/rinzler'
@@ -156,28 +155,16 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
   if not project.local_path:
     project.local_path = '{0}/{1}'.format( project.pk, os.path.basename( url ) )
-    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
-    parent_path = '/'.join( path.split( '/' )[ :-1 ] )
-    logging.debug( 'Creating "{0}" for "{1}"...'.format( parent_path, project.name ) )
-    try:
-      os.makedirs( parent_path )
+    logging.debug( 'Creating "{0}" in "{1}"...'.format( project.name, project.local_path ) )
 
-    except OSError as e:
-      if e.errno == 17:  # allready exists
-        pass
-
-      else:
-        raise e
-
-    git = Git( path )
-    git.setup( url, parent_path )
+    git = project.git
+    git.setup( url )  # make sure we can chyeck things out before saving the path
     project.full_clean()
     project.save()
 
   else:
-    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
-    logging.debug( 'Updating "{0}" for "{1}"...'.format( path, project.name ) )
-    git = Git( path )
+    logging.debug( 'Updating "{0}"...'.format( project.name ) )
+    git = project.git
 
   git.update()
 
@@ -241,11 +228,22 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     git.checkout( WORK_DIR, branch )
 
     make = Makefile( glob.glob( '{0}/*'.format( WORK_DIR ) )[0] )
+    if not make.lint():
+      logging.error( 'Makefile does not lint, igmorning commit.' )
+      continue
+
+    try:
+      version = make.version()
+    except MakeException as e:
+      logging.error( 'Error Retreiving Version Makefile "{0}", ignorning commit.'.format( e ) )
+      continue
 
     commit = Commit()
     commit.project = project
     commit.branch = branch
     commit.commit = branch_map[ branch ]
+    commit.version = version
+
     if owner is not None:
       commit.owner_override = owner
 
@@ -275,7 +273,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       logging.info( 'Adding Doc Build...' )
       try:
         distro_list = make.docDistros()
-      except MakeException as e:
+      except MakeException:
         distro_list = []
 
       commit.doc_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )

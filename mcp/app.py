@@ -19,7 +19,7 @@ def contractorInfo():
 
 
 def get_app( debug ):
-  app = WerkzeugServer( root_path='/api/v1/', root_version='0.9', debug=debug, get_user=getUser, cors_allow_list=[ '*' ] )
+  app = WerkzeugServer( root_path='/api/v1/', root_version='0.10', debug=debug, get_user=getUser, cors_allow_list=[ '*' ] )
 
   config = Model( name='config', field_list=[], transaction_class=BlankTransaction )
   config.checkAuth = lambda user, verb, id_list: True

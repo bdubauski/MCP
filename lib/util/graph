@@ -28,6 +28,6 @@ for package in Package.objects.all().order_by( 'name' ):
   print( 'PKG_{0} [shape="tab"][label="{1}"]'.format( package.name.replace( '-', '_' ), package.name ) )
 
 for builddep in BuildDependancy.objects.all():
-  print( 'PKG_{0} -- BLD_{1}_{2} [label="{3}"][color=red]'.format( builddep.package.name.replace( '-', '_' ), builddep.build.name.replace( '-', '_' ), builddep.build.project.name.replace( '-', '_' ), builddep.state ) )
+  print( 'PKG_{0} -- BLD_{1}_{2} [label="{3}"][color=red]'.format( builddep.package.name.replace( '-', '_' ), builddep.build.name.replace( '-', '_' ), builddep.build.project.name.replace( '-', '_' ), builddep.from_state ) )
 
 print( '}' )
