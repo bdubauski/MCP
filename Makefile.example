@@ -65,7 +65,7 @@ test-distros:
 
 # This is exected to know what distro(s) to run the "dpkg" target on
 dpkg-distros:
-	echo ubuntu-trusty ubuntu-precise ubuntu-xenial
+	echo ubuntu-trusty ubuntu-xenial
 
 # This is exected to know what distro(s) to run the "rpm" target on
 rpm-distros:
@@ -77,7 +77,7 @@ respkg-distros:
 
 # This is exected to know what distro(s) to run the "resource" target on
 resource-distros:
-	echo ubuntu-precise
+	echo ubuntu-trusty
 
 ## The Following targets are executed on the target distro system ##
 
@@ -85,9 +85,7 @@ resource-distros:
 # in this case we are only linting on trusty, so we put in some logic to protect us against
 # linting on the wrong distro, and just ignore the wrong distro
 lint-requires:
-ifeq (trusty, $(DISTRO_NAME))
-	echo linter
-endif
+	echo python3-flake8
 
 # This is exected to know what package dependancies should be installed prior to the "test" target
 # in this case the package name has changed distro to distro, so we detect and return the corect name
@@ -154,9 +152,7 @@ resource-setup:
 # if the return code is non-sero the test is considered a failure
 # once again with distro protection
 lint:
-ifeq (trusty, $(DISTRO_NAME))
-	linter
-endif
+	flake8
 
 # this is executed to do the unit testing
 # if the return code is non-zero the test is considered a failure
