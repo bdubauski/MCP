@@ -87,7 +87,7 @@ class GitHub():
       return
 
     try:
-      commit.create_status( state, target_url, description )
+      commit.create_status( state, target_url, description, 'MCP Tests' )
     except UnknownObjectException:
       logging.warning( 'Unable to set status on commit "{0}" of "{1}" in "{2}", check permissions'.format( commit_hash, self.repo, self.org ) )
 

@@ -81,7 +81,11 @@ class Git():
     return result
 
   def tag( self, version, comment ):
-    self._execute( [ 'tag', '-a', version, '-m', comment ] )
+    try:
+      self._execute( [ 'tag', '-a', version, '-m', comment ] )
+    except Exception:
+      return
+
     self._execute( [ 'push', 'origin', version ] )
 
   def checkout( self, work_dir, branch ):
