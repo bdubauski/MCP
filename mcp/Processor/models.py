@@ -209,6 +209,7 @@ BuildJob
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
+  build_name = models.CharField( max_length=50 )
   value_map = MapField( default={}, blank=True )  # for the job to store work values
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -434,6 +435,7 @@ class Instance( models.Model ):
       result.update( {
                        'mcp_job_id': self.buildjob.pk,
                        'mcp_instance_id': self.pk,
+                       'mcp_build_name': self.buildjob.build_name,
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
@@ -445,7 +447,7 @@ class Instance( models.Model ):
 
     return result
 
-  @cinp.action( paramater_type_list=[ 'String' ] )
+  @cinp.action( paramater_type_list=[ 'String' ] )   # TODO: do we need all this complicated callback stuff now that we can create both jobs from the start?, and for that metter the end?
   def foundationBuild( self, cookie ):  # called from webhook
     if self.cookie != self.cookie:
       return
@@ -490,15 +492,6 @@ class Instance( models.Model ):
 
     self.state = 'released1'
     self.structure_id = None
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'String' ] )  # TODO: remove when old nullunit is flushed
-  def setStatus( self, cookie, status ):
-    if self.cookie != self.cookie:
-      return
-
-    self.message = status[ -200: ]
     self.full_clean()
     self.save()
 

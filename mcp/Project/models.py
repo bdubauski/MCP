@@ -150,6 +150,7 @@ This is a Generic Project
   """
   name = models.CharField( max_length=50, primary_key=True )
   local_path = models.CharField( max_length=150, null=True, blank=True, editable=False )
+  build_counter = models.IntegerField( default=0 )
   last_checked = models.DateTimeField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )

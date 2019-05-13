@@ -108,13 +108,6 @@ class Migration(migrations.Migration):
             ],
             bases=('Resource.resource',),
         ),
-        migrations.CreateModel(
-            name='StaticResource',
-            fields=[
-                ('resource_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='Resource.Resource')),
-            ],
-            bases=('Resource.resource',),
-        ),
         migrations.AddField(
             model_name='resource',
             name='site',

@@ -189,6 +189,9 @@ resource:
 # these 4 targets return the filename of the package that was just built, this file
 # is then checked to see if the filename is allready in use on packrat, if not the file
 # is uploaded
+# filename format is <path>[;distro version:type]
+# if type is not specified pactrat will attempt to auto-detect it
+# if distroversion is not specified, packrat will return an error if there is more than one distro version option available
 dpkg-file:
 	echo $(shell ls ../nullunit_*.deb)
 

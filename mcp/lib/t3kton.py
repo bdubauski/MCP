@@ -42,7 +42,6 @@ class Contractor():
     data[ 'hostname' ] = hostname
     data[ 'blueprint' ] = '/api/v1/BluePrint/StructureBluePrint:{0}:'.format( blueprint_id )
     data[ 'config_values' ] = config_values
-    data[ 'auto_build' ] = False
     structure = self.cinp.create( '/api/v1/Building/Structure', data )[0]
 
     data = {}

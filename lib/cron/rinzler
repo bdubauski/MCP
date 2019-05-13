@@ -221,6 +221,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     if owner is not None:
       logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}" owned by "{3}"...'.format( branch_map[ branch ], branch, project.name, owner ) )
       slack.post_message( 'New Commit "{0}" on Branch "{1}"({2}) of Project "{3}".'.format( branch_map[ branch ], branch, owner, project.name ), slack.INFO )
+
     else:
       logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}"...'.format( branch_map[ branch ], branch, project.name ) )
       slack.post_message( 'New Commit "{0}" on Branch "{1}" of Project "{2}".'.format( branch_map[ branch ], branch, project.name ), slack.INFO )
@@ -237,6 +238,11 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     except MakeException as e:
       logging.error( 'Error Retreiving Version Makefile "{0}", ignorning commit.'.format( e ) )
       continue
+
+    if branch == 'master':
+      project.build_counter += 1
+      project.full_clean()
+      project.save()
 
     commit = Commit()
     commit.project = project

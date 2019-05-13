@@ -29,6 +29,8 @@ clean:
 	./setup.py clean
 	$(RM) -r build
 	$(RM) dpkg
+	$(RM) respkg
+	$(RM) -r htmlcov
 	dh_clean || true
 
 dist-clean: clean

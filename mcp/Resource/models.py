@@ -1,6 +1,5 @@
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import models
-from django.conf import settings
 from django.apps import apps
 
 from cinp.orm_django import DjangoCInP as CInP
@@ -61,11 +60,6 @@ Resource
   def subclass( self ):
     try:
       return self.dynamicresource
-    except ObjectDoesNotExist:
-      pass
-
-    try:
-      return self.staticresource
     except ObjectDoesNotExist:
       pass
 
@@ -184,46 +178,6 @@ class DynamicResource( Resource ):
 
   def __str__( self ):
     return 'Dynmaic Resource "{0}"'.format( self.description )
-
-
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class StaticResource( Resource ):
-
-  def available( self, quantity ):
-    return Config.objects.filter( profile_id=settings.HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).count() >= quantity
-
-  def allocate( self, job, name, quantity, network ):
-    if network != self.network:
-      raise ValueError( 'target network not attached to static resource network' )
-
-    try:
-      profile = Profile.objects.get( pk=self.config_profile )
-    except Profile.DoesNotExist:
-      raise ValueError( 'Profile "{0}" not found'.format( self.config_profile ) )
-
-    config_list = Config.objects.all()
-    config_list = config_list.filter( profile_id=settings.HARDWARE_PROFILE, hardware_profile_id=self.hardware_template, configured__isnull=True, configjob=None ).order_by( 'pk' )
-    config_list = list( config_list )
-
-    results = []
-    for index in range( 0, quantity ):
-      config = config_list.pop( 0 )
-      config.profile = profile
-      config.hostname = 'mcp-auto--{0}-{1}-{2}'.format( job.pk, name, index )
-      config.full_clean()
-      config.save()
-      results.append( config.pk )
-      submitConfigureJob( config )
-
-    return results
-
-  @cinp.check_auth()
-  @staticmethod
-  def checkAuth( user, verb, id_list, action=None ):
-    return True
-
-  def __str__( self ):
-    return 'Static Resource "{0}"'.format( self.description )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )

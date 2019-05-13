@@ -28,6 +28,8 @@ QUEUE_PRIORITY = 100
 PACKAGE_PROMOTION_START = 'dev'  # what 'new' becomes to start things off
 PACKAGE_PROMOTION_STAGES = { 'dev': 'intgr', 'intgr': 'stage' }
 
+raise Exception( 'this still needs to be done' )
+
 logging.basicConfig()
 logger = logging.getLogger()
 handler = SysLogHandler( address='/dev/log', facility=SysLogHandler.LOG_DAEMON )
@@ -54,7 +56,7 @@ packrat = Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKR
 
 slack = Slack( 'tron', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
-uri_release_map = packrat.release_map()
+uri_release_map = packrat.tag_map()
 release_uri_map = {}
 for uri in uri_release_map:
   release_uri_map[ uri_release_map[ uri ] ] = uri

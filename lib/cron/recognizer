@@ -180,7 +180,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
   if commit.branch == 'master':  # tag version on master
     commit.tagVersion()
 
-  slack.post_message( 'Commit "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.DONE )
+  slack.post_message( 'Commit "{0}" of "{1}", branch "{2}", build "{3}" Finished.'.format( commit.commit, commit.project.name, commit.branch, commit.build ), slack.DONE )
   commit.done_at = datetime.now( timezone.utc )
   commit.postResults()
   commit.full_clean()
