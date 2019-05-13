@@ -48,7 +48,7 @@ if options.build:
     print( 'Build "{0}" for project "{1}" not Found'.format( options.build, options.project ) )
     sys.exit( 1 )
 
-  item = QueueItem.inQueueBuild( build, options.branch, options.manual, options.priority )
+  item = QueueItem.inQueueBuild( build, options.branch, options.manual, options.priority, '*CLI*' )
 
 elif options.target:
   if not options.distro or not options.project:
@@ -61,7 +61,7 @@ elif options.target:
     print( 'Project "{0}" not found'.format( options.project ) )
     sys.exit( 1 )
 
-  item = QueueItem.inQueueTarget( project, options.branch, options.manual, options.distro, options.target, options.priority )
+  item = QueueItem.inQueueTarget( project, options.branch, options.manual, options.distro, options.target, options.priority, '*CLI*' )
 
 else:
   oparser.print_help()

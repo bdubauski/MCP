@@ -12,7 +12,6 @@ from mcp.fields import MapField, StringListField
 
 from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH
 from mcp.Resource.models import Resource, NetworkResource
-from mcp.User.models import User
 
 
 cinp = CInP( 'Processor', '0.1' )
@@ -96,7 +95,7 @@ QueueItem
   target = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 )  # higher the value, higer the priority
   manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
-  user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
+  user = models.CharField( max_length=150 )
   resource_status_map = MapField( blank=True )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
@@ -136,8 +135,9 @@ QueueItem
       resource.allocate( job, name, quanity, target_network )
 
   @staticmethod
-  def inQueueBuild( build, branch, manual, priority, promotion=None ):
+  def inQueueBuild( build, branch, manual, priority, user, promotion=None ):
     item = QueueItem()
+    item.user = user
     item.build = build
     item.manual = manual
     item.project = build.project
@@ -151,13 +151,14 @@ QueueItem
     return item
 
   @staticmethod
-  def inQueueTarget( project, branch, manual, distro, target, priority, commit=None ):
+  def inQueueTarget( project, branch, manual, distro, target, priority, user, commit=None ):
     try:
       build = Build.objects.get( project_id='_builtin_', name=distro )
     except Build.DoesNotExist:
       raise Exception( 'distro "{0}" not set up'.format( distro ) )
 
     item = QueueItem()
+    item.user = user
     item.build = build
     item.manual = manual
     item.project = project
@@ -176,7 +177,7 @@ QueueItem
     # if not user.has_perm( 'Processor.can_build' ):
     #   raise PermissionDenied()
 
-    item = QueueItem.inQueueBuild( build, 'master', True, 100 )
+    item = QueueItem.inQueueBuild( build, 'master', True, 100, user.username )
     return item.pk
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
@@ -217,7 +218,7 @@ BuildJob
   acknowledged_at = models.DateTimeField( editable=False, blank=True, null=True )
   released_at = models.DateTimeField( editable=False, blank=True, null=True )
   manual = models.BooleanField()
-  user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
+  user = models.CharField( max_length=150 )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )

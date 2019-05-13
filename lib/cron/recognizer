@@ -65,7 +65,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True 
     if not commit.test_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Test job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit )
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit, '*AUTO*' )
         commit.test_results[ distro ][ 'status' ] = 'building'
 
       except Exception as e:
@@ -106,7 +106,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
       if not commit.build_results[ target ][ distro ].get( 'status', None ):
         logging.info( 'Queuing up "{0}" job for "{1}", branch "{2}", distro "{3}"'.format( target, commit.project.name, commit.branch, distro ) )
         try:
-          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit )
+          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit, '*AUTO*' )
           commit.build_results[ target ][ distro ][ 'status' ] = 'building'
 
         except Exception as e:
@@ -152,7 +152,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
     if not commit.doc_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Doc job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'doc', QUEUE_PRIORITY, commit )
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'doc', QUEUE_PRIORITY, commit, '*AUTO*' )
         commit.doc_results[ distro ][ 'status' ] = 'building'
 
       except Exception as e:

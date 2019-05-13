@@ -1,6 +1,7 @@
 import re
 import os
 import difflib
+from datetime import datetime
 
 from django.db import models
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
@@ -143,7 +144,7 @@ def _commitSumary2Str( summary ):
                                                                                summary[ 'status' ] )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class Project( models.Model ):
   """
 This is a Generic Project
@@ -151,7 +152,7 @@ This is a Generic Project
   name = models.CharField( max_length=50, primary_key=True )
   local_path = models.CharField( max_length=150, null=True, blank=True, editable=False )
   build_counter = models.IntegerField( default=0 )
-  last_checked = models.DateTimeField()
+  last_checked = models.DateTimeField( default=datetime.min )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -285,7 +286,7 @@ This is a Generic Project
     return 'Project "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CALL' ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class GitProject( Project ):
   """
 This is a Git Project
@@ -301,7 +302,7 @@ This is a Git Project
     return 'Git Project "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CALL' ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class GitHubProject( Project ):
   """
 This is a GitHub Project

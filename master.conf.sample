@@ -34,38 +34,25 @@ SECRET_KEY = 'w4hhv%e7yq8(-$u8w3e2w5_^4q749(*mb-#-j!1ms*w9s5f@x='
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-TEMPLATE_DEBUG = True
-
-TEMPLATE_DIRS = (
-)
-
 MCP_HOST = 'http://mcp'
 MCP_PROXY = None
 
 # Application definition
 
 INSTALLED_APPS = (
-    'mcp.Processor',
     'mcp.Project',
     'mcp.Resource',
-    'mcp.User',
+    'mcp.Processor',
+    'mcp.Auth',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
-    'django.contrib.messages'
 )
 
 MIDDLEWARE_CLASSES = (
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
 
-ROOT_URLCONF = 'mcp.urls'
+ROOT_URLCONF = ''
 
 WSGI_APPLICATION = 'mcp.wsgi.application'
 

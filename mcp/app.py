@@ -3,7 +3,7 @@ from django.conf import settings
 from cinp.server_werkzeug import WerkzeugServer
 from cinp.server_common import Model, Action, Paramater
 
-from mcp.User.models import getUser
+from mcp.Auth.models import getUser
 
 
 class BlankTransaction():
@@ -29,7 +29,7 @@ def get_app( debug ):
   info.checkAuth = lambda user, verb, id_list: True
   config.addAction( info )
 
-  app.registerNamespace( '/', 'mcp.User' )
+  app.registerNamespace( '/', 'mcp.Auth' )
   app.registerNamespace( '/', 'mcp.Resource' )
   app.registerNamespace( '/', 'mcp.Project' )
   app.registerNamespace( '/', 'mcp.Processor' )
