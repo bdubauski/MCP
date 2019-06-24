@@ -39,14 +39,31 @@
 # centos-6
 # centos-7
 
-# at times it is nessacary to make decisions depending on the distro/distro version of the system
+# the environment var 'NULLUNIT' is set to 1 for the following targets, this the Makefile
+# can detect if it is being run my nullunit
+# <target>-requires
+# <target>-setup
+# <target>
+
+# in addition to 'NULLUNIT', an environment var 'BUILD_NAME' is set to the build name
+# for these targets.  The build name is a monotonically increasing number for builds on
+# the master branch, otherwise the build name is <counter>-<branch name>
+# <target>-setup
+# <target>
+
+# for non-packaging targets, 'RESOURCE_NAME' is set to the name of the resource group of
+# the build and 'RESOURCE_INDEX' is set to the index inside that resource group
+# <target>-setup
+# <target>
+
+# at times it is necessary to make decisions depending on the distro/distro version of the system
 # these macros are handy in getting that information
 DISTRO := $(shell lsb_release -si | tr A-Z a-z)
 DISTRO_MAJOR_VERSION := $(shell lsb_release -sr | cut -d. -f1)
 DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
 
 # most of these targets will need to be listed in the .PHONY, as they do not have any
-# real targets created on the file system.... Some targets such as dpkg, rpm, repkg, and resrouce
+# real targets created on the file system.... Some targets such as dpkg, rpm, repkg, and resource
 # do produce something and it is acceptable to touch a file to prevent the make system from
 # building it again, be sure to have the clean target clean up any files touched so
 # other users can use your Makefile sainly
@@ -189,7 +206,7 @@ resource:
 # these 4 targets return the filename of the package that was just built, this file
 # is then checked to see if the filename is allready in use on packrat, if not the file
 # is uploaded
-# filename format is <path>[;distro version:type]
+# filename format is <path>[:distro version[:type]]
 # if type is not specified pactrat will attempt to auto-detect it
 # if distroversion is not specified, packrat will return an error if there is more than one distro version option available
 dpkg-file:

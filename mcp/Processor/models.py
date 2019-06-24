@@ -425,8 +425,8 @@ class Instance( models.Model ):
                'mcp_host': settings.MCP_HOST,
                'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
                'packrat_host': 'http://packrat',
-               'packrat_builder_name': 'mcp',
-               'packrat_builder_psk': 'mcp',
+               'packrat_builder_name': 'nullunit',
+               'packrat_builder_password': 'nullunit',
                'confluence_host': 'http://confluence',
                'confluence_username': 'mcp',
                'confluence_password': 'mcp'
@@ -450,7 +450,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String' ] )   # TODO: do we need all this complicated callback stuff now that we can create both jobs from the start?, and for that metter the end?
   def foundationBuild( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.state = 'built1'
@@ -462,7 +462,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def structureBuild( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.state = 'built'
@@ -471,7 +471,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def foundationDestroyed( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     contractor = getContractor()
@@ -484,7 +484,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def structureDestroyed( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     contractor = getContractor()
@@ -498,7 +498,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String', 'String' ] )
   def setMessage( self, cookie, message ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.message = message[ -200: ]
@@ -506,15 +506,15 @@ class Instance( models.Model ):
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String' ] )
-  def jobRan( self, user ):
-    if self.cookie != self.cookie:
+  def jobRan( self, cookie ):
+    if self.cookie != cookie:
       return
 
     self.buildjob._jobRan()
 
   @cinp.action( paramater_type_list=[ 'String', 'Boolean' ] )
   def setSuccess( self, cookie, success ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.success = success
@@ -523,7 +523,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String', 'String', 'String' ] )
   def setResults( self, cookie, target, results ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     if target != self.buildjob.target and not ( self.buildjob.target == 'test' and target in ( 'test', 'lint' ) ):
@@ -533,7 +533,7 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String', 'String', 'Float' ] )
   def setScore( self, cookie, target, score ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     if self.buildjob.target != 'test' or target not in ( 'test', 'lint' ):
@@ -543,7 +543,7 @@ class Instance( models.Model ):
 
   @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'String', 'is_array': True } ] )
   def addPackageFiles( self, cookie, package_files ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.package_files = package_files
@@ -552,14 +552,14 @@ class Instance( models.Model ):
 
   @cinp.action( return_type='Map', paramater_type_list=[ 'String' ]  )
   def getValueMap( self, cookie ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     return self.buildjob.value_map
 
   @cinp.action( paramater_type_list=[ 'String', 'Map' ] )
   def updateValueMap( self, cookie, value_map ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.buildjob.value_map.update( value_map )

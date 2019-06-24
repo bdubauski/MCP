@@ -671,8 +671,8 @@ A Single Commit of a Project
       return
 
     gh = self.project.githubproject.github
-    if self.owner_override:
-      gh.setOwner( self.owner_override )
+    # if self.owner_override:
+    #   gh.setOwner( self.owner_override )
     gh.postCommitStatus( self.commit, 'pending' )
     gh.setOwner()
 
@@ -681,8 +681,8 @@ A Single Commit of a Project
       return
 
     gh = self.project.githubproject.github
-    if self.owner_override:
-      gh.setOwner( self.owner_override )
+    # if self.owner_override:
+    #   gh.setOwner( self.owner_override )
 
     comment = self.results
 

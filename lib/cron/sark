@@ -89,7 +89,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     if item.branch == 'master':
       job.build_name = str( item.project.build_counter )
     else:
-      job.build_name = '{0}-{1}'.format( item.project.build_counte, item.branch )
+      job.build_name = '{0}-{1}'.format( item.project.build_counter, item.branch )
     job.target = item.target
     job.commit = item.commit
     job.promotion = item.promotion
