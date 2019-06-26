@@ -123,7 +123,7 @@ Future thoughts and todos:
 --------------------------
 
 monitor for changes on devel branch, auto merge to master after full test suite has passed, make commite message wih the results, incrament the build number in the changelog on the devel branch after merging to master
-  No.... not going to mess with merging, only going to build off of master, should do some kind of test to make sure the version incramented, otherwise packrat won't take the new files
+  No.... not going to mess with merging, only going to build off of master, should do some kind of test to make sure the version incremented, otherwise packrat won't take the new files
 
 set git tag when packages are built
 
