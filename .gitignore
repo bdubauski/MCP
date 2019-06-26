@@ -1,9 +1,17 @@
+__pycache__
 *.pyc
+/build
+dpkg
+
+respkg
 *.respkg
+
 *.egg-info
+htmlcov
+.coverage
+.cache
 
 www/static/*
 
-build
-dpkg
-respkg
+
+mcp/settings.py

@@ -47,7 +47,7 @@ lint:
 	flake8 --ignore=E501,E201,E202,E111,E126,E114,E402,W605 --statistics .
 
 test:
-	py.test-3 nullunit --cov=mcp --cov-report html --cov-report term
+	py.test-3 mcp --cov=mcp --cov-report html --cov-report term
 
 .PHONY:: test-distros test-requires lint test
 

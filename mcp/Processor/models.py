@@ -571,7 +571,7 @@ class Instance( models.Model ):
                'foundation_id': self.foundation_id,
                'structure_id': self.structure_id,
                'hostname': self.hostname
-               }
+              }
     return result
 
   def build( self ):
