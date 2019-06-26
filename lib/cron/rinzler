@@ -82,7 +82,7 @@ def _makeBuild( build_name, project, manual ):
     build.save()
 
   for dependancy in dependancy_list:
-    ( package_name, from_state ) = dependancy.split( ':' )
+    ( package_name, tag ) = dependancy.split( ':' )
     try:
       package = Package.objects.get( name=package_name )
 
@@ -93,7 +93,7 @@ def _makeBuild( build_name, project, manual ):
     builddep = BuildDependancy()
     builddep.build = build
     builddep.package = package
-    builddep.from_state = from_state
+    builddep.tag = tag
     builddep.full_clean()
     builddep.save()
 

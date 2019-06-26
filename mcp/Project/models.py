@@ -21,8 +21,8 @@ cinp = CInP( 'Project', '0.1' )
 COMMIT_STATE_LIST = ( 'new', 'tested', 'built', 'doced', 'done' )
 
 
-# from packrat Repos/models.py, length of the ReleaseType name
-RELEASE_TYPE_LENGTH = 10
+# from packrat Attrib/models.py, length of the Tag name
+TAG_NAME_LENGTH = 10
 
 
 def _markdownBlockQuote( lines ):
@@ -379,7 +379,6 @@ This is a Version of a Package
   """
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
   version = models.CharField( max_length=50 )
-  state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -796,7 +795,7 @@ class BuildDependancy( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
-  from_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
+  tag = models.CharField( max_length=TAG_NAME_LENGTH )
 
   @cinp.check_auth()
   @staticmethod

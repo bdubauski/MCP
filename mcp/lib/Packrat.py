@@ -40,8 +40,10 @@ class Packrat():
     results = {}
 
     tag_map = self.cinp.call( '/api/v2/Attrib/Tag(tagMap)', {} )
-    for ( uri, release ) in tag_map:
-      results[ uri ] = release[ 'name' ]
+    for ( tag, info ) in tag_map.items():
+      if info[ 'change_control' ]:  # we can't promote these anyway
+        continue
+      results[ tag ] = info[ 'required' ]
 
     return results
 

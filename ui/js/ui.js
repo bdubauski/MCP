@@ -548,7 +548,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.to_state + '</td><td>' + item.created + '</td></tr>' );
+          promotionJobs.append( '<tr><td>' + item.packages + '</td><td>' + item.tag + '</td><td>' + item.created + '</td></tr>' );
         }
       }
     ).fail(

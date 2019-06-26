@@ -65,8 +65,7 @@ class Migration(migrations.Migration):
             name='Promotion',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('from_state', models.CharField(max_length=10)),
-                ('to_state', models.CharField(max_length=10)),
+                ('tag', models.CharField(max_length=10)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),
             ],

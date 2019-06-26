@@ -10,7 +10,7 @@ from cinp.orm_django import DjangoCInP as CInP
 from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, StringListField
 
-from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH
+from mcp.Project.models import Build, Project, PackageVersion, Commit, TAG_NAME_LENGTH
 from mcp.Resource.models import Resource, NetworkResource
 
 
@@ -28,8 +28,7 @@ INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built1', 'built', 'releasing',
 class Promotion( models.Model ):
   package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion', help_text='' )
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  from_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
-  to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
+  tag = models.CharField( max_length=TAG_NAME_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -45,7 +44,7 @@ class Promotion( models.Model ):
     return True
 
   def __str__( self ):
-    return 'Promotion for package/versions {0} from "{1}" to "{2}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.from_state, self.to_state )
+    return 'Promotion for package/versions {0} tag "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.tag )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -60,7 +59,7 @@ class PromotionPkgVersion( models.Model ):
     return True
 
   def __str__( self ):
-    return 'PromotionPkgVersion for package "{0}" version "{1}" promoting to "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.to_state )
+    return 'PromotionPkgVersion for package "{0}" version "{1}" for tag "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.tag )
 
   class Meta:
     unique_together = ( 'promotion', 'package_version' )
@@ -78,7 +77,7 @@ class PromotionBuild( models.Model ):
     return True
 
   def __str__( self ):
-    return 'PromotionBuild to state "{0}" using build "{1}" at "{2}"'.format( self.promotion.to_state, self.build.name, self.status )
+    return 'PromotionBuild for tag "{0}" using build "{1}" at "{2}"'.format( self.promotion.tag, self.build.name, self.status )
 
   class Meta:
     unique_together = ( 'promotion', 'build' )
