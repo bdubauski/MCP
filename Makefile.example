@@ -1,7 +1,7 @@
 
 # These template Items would be added to an existing makefile or used to generate a new Makefile
-# These are the Targets MCP uses to know what to do with the project.  The targets
-# are are examples, and sill probably need to be tweeked depending on the charistics of your
+# These are the Targets that MCP uses to know what to do with the project.  The targets
+# are are examples, and still probably need to be tweeked depending on the charistics of your
 # project
 
 # any local changes for targets executed on MCP should be avoided, and will not be saved
@@ -45,7 +45,7 @@ DISTRO_MAJOR_VERSION := $(shell lsb_release -sr | cut -d. -f1)
 DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
 
 # most of these targets will need to be listed in the .PHONY, as they do not have any
-# real targets created on the file system.... Some targets such as dpkg, rpm, repkg, and resrouce
+# real targets/files created on the file system.... Some targets such as dpkg, rpm, repkg, and resrouce
 # do produce something and it is acceptable to touch a file to prevent the make system from
 # building it again, be sure to have the clean target clean up any files touched so
 # other users can use your Makefile sanily
