@@ -26,7 +26,7 @@ version:
 	echo $(VERSION)
 
 clean:
-	./setup.py clean
+	./setup.py clean || true
 	$(RM) -r build
 	$(RM) dpkg
 	$(RM) respkg
@@ -41,13 +41,18 @@ test-distros:
 	echo ubuntu-bionic
 
 test-requires:
-	echo flake8 python3-cinp python3-dev python3-setuptools python3-pytest python3-pytest-cov
+	echo flake8 python3-pip python3-django python3-psycopg2 python3-cinp python3-dev python3-pytest python3-pytest-cov python3-pytest-django python3-pytest-mock postgresql python3-github
+
+test-setup:
+	su postgres -c "echo \"CREATE ROLE mcp WITH PASSWORD 'mcp' NOSUPERUSER NOCREATEROLE CREATEDB LOGIN;\" | psql"
+	pip3 install -e .
+	cp master.conf.sample mcp/settings.py
 
 lint:
 	flake8 --ignore=E501,E201,E202,E111,E126,E114,E402,W605 --statistics .
 
 test:
-	py.test-3 mcp --cov=mcp --cov-report html --cov-report term
+	py.test-3 -x --cov=mcp --cov-report html --cov-report term --ds=mcp.settings -vv mcp
 
 .PHONY:: test-distros test-requires lint test
 

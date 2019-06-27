@@ -233,10 +233,9 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       logging.error( 'Makefile does not lint, igmorning commit.' )
       continue
 
-    try:
-      version = make.version()
-    except MakeException as e:
-      logging.error( 'Error Retreiving Version Makefile "{0}", ignorning commit.'.format( e ) )
+    version = make.version()
+    if version is None:
+      logging.error( 'Unable to retrieve Version, ignorning commit.' )
       continue
 
     if branch == 'master':

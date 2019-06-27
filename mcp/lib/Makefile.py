@@ -50,7 +50,11 @@ class Makefile():
     return True
 
   def version( self ):
-    tmp = self._execute( 'version' )
+    try:
+      tmp = self._execute( 'version' )
+    except MakeException:
+      return None
+
     if not tmp:
       return None
     else:

@@ -1,4 +1,4 @@
-CONTRACTOR_HOST = 'http://contractor:8080'
+CONTRACTOR_HOST = 'http://contractor'
 CONTRACTOR_PROXY = None
 
 GIT_LOCAL_PATH = '/var/www/git'
@@ -24,7 +24,7 @@ SELFREGISTER_USER_GROUP = 'mcp_user'
 
 SITE_NAME = None
 
-SLACK_API_TOKEN = False
+SLACK_API_TOKEN = None
 SLACK_CHANNEL = '#mcp'
 SLACK_PROXY = None
 
@@ -46,7 +46,7 @@ INSTALLED_APPS = (
     'mcp.Auth',
     'django.contrib.auth',
     'django.contrib.contenttypes',
-    'django.contrib.sessions',
+    'django.contrib.sessions'
 )
 
 MIDDLEWARE_CLASSES = (
