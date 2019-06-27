@@ -25,14 +25,12 @@ from django.db.models import ProtectedError
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile, MakeException
-from mcp.lib.Git import Git
 from mcp.lib.Slack import Slack
 
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
-PID_FILE = '/opt/mcp/rinzler.pid'
 
-# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-builds', 'target'
+# when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-file', '*-builds', 'target'
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -84,7 +82,7 @@ def _makeBuild( build_name, project, manual ):
     build.save()
 
   for dependancy in dependancy_list:
-    ( package_name, from_state ) = dependancy.split( ':' )
+    ( package_name, tag ) = dependancy.split( ':' )
     try:
       package = Package.objects.get( name=package_name )
 
@@ -95,7 +93,7 @@ def _makeBuild( build_name, project, manual ):
     builddep = BuildDependancy()
     builddep.build = build
     builddep.package = package
-    builddep.from_state = from_state
+    builddep.tag = tag
     builddep.full_clean()
     builddep.save()
 
@@ -157,28 +155,16 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
   if not project.local_path:
     project.local_path = '{0}/{1}'.format( project.pk, os.path.basename( url ) )
-    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
-    parent_path = '/'.join( path.split( '/' )[ :-1 ] )
-    logging.debug( 'Creating "{0}" for "{1}"...'.format( parent_path, project.name ) )
-    try:
-      os.makedirs( parent_path )
+    logging.debug( 'Creating "{0}" in "{1}"...'.format( project.name, project.local_path ) )
 
-    except OSError as e:
-      if e.errno == 17:  # allready exists
-        pass
-
-      else:
-        raise e
-
-    git = Git( path )
-    git.setup( url, parent_path )
+    git = project.git
+    git.setup( url )  # make sure we can chyeck things out before saving the path
     project.full_clean()
     project.save()
 
   else:
-    path = os.path.join( settings.GIT_LOCAL_PATH, project.local_path )
-    logging.debug( 'Updating "{0}" for "{1}"...'.format( path, project.name ) )
-    git = Git( path )
+    logging.debug( 'Updating "{0}"...'.format( project.name ) )
+    git = project.git
 
   git.update()
 
@@ -235,6 +221,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     if owner is not None:
       logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}" owned by "{3}"...'.format( branch_map[ branch ], branch, project.name, owner ) )
       slack.post_message( 'New Commit "{0}" on Branch "{1}"({2}) of Project "{3}".'.format( branch_map[ branch ], branch, owner, project.name ), slack.INFO )
+
     else:
       logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}"...'.format( branch_map[ branch ], branch, project.name ) )
       slack.post_message( 'New Commit "{0}" on Branch "{1}" of Project "{2}".'.format( branch_map[ branch ], branch, project.name ), slack.INFO )
@@ -242,11 +229,26 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     git.checkout( WORK_DIR, branch )
 
     make = Makefile( glob.glob( '{0}/*'.format( WORK_DIR ) )[0] )
+    if not make.lint():
+      logging.error( 'Makefile does not lint, igmorning commit.' )
+      continue
+
+    version = make.version()
+    if version is None:
+      logging.error( 'Unable to retrieve Version, ignorning commit.' )
+      continue
+
+    if branch == 'master':
+      project.build_counter += 1
+      project.full_clean()
+      project.save()
 
     commit = Commit()
     commit.project = project
     commit.branch = branch
     commit.commit = branch_map[ branch ]
+    commit.version = version
+
     if owner is not None:
       commit.owner_override = owner
 
@@ -260,23 +262,23 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     commit.test_results = commit.lint_results
     commit.build_results = {}
 
+    logging.info( 'Adding Package Build...' )
+
+    for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
+      try:
+        distro_list = make.packageDistros( tmp )
+      except MakeException as e:
+        logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
+        continue
+
+      if distro_list:
+        commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+
     if branch == 'master':
-      logging.info( 'Adding Package Build...' )
-
-      for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
-        try:
-          distro_list = make.packageDistros( tmp )
-        except MakeException as e:
-          logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
-          continue
-
-        if distro_list:
-          commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
-
       logging.info( 'Adding Doc Build...' )
       try:
         distro_list = make.docDistros()
-      except MakeException as e:
+      except MakeException:
         distro_list = []
 
       commit.doc_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )

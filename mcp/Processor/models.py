@@ -10,15 +10,15 @@ from cinp.orm_django import DjangoCInP as CInP
 from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, StringListField
 
-from mcp.Project.models import Build, Project, PackageVersion, Commit, RELEASE_TYPE_LENGTH
+from mcp.Project.models import Build, Project, PackageVersion, Commit, TAG_NAME_LENGTH
 from mcp.Resource.models import Resource, NetworkResource
-from mcp.User.models import User
 
 
 cinp = CInP( 'Processor', '0.1' )
 
 
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
+INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built1', 'built', 'releasing', 'released1', 'released' )
 
 
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
@@ -28,8 +28,7 @@ BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'rele
 class Promotion( models.Model ):
   package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion', help_text='' )
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  from_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
-  to_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
+  tag = models.CharField( max_length=TAG_NAME_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -45,7 +44,7 @@ class Promotion( models.Model ):
     return True
 
   def __str__( self ):
-    return 'Promotion for package/versions {0} from "{1}" to "{2}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.from_state, self.to_state )
+    return 'Promotion for package/versions {0} tag "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.tag )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -60,7 +59,7 @@ class PromotionPkgVersion( models.Model ):
     return True
 
   def __str__( self ):
-    return 'PromotionPkgVersion for package "{0}" version "{1}" promoting to "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.to_state )
+    return 'PromotionPkgVersion for package "{0}" version "{1}" for tag "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.tag )
 
   class Meta:
     unique_together = ( 'promotion', 'package_version' )
@@ -78,13 +77,13 @@ class PromotionBuild( models.Model ):
     return True
 
   def __str__( self ):
-    return 'PromotionBuild to state "{0}" using build "{1}" at "{2}"'.format( self.promotion.to_state, self.build.name, self.status )
+    return 'PromotionBuild for tag "{0}" using build "{1}" at "{2}"'.format( self.promotion.tag, self.build.name, self.status )
 
   class Meta:
     unique_together = ( 'promotion', 'build' )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ] )
 class QueueItem( models.Model ):
   """
 QueueItem
@@ -95,7 +94,7 @@ QueueItem
   target = models.CharField( max_length=50 )
   priority = models.IntegerField( default=50 )  # higher the value, higer the priority
   manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
-  user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
+  user = models.CharField( max_length=150 )
   resource_status_map = MapField( blank=True )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
@@ -135,8 +134,9 @@ QueueItem
       resource.allocate( job, name, quanity, target_network )
 
   @staticmethod
-  def inQueueBuild( build, branch, manual, priority, promotion=None ):
+  def inQueueBuild( build, branch, manual, priority, user, promotion=None ):
     item = QueueItem()
+    item.user = user
     item.build = build
     item.manual = manual
     item.project = build.project
@@ -150,13 +150,14 @@ QueueItem
     return item
 
   @staticmethod
-  def inQueueTarget( project, branch, manual, distro, target, priority, commit=None ):
+  def inQueueTarget( project, branch, manual, distro, target, priority, user, commit=None ):
     try:
       build = Build.objects.get( project_id='_builtin_', name=distro )
     except Build.DoesNotExist:
       raise Exception( 'distro "{0}" not set up'.format( distro ) )
 
     item = QueueItem()
+    item.user = user
     item.build = build
     item.manual = manual
     item.project = project
@@ -175,7 +176,7 @@ QueueItem
     # if not user.has_perm( 'Processor.can_build' ):
     #   raise PermissionDenied()
 
-    item = QueueItem.inQueueBuild( build, 'master', True, 100 )
+    item = QueueItem.inQueueBuild( build, 'master', True, 100, user.username )
     return item.pk
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
@@ -199,8 +200,7 @@ QueueItem
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
 
 
-#  TODO: { 'name': 'score', 'type': 'Float', 'is_array': True }
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, { 'name': 'suceeded', 'type': 'Boolean' }, { 'name': 'score', 'is_array': True }, { 'name': 'instance_summary', 'type': 'Map' } ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ { 'name': 'state', 'choices': BUILDJOB_STATE_LIST }, { 'name': 'suceeded', 'type': 'Boolean' }, { 'name': 'instance_summary', 'type': 'Map' } ] )
 class BuildJob( models.Model ):
   """
 BuildJob
@@ -209,6 +209,7 @@ BuildJob
   project = models.ForeignKey( Project, on_delete=models.PROTECT, editable=False )
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
+  build_name = models.CharField( max_length=50 )
   value_map = MapField( default={}, blank=True )  # for the job to store work values
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -216,7 +217,7 @@ BuildJob
   acknowledged_at = models.DateTimeField( editable=False, blank=True, null=True )
   released_at = models.DateTimeField( editable=False, blank=True, null=True )
   manual = models.BooleanField()
-  user = models.ForeignKey( User, null=True, blank=True, on_delete=models.SET_NULL )
+  user = models.CharField( max_length=150 )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -256,26 +257,43 @@ BuildJob
     return result
 
   @property
-  def score( self ):
-    if self.ran_at is None:
-      return None
-
-    score_list = []
-    for instance in self.instance_set.all():
-      score_list.append( instance.score )
-
-    return score_list
-
-  @property
   def instance_summary( self ):
+    if self.commit is not None:
+      if self.target == 'test':
+        lint_map = self.commit.getResults( 'lint' )
+        test_map = self.commit.getResults( 'test' )
+        results_map = {}
+        for name in lint_map:
+          results_map[ name ] = 'lint:\n{0}\n\ntest:\n{1}'.format( lint_map[ name ] if lint_map[ name ] is not None else '', test_map[ name ] if test_map[ name ] is not None else '' )
+
+      else:
+        results_map = self.commit.getResults( self.target )
+
+      score_map = self.commit.getScore( self.target )
+
+    else:
+      results_map = {}
+      score_map = {}
+
     result = {}
     for instance in self.instance_set.all():
       item = {
                 'id': instance.pk,
                 'success': instance.success,
-                'status': instance.status,
-                'results': instance.results
+                'state': instance.state,
+                'message': instance.message
               }
+
+      try:
+        item[ 'results' ] = results_map[ instance.name ]
+      except KeyError:
+        pass
+
+      try:
+        item[ 'score' ] = score_map[ instance.name ]
+      except KeyError:
+        pass
+
       try:
         result[ instance.name ][ instance.index ] = item
       except KeyError:
@@ -316,6 +334,44 @@ BuildJob
     self.full_clean()
     self.save()
 
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ] )
+  def getInstanceState( self, name=None ):
+    result = {}
+    if name is not None:
+      for instance in self.instance_set.all():
+        if instance.name != name:
+          continue
+
+        result[ instance.index ] = instance.state
+
+    else:
+      for instance in self.instance_set.all():
+        try:
+          result[ instance.name ][ instance.index ] = instance.state
+        except KeyError:
+          result[ instance.name ] = { instance.index: instance.state }
+
+    return result
+
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ] )
+  def getInstanceDetail( self, name=None ):
+    result = {}
+    if name is not None:
+      for instance in self.instance_set.all():
+        if instance.name != name:
+          continue
+
+        result[ instance.index ] = instance.getDetail()
+
+    else:
+      for instance in self.instance_set.all():
+        try:
+          result[ instance.name ][ instance.index ] = instance.getDetail()
+        except KeyError:
+          result[ instance.name ] = { instance.index: instance.getDetail() }
+
+    return result
+
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
@@ -351,22 +407,16 @@ class Instance( models.Model ):
   buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
   name = models.CharField( max_length=50, blank=True, null=True  )
   index = models.IntegerField( blank=True, null=True )
-  status = models.CharField( max_length=200, default='Allocated' )  # Allocated, Building, Built1, Built, Releasing, Released1, Released, and other random stuff from the job
+  state = models.CharField( max_length=9, default='allocated', choices=[ ( i, i ) for i in INSTANCE_STATE_LIST ] )
+  message = models.CharField( max_length=200, default='', blank=True )
   # results info
   success = models.BooleanField( default=False )
-  results = models.TextField( blank=True, null=True )
-  score = models.FloatField( blank=True, null=True )
   package_files = StringListField( blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
-
   # contractor specific
   foundation_id = models.CharField( max_length=100, blank=True, null=True )
   structure_id = models.CharField( max_length=100, blank=True, null=True )
-  foundation_built = models.BooleanField( default=False )
-  structure_built = models.BooleanField( default=False )
-  foundation_released = models.BooleanField( default=False )
-  structure_released = models.BooleanField( default=False )
 
   @property
   def config_values( self ):
@@ -374,8 +424,8 @@ class Instance( models.Model ):
                'mcp_host': settings.MCP_HOST,
                'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
                'packrat_host': 'http://packrat',
-               'packrat_builder_name': 'mcp',
-               'packrat_builder_psk': 'mcp',
+               'packrat_builder_name': 'nullunit',
+               'packrat_builder_password': 'nullunit',
                'confluence_host': 'http://confluence',
                'confluence_username': 'mcp',
                'confluence_password': 'mcp'
@@ -385,9 +435,11 @@ class Instance( models.Model ):
       result.update( {
                        'mcp_job_id': self.buildjob.pk,
                        'mcp_instance_id': self.pk,
+                       'mcp_build_name': self.buildjob.build_name,
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
+                       'mcp_store_packages': self.buildjob.branch == 'master',
                        'mcp_git_url': self.buildjob.project.internal_git_url,
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target
@@ -395,13 +447,12 @@ class Instance( models.Model ):
 
     return result
 
-  @cinp.action( paramater_type_list=[ 'String' ] )
+  @cinp.action( paramater_type_list=[ 'String' ] )   # TODO: do we need all this complicated callback stuff now that we can create both jobs from the start?, and for that metter the end?
   def foundationBuild( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
-    self.status = 'Built1'
-    self.foundation_built = True
+    self.state = 'built1'
     self.full_clean()
     self.save()
 
@@ -410,98 +461,104 @@ class Instance( models.Model ):
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def structureBuild( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
-    self.status = 'Built'
-    self.structure_built = True
+    self.state = 'built'
     self.full_clean()
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def foundationDestroyed( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     contractor = getContractor()
     contractor.deleteFoundation( self.foundation_id )
 
-    self.status = 'Released'
-    self.foundation_released = True
+    self.state = 'released'
     self.foundation_id = None
     self.full_clean()
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def structureDestroyed( self, cookie ):  # called from webhook
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     contractor = getContractor()
     contractor.deleteStructure( self.structure_id )
     contractor.destroyFoundation( self.foundation_id )
 
-    self.status = 'Released1'
-    self.structure_released = True
+    self.state = 'released1'
     self.structure_id = None
     self.full_clean()
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String', 'String' ] )
-  def setStatus( self, cookie, status ):
-    if self.cookie != self.cookie:
+  def setMessage( self, cookie, message ):
+    if self.cookie != cookie:
       return
 
-    self.status = status[ -200: ]
+    self.message = message[ -200: ]
     self.full_clean()
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String' ] )
-  def jobRan( self, user ):
-    if self.cookie != self.cookie:
+  def jobRan( self, cookie ):
+    if self.cookie != cookie:
       return
 
     self.buildjob._jobRan()
 
   @cinp.action( paramater_type_list=[ 'String', 'Boolean' ] )
   def setSuccess( self, cookie, success ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.success = success
     self.full_clean()
     self.save()
 
-  @cinp.action( paramater_type_list=[ 'String', 'String' ] )
-  def setResults( self, cookie, results ):
-    if self.cookie != self.cookie:
+  @cinp.action( paramater_type_list=[ 'String', 'String', 'String' ] )
+  def setResults( self, cookie, target, results ):
+    if self.cookie != cookie:
       return
 
-    self.results = results
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String', 'Float' ] )
-  def setScore( self, cookie, score ):
-    if self.cookie != self.cookie:
+    if target != self.buildjob.target and not ( self.buildjob.target == 'test' and target in ( 'test', 'lint' ) ):
       return
 
-    self.score = score
-    self.full_clean()
-    self.save()
+    self.buildjob.commit.setResults( target, self.name, results )
+
+  @cinp.action( paramater_type_list=[ 'String', 'String', 'Float' ] )
+  def setScore( self, cookie, target, score ):
+    if self.cookie != cookie:
+      return
+
+    if self.buildjob.target != 'test' or target not in ( 'test', 'lint' ):
+      return
+
+    self.buildjob.commit.setScore( target, self.name, score )
 
   @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'String', 'is_array': True } ] )
   def addPackageFiles( self, cookie, package_files ):
-    if self.cookie != self.cookie:
+    if self.cookie != cookie:
       return
 
     self.package_files = package_files
     self.full_clean()
     self.save()
 
+  @cinp.action( return_type='Map', paramater_type_list=[ 'String' ]  )
+  def getValueMap( self, cookie ):
+    if self.cookie != cookie:
+      return
+
+    return self.buildjob.value_map
+
   @cinp.action( paramater_type_list=[ 'String', 'Map' ] )
-  def setValue( self, cookie, value_map ):
-    if self.cookie != self.cookie:
+  def updateValueMap( self, cookie, value_map ):
+    if self.cookie != cookie:
       return
 
     self.buildjob.value_map.update( value_map )
@@ -514,48 +571,34 @@ class Instance( models.Model ):
                'foundation_id': self.foundation_id,
                'structure_id': self.structure_id,
                'hostname': self.hostname
-               }
+              }
     return result
 
   def build( self ):
-    if self.status in ( 'Building', 'Built1', 'Built' ):
+    if self.state in ( 'building', 'built1', 'built' ):
       return
 
-    if self.built:
-      return
-
-    if self.status in ( 'Releaseing', 'Released1', 'Released' ):  # TODO: with the status being used by mis stuff, this needs to be re-thought
+    if self.state in ( 'releasing', 'released1', 'released' ):
       raise Exception( 'Can not build while released/releasing' )
 
     self.resource.subclass.build( self )
 
-    self.status = 'Building'
+    self.state = 'building'
     self.full_clean()
     self.save()
 
   def release( self ):
-    if self.status in ( 'Releaseing', 'Released1', 'Released' ):
+    if self.state in ( 'releasing', 'released1', 'released' ):
       return
 
-    if self.released:
-      return
-
-    if not self.built:
+    if self.state not in ( 'built', ):
       raise Exception( 'Can not release when not built' )
 
     self.resource.subclass.release( self )
 
-    self.status = 'Releaseing'
+    self.state = 'releasing'
     self.full_clean()
     self.save()
-
-  @property
-  def built( self ):
-    return self.foundation_built & self.structure_built
-
-  @property
-  def released( self ):
-    return self.foundation_released & self.structure_released
 
   @cinp.check_auth()
   @staticmethod

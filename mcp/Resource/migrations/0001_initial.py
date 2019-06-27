@@ -5,7 +5,7 @@ from __future__ import unicode_literals
 from django.db import migrations, models
 import django.db.models.deletion
 
-BUILD_AHEAD_COUNT = { 'small': { 'ubuntu-xenial': 4 } }
+BUILD_AHEAD_COUNT = { 'small': { 'ubuntu-xenial': 4, 'ubuntu-bionic': 4 } }
 
 
 def load_sites( app, schema_editor ):
@@ -27,7 +27,7 @@ def load_resources( app, schema_editor ):
   site = Site.objects.get( name='mlxlab' )
 
   for size in ( 'small', 'medium' ):
-    for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6' ):
+    for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7' ):
       dr = DynamicResource( name='{0}-{1}'.format( name, size ) )
       dr.description = '{0} of {1}'.format( name.capitalize(), size.capitalize() )
       dr.blueprint = 'mcp-{0}'.format( name )
@@ -41,6 +41,26 @@ def load_resources( app, schema_editor ):
 
       dr.full_clean()
       dr.save()
+
+  dr = DynamicResource( name='vmware-esx' )
+  dr.description = 'Vmware ESX'
+  dr.blueprint = 'mcp-vmware-esx'
+  # dr.complex = 'esx'
+  dr.complex = 'vca'
+  dr.site = site
+  dr.build_ahead_count = 0
+  dr.full_clean()
+  dr.save()
+
+  dr = DynamicResource( name='vmware-vca' )
+  dr.description = 'Vmware VCenter Appliance'
+  dr.blueprint = 'mcp-vmware-vca'
+  # dr.complex = 'esx'
+  dr.complex = 'vca'
+  dr.site = site
+  dr.build_ahead_count = 0
+  dr.full_clean()
+  dr.save()
 
 
 class Migration(migrations.Migration):
@@ -85,13 +105,6 @@ class Migration(migrations.Migration):
                 ('resource_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='Resource.Resource')),
                 ('build_ahead_count', models.IntegerField(default=0)),
                 ('complex', models.CharField(max_length=40)),
-            ],
-            bases=('Resource.resource',),
-        ),
-        migrations.CreateModel(
-            name='StaticResource',
-            fields=[
-                ('resource_ptr', models.OneToOneField(auto_created=True, on_delete=django.db.models.deletion.CASCADE, parent_link=True, primary_key=True, serialize=False, to='Resource.Resource')),
             ],
             bases=('Resource.resource',),
         ),

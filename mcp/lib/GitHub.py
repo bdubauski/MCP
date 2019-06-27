@@ -72,6 +72,9 @@ class GitHub():
       logging.warning( 'Unable get Commit "{0}" of "{1}" in "{2}"'.format( commit_hash, self.repo, self.org ) )
       return
 
+    if len( comment ) > 65000:  # max comment max length is 65536
+      comment = comment[ 0:32000 ] + '\n\n ... (comment to long, trimmed) ... \n\n' + comment[ -32000: ]
+
     commit.create_comment( comment, line, path, position )
 
   def postCommitStatus( self, commit_hash, state, target_url=GithubObject.NotSet, description=GithubObject.NotSet ):
@@ -84,7 +87,7 @@ class GitHub():
       return
 
     try:
-      commit.create_status( state, target_url, description )
+      commit.create_status( state, target_url, description, 'MCP Tests' )
     except UnknownObjectException:
       logging.warning( 'Unable to set status on commit "{0}" of "{1}" in "{2}", check permissions'.format( commit_hash, self.repo, self.org ) )
 

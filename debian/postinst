@@ -31,8 +31,6 @@ case "$1" in
 
         mkdir -p /var/www/git
 
-        systemctl reload cron
-
         a2ensite mcp.conf
         a2enmod	wsgi
 

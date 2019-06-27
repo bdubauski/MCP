@@ -1,5 +1,7 @@
 import re
+import os
 import difflib
+from datetime import datetime
 
 from django.db import models
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
@@ -8,6 +10,7 @@ from django.conf import settings
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.fields import MapField, name_regex
+from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
 
@@ -15,11 +18,11 @@ from mcp.Resource.models import Resource
 cinp = CInP( 'Project', '0.1' )
 
 
-COMMIT_STATE_LIST = ( 'new', 'linted', 'tested', 'built', 'doced', 'done' )
+COMMIT_STATE_LIST = ( 'new', 'tested', 'built', 'doced', 'done' )
 
 
-# from packrat Repos/models.py, length of the ReleaseType name
-RELEASE_TYPE_LENGTH = 10
+# from packrat Attrib/models.py, length of the Tag name
+TAG_NAME_LENGTH = 10
 
 
 def _markdownBlockQuote( lines ):
@@ -107,9 +110,9 @@ def _markdownResults( valueCur, valuePrev=None ):
           if valueCur[ target ][ group ][2] is not None:
             result += '  Score: **{0}** -> **{1}**\n'.format( tmp_group[2], valueCur[ target ][ group ][2] )
             try:
-              if float( tmp_group[2] > float( valueCur[ target ][ group ][2] ) ):
+              if float( tmp_group[2] ) > float( valueCur[ target ][ group ][2] ):
                 result += '## WARNING: Score value decreased ##'
-            except ValueError:
+            except ( ValueError, TypeError ):
               pass
           result += _diffMarkDown( tmp_group[1].splitlines(), lines )
 
@@ -118,14 +121,38 @@ def _markdownResults( valueCur, valuePrev=None ):
   return result
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', 'busy', 'upstream_git_url', 'internal_git_url', 'status' ] )
+def _commitSumary2Str( summary ):
+  if not summary:
+    return '**Nothing To Do**'
+
+  if 'doc' in summary:
+    return 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nDoc: {5}\nOverall: {6}\n'.format(
+                                                                                         summary[ 'lint' ][ 'status' ],
+                                                                                         '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
+                                                                                         summary[ 'test' ][ 'status' ],
+                                                                                         '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
+                                                                                         summary[ 'build' ][ 'status' ],
+                                                                                         summary[ 'doc' ][ 'status' ],
+                                                                                         summary[ 'status' ] )
+  else:
+    return 'Lint: {0} {1}\nTest: {2} {3}\nBuild: {4}\nOverall: {5}\n'.format(
+                                                                               summary[ 'lint' ][ 'status' ],
+                                                                               '({0})'.format( summary[ 'lint' ][ 'score' ] ) if summary[ 'lint' ][ 'score' ] else '',
+                                                                               summary[ 'test' ][ 'status' ],
+                                                                               '({0})'.format( summary[ 'test' ][ 'score' ] ) if summary[ 'test' ][ 'score' ] else '',
+                                                                               summary[ 'build' ][ 'status' ],
+                                                                               summary[ 'status' ] )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class Project( models.Model ):
   """
 This is a Generic Project
   """
   name = models.CharField( max_length=50, primary_key=True )
   local_path = models.CharField( max_length=150, null=True, blank=True, editable=False )
-  last_checked = models.DateTimeField()
+  build_counter = models.IntegerField( default=0 )
+  last_checked = models.DateTimeField( default=datetime.min )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -144,6 +171,10 @@ This is a Generic Project
       pass
 
     return 'Project'
+
+  @property
+  def git( self ):
+    return Git( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
 
   @property
   def org( self ):
@@ -213,9 +244,11 @@ This is a Generic Project
     try:
       commit = self.commit_set.filter( branch='master', done_at__isnull=False ).order_by( '-created' )[0]
     except IndexError:
-      return { 'passed': None, 'built': None, 'at': None }
+      return { 'test': None, 'build': None, 'doc': None, 'at': None }
 
-    return { 'passed': commit.passed, 'built': commit.built, 'at': commit.created.isoformat() }
+    summary = commit.summary
+
+    return { 'test': summary[ 'test' ][ 'status' ], 'build': summary[ 'build' ][ 'status' ], 'doc': summary[ 'doc' ][ 'status' ], 'at': commit.created.isoformat() }
 
   @cinp.list_filter( name='my_projects' )
   @staticmethod
@@ -253,7 +286,7 @@ This is a Generic Project
     return 'Project "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CALL' ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class GitProject( Project ):
   """
 This is a Git Project
@@ -269,7 +302,7 @@ This is a Git Project
     return 'Git Project "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CALL' ] )
+@cinp.model( not_allowed_verb_list=[ 'CALL' ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class GitHubProject( Project ):
   """
 This is a GitHub Project
@@ -346,7 +379,6 @@ This is a Version of a Package
   """
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
   version = models.CharField( max_length=50 )
-  state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -362,7 +394,7 @@ This is a Version of a Package
     unique_together = ( 'package', 'version' )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=[ { 'name': 'state', 'choices': COMMIT_STATE_LIST } ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=[ { 'name': 'state', 'choices': COMMIT_STATE_LIST }, { 'name': 'summary', 'type': 'Map' } ] )
 class Commit( models.Model ):
   """
 A Single Commit of a Project
@@ -371,76 +403,157 @@ A Single Commit of a Project
   owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
+  version = models.CharField( max_length=50, blank=True, null=True )
   lint_results = MapField( blank=True )
   test_results = MapField( blank=True )
   build_results = MapField( blank=True )
   doc_results = MapField( blank=True )
-  lint_at = models.DateTimeField( editable=False, blank=True, null=True )
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  passed = models.NullBooleanField( editable=False, blank=True, null=True )
-  built = models.NullBooleanField( editable=False, blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
   def state( self ):
-    if self.done_at and self.doc_at and self.build_at and self.test_at and self.lint_at:
+    if self.done_at and self.doc_at and self.build_at and self.test_at:
       return 'done'
 
-    if self.doc_at and self.build_at and self.test_at and self.lint_at:
+    if self.doc_at and self.build_at and self.test_at:
       return 'doced'
 
-    if self.build_at and self.test_at and self.lint_at:
+    if self.build_at and self.test_at:
       return 'built'
 
-    if self.test_at and self.lint_at:
+    if self.test_at:
       return 'tested'
-
-    if self.lint_at:
-      return 'linted'
 
     return 'new'
 
   @property
   def summary( self ):
-    if self.passed is None and self.built is None:
-      return None
+    result = { 'test': {}, 'lint': {} }
 
-    result = []
+    overall_complete = True
+    overall_success = True
 
-    if self.passed is True:
-      result.append( 'Passed: True' )
-    elif self.passed is False:
-      result.append( 'Passed: False' )
+    score_list = []
+    complete = True
+    success = True
+    for ( name, value ) in self.lint_results.items():
+      if value.get( 'score', None ) is not None:
+        score_list.append( value[ 'score' ]  )
 
-    if self.built is True:
-      result.append( 'Built: True' )
-    elif self.built is False:
-      result.append( 'Built: False' )
+      complete &= value.get( 'status', '' ) == 'done'
+      success &= value.get( 'success', False )
 
-    return '\n'.join( result )
+    if score_list:
+      result[ 'lint' ][ 'score' ] = sum( score_list ) / len( score_list )
+    else:
+      result[ 'lint' ][ 'score' ] = None
+
+    if not complete:
+      result[ 'lint' ][ 'status' ] = 'Incomplete'
+    elif success:
+      result[ 'lint' ][ 'status' ] = 'Success'
+    else:
+      result[ 'lint' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    score_list = []
+    complete = True
+    success = True
+    for ( name, value ) in self.test_results.items():
+      if value.get( 'score', None ) is not None:
+        try:
+          score_list.append( float( value[ 'score' ] ) )
+        except ValueError:
+          score_list.append( 0.0 )
+
+      complete &= value.get( 'status', '' ) == 'done'
+      success &= value.get( 'success', False )
+
+    if score_list:
+      result[ 'test' ][ 'score' ] = sum( score_list ) / len( score_list )
+    else:
+      result[ 'test' ][ 'score' ] = None
+
+    if not complete:
+      result[ 'test' ][ 'status' ] = 'Incomplete'
+    elif success:
+      result[ 'test' ][ 'status' ] = 'Success'
+    else:
+      result[ 'test' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    complete = True
+    success = True
+    for target in self.build_results:
+      for( name, value ) in self.build_results[ target ].items():
+        complete &= value.get( 'status', '' ) == 'done'
+        success &= value.get( 'success', False )
+
+    result[ 'build' ] = {}
+    if not complete:
+      result[ 'build' ][ 'status' ] = 'Incomplete'
+    elif success:
+      result[ 'build' ][ 'status' ] = 'Success'
+    else:
+      result[ 'build' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    if self.branch == 'master':
+      complete = True
+      success = True
+      for ( name, value ) in self.doc_results.items():
+        complete &= value.get( 'status', '' ) == 'done'
+        success &= value.get( 'success', False )
+
+      result[ 'doc' ] = {}
+      if not complete:
+        result[ 'doc' ][ 'status' ] = 'Incomplete'
+      elif success:
+        result[ 'doc' ][ 'status' ] = 'Success'
+      else:
+        result[ 'doc' ][ 'status' ] = 'Failed'
+
+    overall_complete &= complete
+    overall_success &= success
+
+    if not overall_complete:
+      result[ 'status' ] = 'Incomplete'
+    elif overall_success:
+      result[ 'status' ] = 'Success'
+    else:
+      result[ 'status' ] = 'Failed'
+
+    return result
 
   @property
   def results( self ):  # for now in Markdown format
     result = {}
 
     wrk = {}
-    for distro in self.lint_results:
-      tmp = self.lint_results[ distro ]
+    for name in self.lint_results:
+      tmp = self.lint_results[ name ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+        wrk[ name ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
 
     if wrk:
       result[ 'lint' ] = wrk
 
     wrk = {}
-    for distro in self.test_results:
-      tmp = self.test_results[ distro ]
+    for name in self.test_results:
+      tmp = self.test_results[ name ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+        wrk[ name ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
 
     if wrk:
       result[ 'test' ] = wrk
@@ -449,18 +562,18 @@ A Single Commit of a Project
     for target in self.build_results:
       wrk[ target ] = {}
       tmp = self.build_results[ target ]
-      for distro in tmp:
-        if tmp[ distro ].get( 'results', None ) is not None:
-          wrk[ target ][ distro ] = ( tmp[ distro ].get( 'success', False ), tmp[ distro ][ 'results' ], tmp[ distro ].get( 'score', None ) )
+      for name in tmp:
+        if tmp[ name ].get( 'results', None ) is not None:
+          wrk[ target ][ name ] = ( tmp[ name ].get( 'success', False ), tmp[ name ][ 'results' ], None )
 
     if wrk:
       result[ 'build' ] = wrk
 
     wrk = {}
-    for distro in self.doc_results:
-      tmp = self.doc_results[ distro ]
+    for name in self.doc_results:
+      tmp = self.doc_results[ name ]
       if tmp.get( 'results', None ) is not None:
-        wrk[ distro ] = ( tmp.get( 'success', False ), tmp[ 'results' ], tmp.get( 'score', None ) )
+        wrk[ name ] = ( tmp.get( 'success', False ), tmp[ 'results' ], None )
 
     if wrk:
       result[ 'doc' ] = wrk
@@ -471,29 +584,80 @@ A Single Commit of a Project
     else:
       return result
 
-  def signalComplete( self, target, build_name, success, results ):
+  def setResults( self, target, name, results ):
     if target not in ( 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc' ):
       return
 
     if target == 'lint':
-      self.lint_results[ build_name ][ 'status' ] = 'done'
-      self.lint_results[ build_name ][ 'success' ] = success
-      self.lint_results[ build_name ][ 'results' ] = results
+      self.lint_results[ name ][ 'results' ] = results
 
     elif target == 'test':
-      self.test_results[ build_name ][ 'status' ] = 'done'
-      self.test_results[ build_name ][ 'success' ] = success
-      self.test_results[ build_name ][ 'results' ] = results
+      self.test_results[ name ][ 'results' ] = results
 
     elif target == 'doc':
-      self.doc_results[ build_name ][ 'status' ] = 'done'
-      self.doc_results[ build_name ][ 'success' ] = success
-      self.doc_results[ build_name ][ 'results' ] = results
+      self.doc_results[ name ][ 'results' ] = results
 
     else:
-      self.build_results[ target ][ build_name ][ 'status' ] = 'done'
-      self.build_results[ target ][ build_name ][ 'success' ] = success
-      self.build_results[ target ][ build_name ][ 'results' ] = results
+      self.build_results[ target ][ name ][ 'results' ] = results
+
+    self.full_clean()
+    self.save()
+
+  def getResults( self, target ):
+    if target == 'lint':
+      return dict( [ ( i, self.lint_results[i].get( 'results', None ) ) for i in self.lint_results ] )
+
+    elif target == 'test':
+      return dict( [ ( i, self.test_results[i].get( 'results', None ) ) for i in self.test_results ] )
+
+    elif target == 'doc':
+      return dict( [ ( i, self.doc_results[i].get( 'results', None ) ) for i in self.doc_results ] )
+
+    elif target in ( 'rpm', 'dpkg', 'respkg', 'resource' ):
+      return dict( [ ( i, self.build_results[ target ][i].get( 'results', None ) ) for i in self.build_results[ target ] ] )
+
+    return {}
+
+  def setScore( self, target, name, score ):
+    if target not in ( 'lint', 'test' ):
+      return
+
+    if target == 'lint':
+      self.lint_results[ name ][ 'score' ] = score
+
+    elif target == 'test':
+      self.test_results[ name ][ 'score' ] = score
+
+    self.full_clean()
+    self.save()
+
+  def getScore( self, target ):
+    if target == 'lint':
+      return dict( [ ( i, self.lint_results[i].get( 'score', None ) ) for i in self.lint_results ] )
+
+    elif target == 'test':
+      return dict( [ ( i, self.test_results[i].get( 'score', None ) ) for i in self.test_results ] )
+
+    return {}
+
+  def signalComplete( self, target, name, success ):
+    if target not in ( 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc' ):
+      return
+
+    if target == 'test':
+      self.lint_results[ name ][ 'status' ] = 'done'
+      self.lint_results[ name ][ 'success' ] = success
+
+      self.test_results[ name ][ 'status' ] = 'done'
+      self.test_results[ name ][ 'success' ] = success
+
+    elif target == 'doc':
+      self.doc_results[ name ][ 'status' ] = 'done'
+      self.doc_results[ name ][ 'success' ] = success
+
+    else:
+      self.build_results[ target ][ name ][ 'status' ] = 'done'
+      self.build_results[ target ][ name ][ 'success' ] = success
 
     self.full_clean()
     self.save()
@@ -506,8 +670,8 @@ A Single Commit of a Project
       return
 
     gh = self.project.githubproject.github
-    if self.owner_override:
-      gh.setOwner( self.owner_override )
+    # if self.owner_override:
+    #   gh.setOwner( self.owner_override )
     gh.postCommitStatus( self.commit, 'pending' )
     gh.setOwner()
 
@@ -516,8 +680,8 @@ A Single Commit of a Project
       return
 
     gh = self.project.githubproject.github
-    if self.owner_override:
-      gh.setOwner( self.owner_override )
+    # if self.owner_override:
+    #   gh.setOwner( self.owner_override )
 
     comment = self.results
 
@@ -538,22 +702,23 @@ A Single Commit of a Project
     if self.branch.startswith( '_PR' ):
       summary = self.summary
 
-      if summary is None:
-        summary = '**Nothing To Do**'
-
-      if self.passed is None and self.built is None:
-        gh.postCommitStatus( self.commit, 'success', description='No Test/Lint/Build to do' )
-      elif self.built is False:
-        gh.postCommitStatus( self.commit, 'error', description='Package Build Error' )
-      elif self.passed is False:
-        gh.postCommitStatus( self.commit, 'failure', description='Test/Lint Failure' )
-      elif self.passed is True:
-        gh.postCommitStatus( self.commit, 'success', description='Test/Lint Passed' )
+      if summary[ 'status' ] == 'Success':
+        gh.postCommitStatus( self.commit, 'success', description='Passed' )
+      elif summary[ 'status' ] == 'Failed':
+        gh.postCommitStatus( self.commit, 'failure', description='Failure' )
+      else:
+        gh.postCommitStatus( self.commit, 'error', description='Bad State "{0}"'.format( summary[ 'status' ] ) )
 
       gh.setOwner()
 
       number = int( self.branch[3:] )
-      gh.postPRComment( number, summary )
+      gh.postPRComment( number, _commitSumary2Str( self.summary ) )
+
+  def tagVersion( self ):
+    if self.version is None:
+      return
+
+    self.project.git.tag( self.version, _commitSumary2Str( self.summary ) )
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
@@ -630,7 +795,7 @@ class BuildDependancy( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
-  from_state = models.CharField( max_length=RELEASE_TYPE_LENGTH )
+  tag = models.CharField( max_length=TAG_NAME_LENGTH )
 
   @cinp.check_auth()
   @staticmethod
@@ -647,7 +812,7 @@ class BuildDependancy( models.Model ):
       raise ValidationError( errors )
 
   def __str__( self ):
-    return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.state )
+    return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.from_state )
 
   class Meta:
     unique_together = ( 'build', 'package' )

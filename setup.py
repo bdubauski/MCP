@@ -22,7 +22,7 @@ class custom_build( build_py ):
         modules = self.find_package_modules(package, package_dir)
         for (package_, module, module_file) in modules:
           assert package == package_
-          if module_file.endswith( 'tests.py' ):
+          if os.path.basename( module_file ).endswith( '_test.py' ) or os.path.basename( module_file ) == 'tests.py':
             continue
           self.build_module(module, module_file, package)
 
@@ -64,7 +64,7 @@ class custom_build( build_py ):
 setup( name='mcp-master',
        description='MCP',
        author='Peter Howe',
-       author_email='peter.howe@emc.com',
+       author_email='peter.howe@virtustream.com',
        include_package_data=True,
        packages=find_packages(),
        cmdclass={ 'build_py': custom_build }

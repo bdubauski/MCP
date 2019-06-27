@@ -27,7 +27,6 @@ CLEANUP_DELAY = 0.2
 AUTO_ACKNOLEDGE_DELAY = 24.0
 
 PID_FILE = '/var/run/sark.pid'
-PID_FILE = '/opt/mcp/sark.pid'
 
 logging.basicConfig()
 logger = logging.getLogger()
@@ -87,6 +86,10 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.build = item.build
     job.project = item.project
     job.branch = item.branch
+    if item.branch == 'master':
+      job.build_name = str( item.project.build_counter )
+    else:
+      job.build_name = '{0}-{1}'.format( item.project.build_counter, item.branch )
     job.target = item.target
     job.commit = item.commit
     job.promotion = item.promotion
@@ -114,7 +117,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
   for instance in job.instance_set.all():
-    ready &= instance.built
+    ready &= instance.state == 'built'
 
   # all done, set to built
   if ready:
@@ -128,8 +131,7 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
-    instance = job.instance_set.all()[0]
-    job.commit.signalComplete( job.target, job.build.name, instance.success, instance.results )
+    job.commit.signalComplete( job.target, job.build.name, job.suceeded )
 
   elif job.promotion is not None:
     job.promotion.signalComplete( job.build )
@@ -147,12 +149,6 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     results += 'Instance: *{0}*\n'.format( instance )
     try:
       results += 'Success: *{0}*\n'.format( instance.success )
-    except KeyError:
-      pass
-
-    try:
-      if instance.results is not None:
-        results += '```{0}```\n'.format( instance.results[ -500: ] )
     except KeyError:
       pass
 
@@ -178,12 +174,12 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
   for instance in job.instance_set.all():
-    if instance.built:
+    if instance.state == 'built':
       instance.release()
 
   ready = True
   for instance in job.instance_set.all():
-    ready &= instance.released
+    ready &= instance.state == 'released'
 
   # resources all released, set job to released
   if ready:

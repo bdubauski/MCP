@@ -3,7 +3,7 @@
 # recongnizer
 #   Processes Records in the Commits table
 #
-#  Steps include linting, testing, then building
+#  Steps include test, build (rpm/dpkg/container/respkg/etc), and doc
 #
 import os
 
@@ -24,7 +24,6 @@ from mcp.Project.models import Commit
 from mcp.lib.Slack import Slack
 
 PID_FILE = '/var/run/recoginzer.pid'
-PID_FILE = '/opt/mcp/recoginzer.pid'
 
 QUEUE_PRIORITY = 100
 
@@ -51,48 +50,8 @@ tmp.close()
 
 slack = Slack( 'recognizer', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
-# check for commits that need to be linted
-for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=True ):
-  if not commit.lint_results:
-    slack.post_message( 'No Lint for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
-    commit.lint_at = datetime.now( timezone.utc )
-    commit.full_clean()
-    commit.save()
-    continue
-
-  done = True
-  success = True
-  for distro in commit.lint_results:
-    if not commit.lint_results[ distro ].get( 'status', None ):
-      logging.info( 'Queuing up Lint job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
-      try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'lint', QUEUE_PRIORITY, commit )
-        commit.lint_results[ distro ][ 'status' ] = 'building'
-      except Exception as e:
-        print( e )
-        commit.lint_results[ distro ][ 'status' ] = 'done'
-        commit.lint_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
-
-    done &= commit.lint_results[ distro ][ 'status' ] == 'done'
-    success &= commit.lint_results[ distro ].get( 'success', False )
-
-  if done:
-    logging.info( 'Lint Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
-    commit.lint_at = datetime.now( timezone.utc )
-    if not success:
-      logging.info( 'Lint for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
-      commit.done_at = datetime.now( timezone.utc )
-      slack.post_message( 'Lint for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
-      commit.passed = False
-      commit.postResults()
-    else:
-      slack.post_message( 'Lint for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
-
-  commit.full_clean()
-  commit.save()
-
 # check for commits that need testing
-for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=True ):
+for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True ):
   if not commit.test_results:
     slack.post_message( 'No Test for "{0}", branch "{1}".'.format( commit.project.name, commit.branch ), slack.INFO )
     commit.test_at = datetime.now( timezone.utc )
@@ -106,8 +65,9 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     if not commit.test_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Test job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, commit )
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, '*AUTO*', commit )
         commit.test_results[ distro ][ 'status' ] = 'building'
+
       except Exception as e:
         commit.test_results[ distro ][ 'status' ] = 'done'
         commit.test_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
@@ -122,23 +82,16 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       logging.info( 'Test for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
       commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Test for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
-      commit.passed = False
       commit.postResults()
+
     else:
       slack.post_message( 'Test for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
-      commit.passed = True
 
   commit.full_clean()
   commit.save()
 
 # check for commits that need building
-for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=True ):
-  if commit.branch != 'master':  # only build from master branch
-    commit.build_at = datetime.now( timezone.utc )
-    commit.full_clean()
-    commit.save()
-    continue
-
+for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=True ):
   if not commit.build_results:
     slack.post_message( 'No Build for "{0}".'.format( commit.project.name, slack.INFO ) )
     commit.build_at = datetime.now( timezone.utc )
@@ -153,8 +106,9 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       if not commit.build_results[ target ][ distro ].get( 'status', None ):
         logging.info( 'Queuing up "{0}" job for "{1}", branch "{2}", distro "{3}"'.format( target, commit.project.name, commit.branch, distro ) )
         try:
-          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, commit )
+          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, '*AUTO*', commit )
           commit.build_results[ target ][ distro ][ 'status' ] = 'building'
+
         except Exception as e:
           commit.build_results[ target ][ distro ][ 'status' ] = 'done'
           commit.build_results[ target ][ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
@@ -169,17 +123,16 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
       logging.info( 'Build for "{0}" of "{1}" branch "{2}" Failed'.format( commit.commit, commit.project.name, commit.branch ) )
       commit.done_at = datetime.now( timezone.utc )
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Failed.'.format( commit.commit, commit.project.name, commit.branch ), slack.ERROR )
-      commit.built = False
       commit.postResults()
+
     else:
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.SUCCESS )
-      commit.built = True
 
   commit.full_clean()
   commit.save()
 
 # check for commits that need doc
-for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=True ):
+for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=True ):
   if commit.branch != 'master':  # only build doc from master branch
     commit.doc_at = datetime.now( timezone.utc )
     commit.full_clean()
@@ -199,8 +152,9 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     if not commit.doc_results[ distro ].get( 'status', None ):
       logging.info( 'Queuing up Doc job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
       try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'doc', QUEUE_PRIORITY, commit )
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'doc', QUEUE_PRIORITY, '*AUTO*', commit )
         commit.doc_results[ distro ][ 'status' ] = 'building'
+
       except Exception as e:
         commit.doc_results[ distro ][ 'status' ] = 'done'
         commit.doc_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
@@ -214,6 +168,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
     if not success:
       logging.info( 'Doc for "{0}", branch "{1}" failed'.format( commit.project.name, commit.branch ) )
       slack.post_message( 'Doc for "{0}", branch "{1}" Failed.'.format( commit.project.name, commit.branch ), slack.ERROR )
+
     else:
       slack.post_message( 'Doc for "{0}", branch "{1}" Success.'.format( commit.project.name, commit.branch ), slack.SUCCESS )
 
@@ -221,7 +176,10 @@ for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False
   commit.save()
 
 # check for commits that are done
-for commit in Commit.objects.filter( done_at__isnull=True, lint_at__isnull=False, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=False ):
+for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=False ):
+  if commit.branch == 'master':  # tag version on master
+    commit.tagVersion()
+
   slack.post_message( 'Commit "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.DONE )
   commit.done_at = datetime.now( timezone.utc )
   commit.postResults()
