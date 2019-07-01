@@ -1,3 +1,11 @@
+mcp (0.17-1) bionic; urgency=medium
+
+  * BuildJob Run completion rework
+  * tell packrat when a package promotion fails
+  * use new contractor job creation features
+
+ -- Peter Howe <peter.howe@virtustream.com>  Mon, 01 Jul 2019 16:06:01 -0600
+
 mcp (0.15-1) bionic; urgency=medium
 
   * New Packrat work
