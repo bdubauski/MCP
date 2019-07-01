@@ -83,23 +83,15 @@ class Contractor():
 
   def registerWebHook( self, instance, on_build ):
     data = {}
-    data[ 'foundation' ] = '/api/v1/Building/Foundation:{0}:'.format( instance.foundation_id )
     data[ 'one_shot' ] = True
     data[ 'extra_data' ] = { 'cookie': instance.cookie }
     data[ 'type' ] = 'call'
     if on_build:
-      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(foundationBuild)'.format( settings.MCP_HOST, instance.pk )
-    else:
-      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(foundationDestroyed)'.format( settings.MCP_HOST, instance.pk )
-    self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )
+      data[ 'structure' ] = '/api/v1/Building/Structure:{0}:'.format( instance.structure_id )
+      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(isBuilt)'.format( settings.MCP_HOST, instance.pk )
+      self.cinp.create( '/api/v1/PostOffice/StructureBox', data )
 
-    data = {}
-    data[ 'structure' ] = '/api/v1/Building/Structure:{0}:'.format( instance.structure_id )
-    data[ 'one_shot' ] = True
-    data[ 'extra_data' ] = { 'cookie': instance.cookie }
-    data[ 'type' ] = 'call'
-    if on_build:
-      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(structureBuild)'.format( settings.MCP_HOST, instance.pk )
     else:
-      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(structureDestroyed)'.format( settings.MCP_HOST, instance.pk )
-    self.cinp.create( '/api/v1/PostOffice/StructureBox', data )
+      data[ 'foundation' ] = '/api/v1/Building/Foundation:{0}:'.format( instance.foundation_id )
+      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(isDestroyed)'.format( settings.MCP_HOST, instance.pk )
+      self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )

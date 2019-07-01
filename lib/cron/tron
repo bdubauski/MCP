@@ -51,9 +51,9 @@ packrat = Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKR
 
 slack = Slack( 'tron', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
 
-tag_map = dict( zip( [ ( k, set( v ) ) for ( k, v ) in packrat.tag_map().items() ] ) )
-available_tag_set = set( tag_map.keys() )
-print( tag_map )
+tag_requirements_map = dict( [ ( k, set( v ) ) for ( k, v ) in packrat.tag_requirements_map().items() ] )
+available_tag_set = set( tag_requirements_map.keys() )
+tag_name_map = dict( [ ( i, i.split( ':' )[1] ) for i in available_tag_set ] )
 
 
 def _queuePromotion( pkg_version, packrat_id, tag ):
@@ -115,16 +115,25 @@ def _queuePromotion( pkg_version, packrat_id, tag ):
 for promotion in Promotion.objects.all():
   logging.debug( 'Checking promtion "{0}"'.format( promotion ) )
   done = True
+  success = True
   for promotion_build in promotion.promotionbuild_set.all():
     done &= ( promotion_build.status == 'done' )
+    success &= bool( promotion_build.success )
 
   if not done:
     continue
 
-  for promotion_pkg_version in promotion.promotionpkgversion_set.all():
-    logging.info( 'Tagging "{0}" version "{1}" with "{2}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.tag ) )
-    packrat.tag( promotion_pkg_version.packrat_id, promotion.tag )
-    slack.post_message( 'Tagged "{0}" version "{1}" with "{2}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.tag ), slack.SUCCESS )
+  if success:
+    for promotion_pkg_version in promotion.promotionpkgversion_set.all():
+      logging.info( 'Tagging "{0}" version "{1}" with "{2}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.tag ) )
+      packrat.tag( promotion_pkg_version.packrat_id, promotion.tag )
+      slack.post_message( 'Tagged "{0}" version "{1}" with "{2}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.tag ), slack.SUCCESS )
+
+  else:
+    for promotion_pkg_version in promotion.promotionpkgversion_set.all():
+      logging.info( 'Failing "{0}" version "{1}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version ) )
+      packrat.fail( promotion_pkg_version.packrat_id )
+      slack.post_message( 'Failed "{0}" version "{1}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version ), slack.ERROR )
 
   promotion.delete()
 
@@ -142,7 +151,7 @@ for name in packrat.packages():
   for ( package_file_uri, package_file ) in packrat.package_files( package.name ):
     package_file_tag_set = set( package_file[ 'raw_tag_list' ] )
     for tag in available_tag_set - package_file_tag_set:  # Iterate over all the tags not yet set
-      if len( tag_map[ tag ] - package_file_tag_set ) != 0:  # Not all requiremenets are met
+      if len( tag_requirements_map[ tag ] - package_file_tag_set ) != 0:  # Not all requiremenets are met
         continue
 
       try:
@@ -155,10 +164,10 @@ for name in packrat.packages():
         pkg_version.full_clean()
         pkg_version.save()
 
-    if pkg_version.promotion_set.all().count() > 0:  # this package is being worked on
-      continue
+      if pkg_version.promotion_set.all().count() > 0:  # this package is being worked on
+        continue
 
-    _queuePromotion( pkg_version, package_file_uri, tag )
+      _queuePromotion( pkg_version, package_file_uri, tag_name_map[ tag ] )
 
 packrat.logout()
 
@@ -166,7 +175,3 @@ os.unlink( PID_FILE )
 logging.info( 'Done!' )
 logging.shutdown()
 sys.exit( 0 )
-
-
-the promotion and dependancy have just the tag name (TAG_NAME_LENGTH), but the map has the uri, extract the name
-and store it in the map so that can be stored in the db

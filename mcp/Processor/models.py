@@ -18,7 +18,7 @@ cinp = CInP( 'Processor', '0.1' )
 
 
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
-INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built1', 'built', 'releasing', 'released1', 'released' )
+INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
 
 # techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
@@ -32,9 +32,10 @@ class Promotion( models.Model ):
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def signalComplete( self, build ):
+  def signalComplete( self, build, success ):
     promotion_build = self.promotionbuild_set.get( build=build )
     promotion_build.status = 'done'
+    promotion_build.success = success
     promotion_build.full_clean()
     promotion_build.save()
 
@@ -70,6 +71,7 @@ class PromotionBuild( models.Model ):
   promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   status = models.CharField( max_length=50 )
+  success = models.BooleanField( null=True, blank=True )
 
   @cinp.check_auth()
   @staticmethod
@@ -301,24 +303,6 @@ BuildJob
 
     return result
 
-  def _jobRan( self ):
-    if self.ran_at is not None:  # been done, don't touch
-      return
-
-    if not self.built_at:
-      self.built_at = datetime.now( timezone.utc )
-
-    self.ran_at = datetime.now( timezone.utc )
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
-  def jobRan( self, user ):
-    # if not user.has_perm( 'Processor.can_ran' ):
-    #   raise PermissionDenied()
-
-    self._jobRan()
-
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def acknowledge( self, user ):
     # if not user.has_perm( 'Processor.can_ack' ):
@@ -447,20 +431,8 @@ class Instance( models.Model ):
 
     return result
 
-  @cinp.action( paramater_type_list=[ 'String' ] )   # TODO: do we need all this complicated callback stuff now that we can create both jobs from the start?, and for that metter the end?
-  def foundationBuild( self, cookie ):  # called from webhook
-    if self.cookie != cookie:
-      return
-
-    self.state = 'built1'
-    self.full_clean()
-    self.save()
-
-    contractor = getContractor()
-    contractor.createStructure( self.structure_id )
-
   @cinp.action( paramater_type_list=[ 'String' ] )
-  def structureBuild( self, cookie ):  # called from webhook
+  def isBuilt( self, cookie ):  # called from webhook
     if self.cookie != cookie:
       return
 
@@ -469,29 +441,17 @@ class Instance( models.Model ):
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String' ] )
-  def foundationDestroyed( self, cookie ):  # called from webhook
-    if self.cookie != cookie:
-      return
-
-    contractor = getContractor()
-    contractor.deleteFoundation( self.foundation_id )
-
-    self.state = 'released'
-    self.foundation_id = None
-    self.full_clean()
-    self.save()
-
-  @cinp.action( paramater_type_list=[ 'String' ] )
-  def structureDestroyed( self, cookie ):  # called from webhook
+  def isDestroyed( self, cookie ):  # called from webhook
     if self.cookie != cookie:
       return
 
     contractor = getContractor()
     contractor.deleteStructure( self.structure_id )
-    contractor.destroyFoundation( self.foundation_id )
+    contractor.deleteFoundation( self.foundation_id )
 
-    self.state = 'released1'
+    self.state = 'released'
     self.structure_id = None
+    self.foundation_id = None
     self.full_clean()
     self.save()
 
@@ -509,7 +469,9 @@ class Instance( models.Model ):
     if self.cookie != cookie:
       return
 
-    self.buildjob._jobRan()
+    self.status = 'ran'
+    self.full_clean()
+    self.save()
 
   @cinp.action( paramater_type_list=[ 'String', 'Boolean' ] )
   def setSuccess( self, cookie, success ):
@@ -528,7 +490,8 @@ class Instance( models.Model ):
     if target != self.buildjob.target and not ( self.buildjob.target == 'test' and target in ( 'test', 'lint' ) ):
       return
 
-    self.buildjob.commit.setResults( target, self.name, results )
+    if self.buildjob.commit:
+      self.buildjob.commit.setResults( target, self.name, results )
 
   @cinp.action( paramater_type_list=[ 'String', 'String', 'Float' ] )
   def setScore( self, cookie, target, score ):
@@ -538,7 +501,8 @@ class Instance( models.Model ):
     if self.buildjob.target != 'test' or target not in ( 'test', 'lint' ):
       return
 
-    self.buildjob.commit.setScore( target, self.name, score )
+    if self.buildjob.commit:
+      self.buildjob.commit.setScore( target, self.name, score )
 
   @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'String', 'is_array': True } ] )
   def addPackageFiles( self, cookie, package_files ):

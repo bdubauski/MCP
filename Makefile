@@ -78,7 +78,7 @@ respkg-requires:
 	echo respkg
 
 respkg:
-	cd contractor && respkg -b ../mcp-contractor_$(VERSION)-1.respkg -n mcp-contractor -e $(VERSION) -c "MCP Blueprints for Contractor" -t load_data.sh -d resources -s contractor-os-base
+	cd contractor && respkg -b ../mcp_$(VERSION)-1.respkg -n mcp -e $(VERSION) -c "MCP Blueprints for Contractor" -t load_data.sh -d resources -s contractor-os-base
 	touch respkg
 
 respkg-file:

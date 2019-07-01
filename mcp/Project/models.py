@@ -812,7 +812,7 @@ class BuildDependancy( models.Model ):
       raise ValidationError( errors )
 
   def __str__( self ):
-    return 'BuildDependancies from "{0}" to "{1}" at "{2}"'.format( self.build.name, self.package.name, self.from_state )
+    return 'BuildDependancies from "{0}" to "{1}" tag "{2}"'.format( self.build.name, self.package.name, self.tag )
 
   class Meta:
     unique_together = ( 'build', 'package' )

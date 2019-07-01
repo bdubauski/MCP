@@ -126,7 +126,20 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
     job.full_clean()
     job.save()
 
-# the Job will flag it's self as Ran
+
+# Iterate over the built jobs and see if all the instances are done, if so, flag as ran
+for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
+  ready = True
+  for instance in job.instance_set.all():
+    ready &= instance.state == 'ran'
+
+  # all done, set to ran
+  if ready:
+    logging.info( 'Setting job "{0}" to Ran.'.format( job.id ) )
+    job.ran_at = datetime.now( timezone.utc )
+    job.full_clean()
+    job.save()
+
 
 # Iterate over the Ran jobs, and signalComplete
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
@@ -134,7 +147,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
     job.commit.signalComplete( job.target, job.build.name, job.suceeded )
 
   elif job.promotion is not None:
-    job.promotion.signalComplete( job.build )
+    job.promotion.signalComplete( job.build, job.suceeded )
 
   else:
     logging.info( 'Job has nothing to report to, hopfully that was intentional' )

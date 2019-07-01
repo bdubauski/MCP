@@ -7,6 +7,27 @@ from mcp.Auth.models import getUser
 
 
 class BlankTransaction():
+  def __init__( self ):
+    super().__init__()
+
+  def get( self, model, object_id ):
+    return None
+
+  def create( self, model, value_map ):
+    pass
+
+  def update( self, model, object_id, value_map ):
+    return None
+
+  def list( self, model, filter_name, filter_values, position, count ):
+    return []
+
+  def delete( self, model, object_id ):
+    return False
+
+  def start( self ):
+    pass
+
   def commit( self ):
     pass
 
