@@ -165,11 +165,13 @@ class DynamicResource( Resource ):
     instance.save()
     contractor.registerWebHook( instance, True )
     contractor.createFoundation( instance.foundation_id )
+    contractor.createStructure( instance.structure_id )
 
   def release( self, instance ):
     contractor = getContractor()
     contractor.registerWebHook( instance, False )
     contractor.destroyStructure( instance.structure_id )
+    contractor.destroyFoundation( instance.foundation_id )
 
   @cinp.check_auth()
   @staticmethod

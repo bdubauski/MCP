@@ -75,6 +75,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('status', models.CharField(max_length=50)),
+                ('success', models.BooleanField(blank=True, null=True)),
                 ('build', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Project.Build')),
                 ('promotion', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Processor.Promotion')),
             ],
