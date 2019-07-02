@@ -96,11 +96,8 @@ installcheck-depends:
 installcheck-resources:
 	echo mcp:1:ubuntu-bionic-small
 
-installcheck-requires:
-	echo mcp
-
 installcheck:
-	nullunitInterface --signal-ran
+	apt install -y mcp
 	touch installcheck
 
-.PHONY:: auto-builds installcheck-depends installcheck-resources installcheck-requires
+.PHONY:: auto-builds installcheck-depends installcheck-resources

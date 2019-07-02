@@ -673,7 +673,7 @@ A Single Commit of a Project
     # if self.owner_override:
     #   gh.setOwner( self.owner_override )
     gh.postCommitStatus( self.commit, 'pending' )
-    gh.setOwner()
+    # gh.setOwner()
 
   def postResults( self ):
     if self.project.type != 'GitHubProject':
@@ -709,7 +709,7 @@ A Single Commit of a Project
       else:
         gh.postCommitStatus( self.commit, 'error', description='Bad State "{0}"'.format( summary[ 'status' ] ) )
 
-      gh.setOwner()
+      # gh.setOwner()
 
       number = int( self.branch[3:] )
       gh.postPRComment( number, _commitSumary2Str( self.summary ) )
