@@ -14,12 +14,11 @@ django.setup()
 import logging
 import sys
 from logging.handlers import SysLogHandler
-from django.conf import settings
 
 from mcp.Project.models import Package, PackageVersion, BuildDependancy
 from mcp.Processor.models import Promotion, QueueItem, PromotionBuild, PromotionPkgVersion
-from mcp.lib.Packrat import Packrat
-from mcp.lib.Slack import Slack
+from mcp.lib.Packrat import getPackrat
+from mcp.lib.Slack import getSlack
 
 PID_FILE = '/var/run/tron.pid'
 
@@ -46,10 +45,8 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
-logging.info( 'Connecting to Packrat...' )
-packrat = Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKRAT_USERNAME, settings.PACKRAT_PSK )
-
-slack = Slack( 'tron', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+slack = getSlack( 'tron' )
+packrat = getPackrat()
 
 tag_requirements_map = dict( [ ( k, set( v ) ) for ( k, v ) in packrat.tag_requirements_map().items() ] )
 available_tag_set = set( tag_requirements_map.keys() )
@@ -58,28 +55,6 @@ tag_name_map = dict( [ ( i, i.split( ':' )[1] ) for i in available_tag_set ] )
 
 def _queuePromotion( pkg_version, packrat_id, tag ):
   package = pkg_version.package
-
-  promotion = None
-  try:  # TODO: the filter().distinct().get() buesines is due to a django bug that will return a Promotion for each package_version.... someday look into this
-    promotion = Promotion.objects.filter( promotionpkgversion__package_version__package=package ).distinct().get()
-  except Promotion.DoesNotExist:
-    pass
-
-  if promotion:
-    if promotion.tag != tag:
-      logging.warning( 'Package "{0}" version "{1}" has differing tag from existing promotion, going to ignore for now.'.format( package.name, pkg_version.version ) )
-      return
-
-    # TODO: really any package that has the same target build and state should join the club... assuming it get's on board before
-    #       the repo snapshot is made for the build to operate from
-    logging.info( 'Joining package "{0}" version "{1}" to Existing Promotion...'.format( package.name, pkg_version.version ) )
-    promotion_pkg_version = PromotionPkgVersion()
-    promotion_pkg_version.promotion = promotion
-    promotion_pkg_version.package_version = pkg_version
-    promotion_pkg_version.packrat_id = packrat_id
-    promotion_pkg_version.full_clean()
-    promotion_pkg_version.save()
-    return
 
   dependancy_list = BuildDependancy.objects.filter( package=package, tag=tag )
   if len( dependancy_list ) == 0:
@@ -137,6 +112,12 @@ for promotion in Promotion.objects.all():
 
   promotion.delete()
 
+
+# iterate over packagefile .groupby 'group'
+# pull all the object in the group, make sure they are at the same level
+# if they are no longer in packrat, delete the PackageFile object
+# scan to see if there are tags to do, if so create promotion
+
 # look for new package versions
 for name in packrat.packages():
   logging.info( 'Checking package "{0}"...'.format( name ) )
@@ -149,6 +130,9 @@ for name in packrat.packages():
     package.save()
 
   for ( package_file_uri, package_file ) in packrat.package_files( package.name ):
+    if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
+      continue
+
     package_file_tag_set = set( package_file[ 'raw_tag_list' ] )
     for tag in available_tag_set - package_file_tag_set:  # Iterate over all the tags not yet set
       if len( tag_requirements_map[ tag ] - package_file_tag_set ) != 0:  # Not all requiremenets are met

@@ -17,11 +17,10 @@ import logging
 from logging.handlers import SysLogHandler
 from datetime import datetime, timezone
 
-from django.conf import settings
-
-from mcp.Processor.models import QueueItem
-from mcp.Project.models import Commit
-from mcp.lib.Slack import Slack
+from mcp.Processor.models import QueueItem, PackageFile
+from mcp.Project.models import Commit, Package
+from mcp.lib.Slack import getSlack
+from mcp.lib.Packrat import getPackrat
 
 PID_FILE = '/var/run/recoginzer.pid'
 
@@ -48,7 +47,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
-slack = Slack( 'recognizer', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+slack = getSlack( 'recognizer' )
 
 # check for commits that need testing
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True ):
@@ -175,9 +174,30 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
   commit.full_clean()
   commit.save()
 
+packrat = None
 # check for commits that are done
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=False ):
   if commit.branch == 'master':  # tag version on master
+    if packrat is None:
+      packrat = getPackrat()
+
+    # only look to tag new package files on master, they shold only be created on master anyway
+    for filename, uri in commit.package_file_map.items():
+      packrat_packagefile = packrat.cinp.get( uri )
+      try:
+        package = Package.objects.get( packrat_id=packrat_packagefile[ 'package' ] )
+      except Package.DoesNotExist:
+        packrat_package = packrat.cinp.get( packrat_packagefile[ 'package' ] )
+        package = Package( name=packrat_package[ 'name' ], packrat_id=packrat_packagefile[ 'package' ] )
+        package.full_clean()
+        package.save()
+
+      packagefile = PackageFile( filename=filename, packrat_id=uri )
+      packagefile.package = package
+      packagefile.group = commit.commit
+      packagefile.full_clean()
+      packagefile.save()
+
     commit.tagVersion()
 
   slack.post_message( 'Commit "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.DONE )
@@ -187,6 +207,8 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
   commit.save()
   continue
 
+if packrat is not None:
+  packrat.logout()
 
 os.unlink( PID_FILE )
 logging.info( 'Done!' )
