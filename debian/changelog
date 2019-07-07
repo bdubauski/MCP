@@ -1,3 +1,10 @@
+mcp (0.18-1) bionic; urgency=medium
+
+  * New PackageFile handeling
+  * linking commit to created files
+
+ -- Peter <peter@xps15>  Sat, 06 Jul 2019 18:26:47 -0600
+
 mcp (0.17-1) bionic; urgency=medium
 
   * BuildJob Run completion rework
