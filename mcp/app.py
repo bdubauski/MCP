@@ -39,6 +39,10 @@ def contractorInfo():
   return { 'host': settings.CONTRACTOR_HOST }
 
 
+def packratInfo():
+  return { 'host': settings.PACKRAT_HOST }
+
+
 def get_app( debug ):
   app = WerkzeugServer( root_path='/api/v1/', root_version='0.10', debug=debug, get_user=getUser, cors_allow_list=[ '*' ] )
 
@@ -47,6 +51,9 @@ def get_app( debug ):
   app.root_namespace.addElement( config )
 
   info = Action( name='getContractorInfo', return_paramater=Paramater( type='Map' ), func=contractorInfo )
+  info.checkAuth = lambda user, verb, id_list: True
+  config.addAction( info )
+  info = Action( name='getPackratInfo', return_paramater=Paramater( type='Map' ), func=packratInfo )
   info.checkAuth = lambda user, verb, id_list: True
   config.addAction( info )
 

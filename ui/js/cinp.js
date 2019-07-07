@@ -5,7 +5,7 @@ var cinpBuilder = {};
 
   cinpBuilder = function()
   {
-    var cinp = { host: 'http://127.0.0.1:8888/',
+    var cinp = { host: 'http://' + window.location.hostname,
                   auth_id: '',
                   auth_token: '',
                   on_server_error: null };

@@ -8,9 +8,9 @@ from django.core.exceptions import ValidationError
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.lib.t3kton import getContractor
-from mcp.fields import MapField, StringListField
+from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
 
-from mcp.Project.models import Build, Project, PackageVersion, Commit, TAG_NAME_LENGTH
+from mcp.Project.models import Build, Project, Package, Commit
 from mcp.Resource.models import Resource, NetworkResource
 
 
@@ -21,13 +21,28 @@ BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'rele
 INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
 
-# techinically we sould be grouping all the same build to geather, but sence each package has a diffrent distro name in the version we end up
-# with multiple "versions" for one "version" of the file.  So hopfully the rest of MCP maintains one commit at a time, and we will group
-# all versions of a package togeather in the same Promotion for now, better logic is needed eventually
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+class PackageFile( models.Model ):
+  filename = models.CharField( max_length=PACKAGE_FILENAME_LENGTH )
+  package = models.ForeignKey( Package, on_delete=models.CASCADE )
+  packrat_id = models.CharField( max_length=100, unique=True )
+  group = models.CharField( max_length=45, db_index=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'PackageFile "{0}" of "{1}"'.format( self.packrat_id, self.package )
+
+
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
-  package_versions = models.ManyToManyField( PackageVersion, through='PromotionPkgVersion', help_text='' )
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
+  packagefile_list = models.ManyToManyField( PackageFile )
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -49,29 +64,11 @@ class Promotion( models.Model ):
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class PromotionPkgVersion( models.Model ):
-  promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
-  package_version = models.ForeignKey( PackageVersion, on_delete=models.CASCADE )
-  packrat_id = models.CharField( max_length=100 )
-
-  @cinp.check_auth()
-  @staticmethod
-  def checkAuth( user, verb, id_list, action=None ):
-    return True
-
-  def __str__( self ):
-    return 'PromotionPkgVersion for package "{0}" version "{1}" for tag "{2}"'.format( self.package_version.package.name, self.package_version.version, self.promotion.tag )
-
-  class Meta:
-    unique_together = ( 'promotion', 'package_version' )
-
-
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class PromotionBuild( models.Model ):
   promotion = models.ForeignKey( Promotion, on_delete=models.CASCADE )
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   status = models.CharField( max_length=50 )
-  success = models.BooleanField( null=True, blank=True )
+  success = models.NullBooleanField( null=True )
 
   @cinp.check_auth()
   @staticmethod
@@ -222,6 +219,7 @@ BuildJob
   user = models.CharField( max_length=150 )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
+  package_file_map = MapField( default={}, blank=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -304,6 +302,21 @@ BuildJob
     return result
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
+  def jobRan( self, user ):
+    # if not user.has_perm( 'Processor.can_ran' ):
+    #   raise PermissionDenied()
+
+    if self.ran_at is not None:  # been done, don't touch
+      return
+
+    if not self.built_at:
+      self.built_at = datetime.now( timezone.utc )
+
+    self.ran_at = datetime.now( timezone.utc )
+    self.full_clean()
+    self.save()
+
+  @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def acknowledge( self, user ):
     # if not user.has_perm( 'Processor.can_ack' ):
     #   raise PermissionDenied()
@@ -370,6 +383,15 @@ BuildJob
     super().clean( *args, **kwargs )
     errors = {}
 
+    for key, value in self.package_file_map.items():
+      if not package_filename_regex.match( key ):
+        errors[ 'package_file_map' ] = 'file name "{0}" invalid'.format( key )
+        break
+
+      if not isinstance( value, str ) and not packagefile_regex.match( value ):
+        errors[ 'package_file_map' ] = 'file uri invalid for "{0}"'.format( key )
+        break
+
     if errors:
       raise ValidationError( errors )
 
@@ -395,7 +417,6 @@ class Instance( models.Model ):
   message = models.CharField( max_length=200, default='', blank=True )
   # results info
   success = models.BooleanField( default=False )
-  package_files = StringListField( blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
   # contractor specific
@@ -436,6 +457,9 @@ class Instance( models.Model ):
     if self.cookie != cookie:
       return
 
+    if self.state not in ( 'allocated', 'building' ):  # allready moved on, don't touch
+      return
+
     self.state = 'built'
     self.full_clean()
     self.save()
@@ -469,7 +493,7 @@ class Instance( models.Model ):
     if self.cookie != cookie:
       return
 
-    self.status = 'ran'
+    self.state = 'ran'
     self.full_clean()
     self.save()
 
@@ -504,14 +528,16 @@ class Instance( models.Model ):
     if self.buildjob.commit:
       self.buildjob.commit.setScore( target, self.name, score )
 
-  @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'String', 'is_array': True } ] )
-  def addPackageFiles( self, cookie, package_files ):
+  @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'Map' } ] )
+  def addPackageFiles( self, cookie, package_files ):  # TODO: next nullunit rename package_files -> package_file_map
     if self.cookie != cookie:
       return
 
-    self.package_files = package_files
-    self.full_clean()
-    self.save()
+    package_file_map = package_files
+
+    self.buildjob.package_file_map.update( package_file_map )
+    self.buildjob.full_clean()
+    self.buildjob.save()
 
   @cinp.action( return_type='Map', paramater_type_list=[ 'String' ]  )
   def getValueMap( self, cookie ):
@@ -539,10 +565,10 @@ class Instance( models.Model ):
     return result
 
   def build( self ):
-    if self.state in ( 'building', 'built1', 'built' ):
+    if self.state in ( 'building', 'built' ):
       return
 
-    if self.state in ( 'releasing', 'released1', 'released' ):
+    if self.state in ( 'releasing', 'released' ):
       raise Exception( 'Can not build while released/releasing' )
 
     self.resource.subclass.build( self )
@@ -552,10 +578,10 @@ class Instance( models.Model ):
     self.save()
 
   def release( self ):
-    if self.state in ( 'releasing', 'released1', 'released' ):
+    if self.state in ( 'releasing', 'released' ):
       return
 
-    if self.state not in ( 'built', ):
+    if self.state not in ( 'ran', 'built' ):
       raise Exception( 'Can not release when not built' )
 
     self.resource.subclass.release( self )

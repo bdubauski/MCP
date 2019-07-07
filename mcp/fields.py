@@ -5,6 +5,10 @@ from django.db import models
 from django.core.exceptions import ValidationError
 
 name_regex = re.compile( '^[a-zA-Z0-9][a-zA-Z0-9_\-]*$' )
+package_filename_regex = re.compile( '^[0-9a-zA-Z\-_\.]+$' )  # from packrat.fields.filename_regex
+packagefile_regex = re.compile( '/api/v2/Package/PackageFile:[0-9]+:')
+TAG_NAME_LENGTH = 10  # from packrat Attrib/models.py, length of the Tag name
+PACKAGE_FILENAME_LENGTH = 100  # surly something some where in packrat defines this
 
 JSON_MAGIC = '\x02JSON\x03'
 

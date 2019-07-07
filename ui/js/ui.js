@@ -516,7 +516,7 @@ function hashChange( event )
           if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
           buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
 
-          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.suceeded + '</td><td>' + item.score + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td></tr>' );
+          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.suceeded + '</td><td>' + item.score + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td><td>' + item.package_file_map + '</td></tr>' );
         }
       }
     ).fail(

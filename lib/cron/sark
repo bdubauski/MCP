@@ -17,10 +17,8 @@ import logging
 from logging.handlers import SysLogHandler
 from datetime import datetime, timezone, timedelta
 
-from django.conf import settings
-
 from mcp.Processor.models import QueueItem, BuildJob
-from mcp.lib.Slack import Slack
+from mcp.lib.Slack import getSlack
 
 # in Hours
 CLEANUP_DELAY = 0.2
@@ -48,7 +46,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
-slack = Slack( 'sark', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+slack = getSlack( 'sark' )
 
 
 # Iterate over the Queued Items
@@ -126,6 +124,10 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
     job.full_clean()
     job.save()
 
+    job.commit.package_file_map = job.package_file_map
+    job.commit.full_clean()
+    job.commit.save()
+
 
 # Iterate over the built jobs and see if all the instances are done, if so, flag as ran
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
@@ -141,7 +143,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True,
     job.save()
 
 
-# Iterate over the Ran jobs, and signalComplete
+# Iterate over the Ran jobs
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=True, released_at__isnull=True ):
   if job.commit is not None:
     job.commit.signalComplete( job.target, job.build.name, job.suceeded )
@@ -187,7 +189,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
   for instance in job.instance_set.all():
-    if instance.state == 'built':
+    if instance.state in ( 'ran', 'built' ):
       instance.release()
 
   ready = True

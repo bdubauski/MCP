@@ -19,13 +19,13 @@ from ssl import SSLError
 from datetime import datetime, timezone
 from logging.handlers import SysLogHandler
 
-from django.conf import settings
 from django.db.models import ProtectedError
 
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
 from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile, MakeException
-from mcp.lib.Slack import Slack
+from mcp.lib.Slack import getSlack
+from mcp.lib.Packrat import getPackrat
 
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
@@ -53,7 +53,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
-slack = Slack( 'rinzler', settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+slack = getSlack( 'rinzler' )
 
 
 def _makeBuild( build_name, project, manual ):
@@ -87,8 +87,16 @@ def _makeBuild( build_name, project, manual ):
       package = Package.objects.get( name=package_name )
 
     except Package.DoesNotExist:
-      logging.warning( 'Package "{0}" for dependancy for build "{1}" does not exist, skipped.'.format( package_name, build_name ) )
-      continue
+      packrat = getPackrat()
+      packrat_package_uri = packrat.findPackage( package_name )
+      packrat.logout()
+      if packrat_package_uri is None:
+        logging.error( 'Package "{0}" for dependancy for build "{1}" not found in Packrat, ignorning build.'.format( package_name, build_name ) )
+        return
+
+      package = Package( name=package_name, packrat_id=packrat_package_uri )
+      package.full_clean()
+      package.save()
 
     builddep = BuildDependancy()
     builddep.build = build

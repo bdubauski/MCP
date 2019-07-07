@@ -9,7 +9,7 @@ from django.conf import settings
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.fields import MapField, name_regex
+from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH
 from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
 from mcp.Resource.models import Resource
@@ -19,10 +19,6 @@ cinp = CInP( 'Project', '0.1' )
 
 
 COMMIT_STATE_LIST = ( 'new', 'tested', 'built', 'doced', 'done' )
-
-
-# from packrat Attrib/models.py, length of the Tag name
-TAG_NAME_LENGTH = 10
 
 
 def _markdownBlockQuote( lines ):
@@ -350,6 +346,7 @@ class Package( models.Model ):
 This is a Package
   """
   name = models.CharField( max_length=100, primary_key=True )
+  packrat_id = models.CharField( max_length=100, unique=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -372,28 +369,6 @@ This is a Package
     return 'Package "{0}"'.format( self.name )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class PackageVersion( models.Model ):
-  """
-This is a Version of a Package
-  """
-  package = models.ForeignKey( Package, on_delete=models.CASCADE )
-  version = models.CharField( max_length=50 )
-  created = models.DateTimeField( editable=False, auto_now_add=True )
-  updated = models.DateTimeField( editable=False, auto_now=True )
-
-  @cinp.check_auth()
-  @staticmethod
-  def checkAuth( user, verb, id_list, action=None ):
-    return True
-
-  def __str__( self ):
-    return 'PackageVersion "{0}" verison "{1}"'.format( self.package.name, self.version )
-
-  class Meta:
-    unique_together = ( 'package', 'version' )
-
-
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], property_list=[ { 'name': 'state', 'choices': COMMIT_STATE_LIST }, { 'name': 'summary', 'type': 'Map' } ] )
 class Commit( models.Model ):
   """
@@ -412,6 +387,7 @@ A Single Commit of a Project
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
+  package_file_map = MapField( default={}, blank=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -738,6 +714,15 @@ A Single Commit of a Project
   def clean( self, *args, **kwargs ):
     super().clean( *args, **kwargs )
     errors = {}
+
+    for key, value in self.package_file_map.items():
+      if not package_filename_regex.match( key ):
+        errors[ 'package_file_map' ] = 'file name "{0}" invalid'.format( key )
+        break
+
+      if not isinstance( value, str ) and not packagefile_regex.match( value ):
+        errors[ 'package_file_map' ] = 'file uri invalid for "{0}"'.format( key )
+        break
 
     if errors:
       raise ValidationError( errors )

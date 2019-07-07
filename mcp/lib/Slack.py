@@ -2,6 +2,12 @@ import json
 import logging
 from urllib import request, parse
 
+from django.conf import settings
+
+
+def getSlack( service ):
+  return Slack( service, settings.SLACK_API_TOKEN, settings.SLACK_CHANNEL, settings.SITE_NAME, settings.SLACK_PROXY )
+
 
 class Slack():
   NOTSET = ':loudspeaker:'
