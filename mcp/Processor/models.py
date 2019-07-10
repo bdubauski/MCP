@@ -16,7 +16,7 @@ from mcp.Resource.models import Resource, NetworkResource
 
 cinp = CInP( 'Processor', '0.1' )
 
-
+GROUP_MAX_LENGTH = 45
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
 INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
@@ -26,7 +26,7 @@ class PackageFile( models.Model ):
   filename = models.CharField( max_length=PACKAGE_FILENAME_LENGTH )
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
   packrat_id = models.CharField( max_length=100, unique=True )
-  group = models.CharField( max_length=45, db_index=True )
+  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -42,7 +42,7 @@ class PackageFile( models.Model ):
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  packagefile_list = models.ManyToManyField( PackageFile )
+  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )  # does this need to be unique?  do we need to worry about the same group id showing up in different groups of package files
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )

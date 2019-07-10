@@ -78,9 +78,9 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('tag', models.CharField(max_length=10)),
+                ('group', models.CharField(db_index=True, max_length=45)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),
-                ('packagefile_list', models.ManyToManyField(to='Processor.PackageFile')),
             ],
         ),
         migrations.CreateModel(

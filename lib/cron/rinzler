@@ -15,6 +15,7 @@ import sys
 import glob
 import shutil
 import socket
+import cinp
 from ssl import SSLError
 from datetime import datetime, timezone
 from logging.handlers import SysLogHandler
@@ -88,7 +89,12 @@ def _makeBuild( build_name, project, manual ):
 
     except Package.DoesNotExist:
       packrat = getPackrat()
-      packrat_package_uri = packrat.findPackage( package_name )
+      packrat_package_uri = '/api/v2/Package/Package:{0}:'.format( package_name )
+      try:
+        packrat.cinp.get( packrat_package_uri )
+      except cinp.client.NotFound:
+        packrat_package_uri = None
+
       packrat.logout()
       if packrat_package_uri is None:
         logging.error( 'Package "{0}" for dependancy for build "{1}" not found in Packrat, ignorning build.'.format( package_name, build_name ) )
