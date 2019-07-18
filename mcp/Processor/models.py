@@ -6,7 +6,6 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from cinp.orm_django import DjangoCInP as CInP
-from cinp.server_common import NotAuthorized
 
 from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
@@ -315,9 +314,6 @@ BuildJob
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def jobRan( self, user ):
-    if not user.has_perm( 'Processor.can_ran' ):
-      raise NotAuthorized()
-
     if self.ran_at is not None:  # been done, don't touch
       return
 

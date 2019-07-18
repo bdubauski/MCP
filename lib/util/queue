@@ -15,6 +15,7 @@ from mcp.Project.models import Build, Project
 oparser = optparse.OptionParser( description='Queue Job', usage='prog [options]\n-b/--build and -t/--target are mutually exclusive, only one of the will process.' )
 oparser.add_option( '-p', '--priority', help='Queue Item Priority (default: 50)', dest='priority', default=50 )
 oparser.add_option( '-r', '--branch', help='git branch to check out (default: master)', dest='branch', default='master' )
+# oparser.add_option( '-e', '--resource-group', help='Resource Group to use (can be specified multiple times)', dest='resource_group', default=[], action='append' )
 oparser.add_option( '-m', '--manual', help='Flag as Manual Build, ie: manual -> no auto cleanup (default: False)', dest='manual', default=False, action='store_true' )
 oparser.add_option( '-o', '--project', help='Project to target', dest='project' )
 
