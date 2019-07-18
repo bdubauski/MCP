@@ -561,11 +561,9 @@ class Instance( models.Model ):
       self.buildjob.commit.setScore( target, self.name, score )
 
   @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'Map' } ] )
-  def addPackageFiles( self, cookie, package_files ):  # TODO: next nullunit rename package_files -> package_file_map
+  def addPackageFiles( self, cookie, package_file_map ):
     if self.cookie != cookie:
       return
-
-    package_file_map = package_files
 
     self.buildjob.package_file_map.update( package_file_map )
     self.buildjob.full_clean()

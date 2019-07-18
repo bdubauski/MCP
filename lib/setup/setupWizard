@@ -69,9 +69,6 @@ fi
 echo "Populating db..."
 /usr/lib/mcp/util/manage.py migrate
 
-echo "Creating super user..."
-/usr/lib/mcp/util/manage.py createsuperuser --noinput --username=root --email=test@test.com
-
 echo "Creating basic objects..."
 /usr/lib/mcp/setup/setupHelper.py
 
