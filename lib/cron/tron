@@ -70,13 +70,16 @@ def _failGroup( group ):
 
 def _queuePromotion( group, package_list, tag ):
   dependancy_list = BuildDependancy.objects.filter( package__in=package_list, tag=tag )
+
+  logging.info( 'Tagging group "{0}" with "{1}"'.format( group, tag ) )
+  _tagGroup( group, tag )
+  slack.post_message( 'Group "{0}" tagged "{1}" with'.format( group, tag ), slack.SUCCESS )
+
   if len( dependancy_list ) == 0:
     logging.info( 'No Dependancies for group "{0}" for tag "{1}"'.format( group, tag ) )
-    _tagGroup( group, tag )
-    slack.post_message( 'No Dependancies for group "{0}" for tag "{1}", tagged'.format( group, tag ), slack.SUCCESS )
     return
 
-  logging.info( 'Creating Promotion for group "{0}" for tag "{1}"...'.format( group, tag ) )
+  logging.info( 'Creating Promotion check for group "{0}" for tag "{1}"...'.format( group, tag ) )
   promotion = Promotion()
   promotion.group = group
   promotion.tag = tag
@@ -106,9 +109,8 @@ for promotion in Promotion.objects.all():
     continue
 
   if success:
-    logging.info( 'Tagging group "{0}" with "{1}".'.format( promotion.group, promotion.tag ) )
-    _tagGroup( promotion.group, promotion.tag )
-    slack.post_message( 'Tagged group "{0}" with "{1}".'.format( promotion.group, promotion.tag ), slack.SUCCESS )
+    logging.info( 'Group "{0}" for tag "{1}" passed.'.format( promotion.group, promotion.tag ) )
+    slack.post_message( 'Group "{0}" for tag "{1}" passed.'.format( promotion.group, promotion.tag ), slack.SUCCESS )
 
   else:
     logging.info( 'Failing group "{0}".'.format( promotion.group ) )
@@ -130,6 +132,10 @@ for package_file in PackageFile.objects.all():
 
 # iterate over the groups of package files
 for group in PackageFile.objects.all().values_list( 'group', flat=True ).distinct():
+  if Promotion.objects.filter( group=group ).count() > 0:
+    logging.info( 'Group "{0}" allready has promotion(s), skipping...'.format( group ) )
+    continue
+
   id_list = list( PackageFile.objects.filter( group=group ).values_list( 'packrat_id', flat=True ) )
   # TODO: get the full id_list from packrat in one request instead of asking for them one at a time
   try:
@@ -142,21 +148,28 @@ for group in PackageFile.objects.all().values_list( 'group', flat=True ).distinc
    logging.info( 'Group "{0}" is deprocated/faield, skipping...'.format( group ) )
    continue
 
+  clean = True
   tag_list = package_file[ 'tags' ]
-  while id_list:
+  while id_list and clean:
     try:
       package_file = packrat.cinp.get( id_list.pop() )
     except cinp.client.NotFound:
       logging.info( 'Package disapeared, will try group "{0}" next time'.format( group ) )
+      clean = False
       continue
 
     if package_file[ 'tags' ] != tag_list:
       logging.warn( 'tag missmatch in group "{0}", skipping...'.format( group ) )
+      clean = False
       continue
 
     if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
      logging.info( 'deprocated/faield missmatch in group "{0}", skipping...'.format( group ) )
+     clean = False
      continue
+
+  if not clean:
+    continue
 
   # ok, all of the group is consistant and accounted for, let's check the tags
   package_file_tag_set = set( package_file[ 'raw_tag_list' ] )

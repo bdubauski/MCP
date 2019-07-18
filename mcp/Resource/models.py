@@ -115,10 +115,11 @@ class DynamicResource( Resource ):
     contractor = getContractor()
     contractor.updateConfig( instance.structure_id, instance.config_values, instance.hostname )
 
-  def _createNew( self, network, buildjob, name, index ):
+  def _createNew( self, interface_map, buildjob, name, index ):
     Instance = apps.get_model( 'Processor', 'Instance' )
 
-    instance = Instance( resource=self, network=network )
+    instance = Instance( resource=self )
+    instance.interface_map = interface_map
     instance.buildjob = buildjob
     instance.name = name
     instance.index = index
@@ -128,10 +129,11 @@ class DynamicResource( Resource ):
 
     instance.build()
 
-  def _replentishPreAllocate( self, network ):
+  def _replentishPreAllocate( self, interface_map ):
     Instance = apps.get_model( 'Processor', 'Instance' )
     while self.instance_set.filter( buildjob__isnull=True ).count() < self.build_ahead_count:  # TODO: make sure there is room for more vms in the subnet
-      instance = Instance( resource=self, network=network )
+      instance = Instance( resource=self )
+      instance.interface_map = interface_map
       instance.hostname = 'mcp-preallocate--{0}-'.format( self.name )
       instance.full_clean()
       instance.save()
@@ -142,23 +144,28 @@ class DynamicResource( Resource ):
 
       instance.build()
 
-  def allocate( self, job, name, quantity, network ):
-    instance_list = self.instance_set.filter( buildjob__isnull=True, network=network ).order_by( 'pk' ).iterator()
+  def allocate( self, job, name, quantity, interface_map ):
+    if not isinstance( interface_map, dict ):
+      interface_map = { 'eth0': { 'network': interface_map.name } }
+
+    instance_list = self.instance_set.filter( buildjob__isnull=True ).order_by( 'pk' ).iterator()
 
     for index in range( 0, quantity ):
       instance = next( instance_list, None )
+      while instance is not None and instance.interface_map != interface_map:  # dicts don't allways sort the same way, so trying to query by interface_map will not work very well
+        instance = next( instance_list, None )
 
       if instance is not None:
         self._takeOver( instance, job, name, index )
       else:
-        self._createNew( network, job, name, index )
+        self._createNew( interface_map, job, name, index )
 
-    self._replentishPreAllocate( network )
+    self._replentishPreAllocate( interface_map )
 
   def build( self, instance ):
     contractor = getContractor()
 
-    ( foundation_id, structure_id ) = contractor.createInstance( self.site.name, self.complex, self.blueprint, instance.hostname, instance.config_values, instance.network.name )
+    ( foundation_id, structure_id ) = contractor.createInstance( self.site.name, self.complex, self.blueprint, instance.hostname, instance.config_values, instance.interface_map )
     instance.foundation_id = foundation_id
     instance.structure_id = structure_id
     instance.full_clean()
@@ -189,6 +196,8 @@ NetworkResource, name is the name of the SubNet/AddressBlock.  Really only used 
   """
   name = models.CharField( max_length=40, primary_key=True )
   preference = models.IntegerField( default=100 )  # the higher the number the greater the preference
+  # use_all_at_once = boolean
+  # unuse = boolean
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 

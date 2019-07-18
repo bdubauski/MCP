@@ -152,7 +152,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
   commit = job.commit
   if commit is not None:
-    commit.package_file_map = job.package_file_map
+    commit.package_file_map.update( job.package_file_map )
     commit.full_clean()
     commit.save()
 
