@@ -33,7 +33,7 @@ class Contractor():
   def getStructures( self, id_list ):
     return self.cinp.getObjets( '/api/v1/Building/Structure', id_list ).values()
 
-  def createInstance( self, site_id, complex_id, blueprint_id, hostname, config_values, addressblock_id ):
+  def createInstance( self, site_id, complex_id, blueprint_id, hostname, config_values, interface_map ):
     foundation = self.cinp.call( '/api/v1/Building/Complex:{0}:(createFoundation)'.format( complex_id ), { 'hostname': hostname, 'can_auto_locate': True } )
 
     data = {}
@@ -44,11 +44,21 @@ class Contractor():
     data[ 'config_values' ] = config_values
     structure = self.cinp.create( '/api/v1/Building/Structure', data )[0]
 
-    data = {}
-    data[ 'structure' ] = structure
-    data[ 'interface_name' ] = 'eth0'
-    data[ 'is_primary' ] = True
-    address = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(nextAddress)'.format( addressblock_id ), data )
+    for name, interface in interface_map.items():
+      data = {}
+      data[ 'networked' ] = structure
+      data[ 'interface_name' ] = name
+      data[ 'is_primary' ] = interface.get( 'is_primary', name == 'eth0' )
+
+      offset = interface.get( 'offset', None )
+
+      if offset is not None:
+        data[ 'offset' ] = offset
+        data[ 'address_block' ] = '/api/v1/Utilities/AddressBlock:{0}:'.format( interface[ 'name' ] )
+        address = self.cinp.create( '/api/v1/Utilities/Address', data )
+      else:
+        data[ 'structure' ] = structure  # until the new contractor is installed
+        address = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(nextAddress)'.format( interface[ 'name' ] ), data )
 
     logging.debug( 'Created "{0}" on "{1}" at {2}'.format( structure, foundation, address ) )
 

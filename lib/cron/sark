@@ -115,7 +115,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
   for instance in job.instance_set.all():
-    ready &= instance.state == 'built'
+    ready &= instance.state in ( 'built', 'ran' )
 
   # all done, set to built
   if ready:
@@ -123,10 +123,6 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
     job.built_at = datetime.now( timezone.utc )
     job.full_clean()
     job.save()
-
-    job.commit.package_file_map = job.package_file_map
-    job.commit.full_clean()
-    job.commit.save()
 
 
 # Iterate over the built jobs and see if all the instances are done, if so, flag as ran
@@ -153,6 +149,12 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
   else:
     logging.info( 'Job has nothing to report to, hopfully that was intentional' )
+
+  commit = job.commit
+  if commit is not None:
+    commit.package_file_map.update( job.package_file_map )
+    commit.full_clean()
+    commit.save()
 
   logging.info( 'Setting job "{0}" to Reported.'.format( job.id ) )
   job.reported_at = datetime.now( timezone.utc )

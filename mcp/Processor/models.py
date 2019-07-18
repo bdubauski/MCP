@@ -16,7 +16,7 @@ from mcp.Resource.models import Resource, NetworkResource
 
 cinp = CInP( 'Processor', '0.1' )
 
-
+GROUP_MAX_LENGTH = 45
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
 INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
@@ -26,14 +26,17 @@ class PackageFile( models.Model ):
   filename = models.CharField( max_length=PACKAGE_FILENAME_LENGTH )
   package = models.ForeignKey( Package, on_delete=models.CASCADE )
   packrat_id = models.CharField( max_length=100, unique=True )
-  group = models.CharField( max_length=45, db_index=True )
+  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return True
+    return cinp.basic_auth_check( user, verb, PackageFile )
+
+  class Meta:
+    default_permissions = ()
 
   def __str__( self ):
     return 'PackageFile "{0}" of "{1}"'.format( self.packrat_id, self.package )
@@ -42,7 +45,7 @@ class PackageFile( models.Model ):
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  packagefile_list = models.ManyToManyField( PackageFile )
+  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )  # does this need to be unique?  do we need to worry about the same group id showing up in different groups of package files
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -57,10 +60,13 @@ class Promotion( models.Model ):
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return True
+    return cinp.basic_auth_check( user, verb, Promotion )
+
+  class Meta:
+    default_permissions = ()
 
   def __str__( self ):
-    return 'Promotion for package/versions {0} tag "{1}"'.format( [ ( '{0}({1})'.format( i.package.name, i.version ) ) for i in self.package_versions.all() ], self.tag )
+    return 'Promotion for package group "{0}" tag "{1}"'.format( self.group, self.tag )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -73,13 +79,14 @@ class PromotionBuild( models.Model ):
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return True
-
-  def __str__( self ):
-    return 'PromotionBuild for tag "{0}" using build "{1}" at "{2}"'.format( self.promotion.tag, self.build.name, self.status )
+    return cinp.basic_auth_check( user, verb, PromotionBuild )
 
   class Meta:
     unique_together = ( 'promotion', 'build' )
+    default_permissions = ()
+
+  def __str__( self ):
+    return 'PromotionBuild for tag "{0}" using build "{1}" at "{2}"'.format( self.promotion.tag, self.build.name, self.status )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ] )
@@ -115,7 +122,7 @@ QueueItem
       total_ips += quanity
 
     target_network = None
-    for resource in NetworkResource.objects.all().order_by( '-preference' ):
+    for resource in NetworkResource.objects.all().order_by( '-preference' ):  # THOUGHT: for builds that don't specifically call for a network, should we have a default pool, and if it's full block other builds for the default?  this would affect the pre-built stuffm which is all in single ip stuff
       if resource.available( total_ips ):
         target_network = resource
         break
@@ -127,10 +134,11 @@ QueueItem
 
   def allocateResources( self, job, target_network ):  # warning, this dosen't check first, make sure you are sure there are resources available before calling
     for buildresource in self.build.buildresource_set.all():
-      name = buildresource.name
-      quanity = buildresource.quanity
       resource = buildresource.resource.subclass
-      resource.allocate( job, name, quanity, target_network )
+      if buildresource.interface_map is None:  # TODO: mabey the the interface_map calls for just the target_netowk?
+        resource.allocate( job, buildresource.name, buildresource.quanity, target_network )
+      else:
+        resource.allocate( job, buildresource.name, buildresource.quanity, buildresource.interface_map )
 
   @staticmethod
   def inQueueBuild( build, branch, manual, priority, user, promotion=None ):
@@ -169,13 +177,10 @@ QueueItem
 
     return item
 
-  @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build } ] )
+  @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build }, 'String', 'Boolean', 'Integer' ] )
   @staticmethod
-  def queue( user, build ):
-    # if not user.has_perm( 'Processor.can_build' ):
-    #   raise PermissionDenied()
-
-    item = QueueItem.inQueueBuild( build, 'master', True, 100, user.username )
+  def queue( user, build, branch='master', manual=True, priority=100 ):
+    item = QueueItem.inQueueBuild( build, branch, manual, priority, user.username )
     return item.pk
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
@@ -186,14 +191,20 @@ QueueItem
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return True
+    if not cinp.basic_auth_check( user, verb, QueueItem ):
+      return False
 
-  def clean( self, *args, **kwargs ):
-    super().clean( *args, **kwargs )
-    errors = {}
+    if verb == 'CALL':
+      if action == 'queue' and user.has_perm( 'Processor.can_build' ):
+        return True
 
-    if errors:
-      raise ValidationError( errors )
+      return False
+
+    else:
+      return True
+
+  class Meta:
+    default_permissions = ()
 
   def __str__( self ):
     return 'QueueItem for "{0}" of priority "{1}"'.format( self.build.name, self.priority )
@@ -303,9 +314,6 @@ BuildJob
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def jobRan( self, user ):
-    # if not user.has_perm( 'Processor.can_ran' ):
-    #   raise PermissionDenied()
-
     if self.ran_at is not None:  # been done, don't touch
       return
 
@@ -318,9 +326,6 @@ BuildJob
 
   @cinp.action( paramater_type_list=[ { 'type': '_USER_' } ] )
   def acknowledge( self, user ):
-    # if not user.has_perm( 'Processor.can_ack' ):
-    #   raise PermissionDenied()
-
     if self.acknowledged_at is not None:  # been done, don't touch
       return
 
@@ -377,7 +382,23 @@ BuildJob
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return True
+    if not cinp.basic_auth_check( user, verb, BuildJob ):
+      return False
+
+    if verb == 'CALL':
+      if action in ( 'getInstanceState', 'getInstanceDetail' ):
+        return True
+
+      if action == 'jobRan' and user.has_perm( 'Processor.can_ran' ):
+        return True
+
+      if action == 'acknowledge' and user.has_perm( 'Processor.can_ack' ):
+        return True
+
+      return False
+
+    else:
+      return True
 
   def clean( self, *args, **kwargs ):
     super().clean( *args, **kwargs )
@@ -395,6 +416,14 @@ BuildJob
     if errors:
       raise ValidationError( errors )
 
+  class Meta:
+    default_permissions = ()
+    permissions = (
+                    ( 'can_build', 'Can queue builds' ),
+                    ( 'can_ran', 'Can Flag a Build Resource as ran' ),
+                    ( 'can_ack', 'Can Acknoledge a failed Build Resource' )
+    )
+
   def __str__( self ):
     return 'BuildJob "{0}" for build "{1}"'.format( self.pk, self.build.name )
 
@@ -406,7 +435,7 @@ def getCookie():
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values' ] )
 class Instance( models.Model ):
   resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
-  network = models.ForeignKey( NetworkResource, on_delete=models.PROTECT )
+  interface_map = MapField()
   cookie = models.CharField( max_length=36, default=getCookie )
   hostname = models.CharField( max_length=100 )
   # build info
@@ -493,6 +522,9 @@ class Instance( models.Model ):
     if self.cookie != cookie:
       return
 
+    if self.state not in ( 'allocated', 'building', 'built' ):  # don't go back to a previous state
+      return
+
     self.state = 'ran'
     self.full_clean()
     self.save()
@@ -529,11 +561,9 @@ class Instance( models.Model ):
       self.buildjob.commit.setScore( target, self.name, score )
 
   @cinp.action( return_type='String', paramater_type_list=[ 'String', { 'type': 'Map' } ] )
-  def addPackageFiles( self, cookie, package_files ):  # TODO: next nullunit rename package_files -> package_file_map
+  def addPackageFiles( self, cookie, package_file_map ):
     if self.cookie != cookie:
       return
-
-    package_file_map = package_files
 
     self.buildjob.package_file_map.update( package_file_map )
     self.buildjob.full_clean()
@@ -593,7 +623,10 @@ class Instance( models.Model ):
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return True
+    return cinp.basic_auth_check( user, verb, Instance )
+
+  class Meta:
+    default_permissions = ()
 
   def __str__( self ):
     return 'Instance "{0}" for BuildJob "{1}" Named "{2}"'.format( self.pk, self.buildjob, self.hostname )

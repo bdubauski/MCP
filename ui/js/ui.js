@@ -516,7 +516,7 @@ function hashChange( event )
           if( item.state == 'reported' && ( item.manual || !item.suceeded ) )
           buttons = '<button uri="' + uri + '" action="acknowledge" do="action">Acknowledge</button>';
 
-          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.suceeded + '</td><td>' + item.score + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td><td>' + item.package_file_map + '</td></tr>' );
+          jobEntries.append( '<tr><td>' + item.project + '</td><td>' + item.target + '</td><td>' + item.state + '</td><td>' + item.resources + '</td><td>' + item.manual + '</td><td>' + item.suceeded + '</td><td>' + item.score + '</td><td>' + item.created + '</td><td>' + item.updated + '</td><td>' + buttons + '</td><td>' + JSON.stringify( item.package_file_map ) + '</td></tr>' );
         }
       }
     ).fail(
@@ -564,7 +564,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + item.lint_results + '</td><td>' + item.test_at + '</td><td>' + item.test_results + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + item.build_results + '</td><td>' + item.built + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + JSON.stringify( item.lint_results ) + '</td><td>' + item.test_at + '</td><td>' + JSON.stringify( item.test_results ) + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + JSON.stringify( item.build_results ) + '</td><td>' + JSON.stringify( item.package_file_map ) + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
         }
       }
     ).fail(

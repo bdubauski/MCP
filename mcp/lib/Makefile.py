@@ -12,7 +12,7 @@ class Makefile():
   def __init__( self, dir ):
     self.dir = dir
 
-  def _execute( self, target ):
+  def _execute( self, target, do_split=True ):
     logging.info( 'makefile: executing target "{0}"'.format( target ) )
 
     try:
@@ -36,8 +36,12 @@ class Makefile():
       raise MakeException( 'make returned "{0}"'.format( proc.returncode ) )
 
     result = []
-    for line in stdout.strip().splitlines():
-      result += line.split()
+    if do_split:
+      for line in stdout.strip().splitlines():
+        result += line.split()
+    else:
+      for line in stdout.strip().splitlines():
+        result.append( line.strip() )
 
     return result
 
@@ -67,13 +71,13 @@ class Makefile():
     return self._execute( 'manual-builds' )
 
   def resources( self, build ):
-    return self._execute( '{0}-resources'.format( build ) )
+    return self._execute( '{0}-resources'.format( build ), do_split=False )
 
   def networks( self, build ):
-    return self._execute( '{0}-networks'.format( build ) )
+    return self._execute( '{0}-networks'.format( build ), do_split=False )
 
   def depends( self, build ):
-    return self._execute( '{0}-depends'.format( build ) )
+    return self._execute( '{0}-depends'.format( build ), do_split=False )
 
   def testDistros( self ):
     return self._execute( 'test-distros' )

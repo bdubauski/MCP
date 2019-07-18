@@ -40,6 +40,7 @@ class Migration(migrations.Migration):
                 ('commit', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='Project.Commit')),
                 ('project', models.ForeignKey(editable=False, on_delete=django.db.models.deletion.PROTECT, to='Project.Project')),
             ],
+            options={'default_permissions': (), 'permissions': (('can_build', 'Can queue builds'), ('can_ran', 'Can Flag a Build Resource as ran'), ('can_ack', 'Can Acknoledge a failed Build Resource'))},
         ),
         migrations.CreateModel(
             name='Instance',
@@ -57,9 +58,10 @@ class Migration(migrations.Migration):
                 ('foundation_id', models.CharField(blank=True, max_length=100, null=True)),
                 ('structure_id', models.CharField(blank=True, max_length=100, null=True)),
                 ('buildjob', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='Processor.BuildJob')),
-                ('network', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='Resource.NetworkResource')),
+                ('interface_map', mcp.fields.MapField(default={})),
                 ('resource', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='Resource.Resource')),
             ],
+            options={'default_permissions': ()},
         ),
         migrations.CreateModel(
             name='PackageFile',
@@ -72,16 +74,18 @@ class Migration(migrations.Migration):
                 ('updated', models.DateTimeField(auto_now=True)),
                 ('package', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Project.Package')),
             ],
+            options={'default_permissions': ()},
         ),
         migrations.CreateModel(
             name='Promotion',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('tag', models.CharField(max_length=10)),
+                ('group', models.CharField(db_index=True, max_length=45)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),
-                ('packagefile_list', models.ManyToManyField(to='Processor.PackageFile')),
             ],
+            options={'default_permissions': ()},
         ),
         migrations.CreateModel(
             name='PromotionBuild',
@@ -92,6 +96,7 @@ class Migration(migrations.Migration):
                 ('build', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Project.Build')),
                 ('promotion', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Processor.Promotion')),
             ],
+            options={'default_permissions': ()},
         ),
         migrations.CreateModel(
             name='QueueItem',
@@ -110,6 +115,7 @@ class Migration(migrations.Migration):
                 ('project', models.ForeignKey(editable=False, on_delete=django.db.models.deletion.CASCADE, to='Project.Project')),
                 ('promotion', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='Processor.Promotion')),
             ],
+            options={'default_permissions': ()},
         ),
         migrations.AddField(
             model_name='promotion',

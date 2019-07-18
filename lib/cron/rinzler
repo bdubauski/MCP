@@ -15,6 +15,9 @@ import sys
 import glob
 import shutil
 import socket
+import json
+import cinp
+
 from ssl import SSLError
 from datetime import datetime, timezone
 from logging.handlers import SysLogHandler
@@ -88,7 +91,12 @@ def _makeBuild( build_name, project, manual ):
 
     except Package.DoesNotExist:
       packrat = getPackrat()
-      packrat_package_uri = packrat.findPackage( package_name )
+      packrat_package_uri = '/api/v2/Package/Package:{0}:'.format( package_name )
+      try:
+        packrat.cinp.get( packrat_package_uri )
+      except cinp.client.NotFound:
+        packrat_package_uri = None
+
       packrat.logout()
       if packrat_package_uri is None:
         logging.error( 'Package "{0}" for dependancy for build "{1}" not found in Packrat, ignorning build.'.format( package_name, build_name ) )
@@ -106,12 +114,18 @@ def _makeBuild( build_name, project, manual ):
     builddep.save()
 
   for resource in resource_list:
-    ( name, quanity, resource_name ) = resource.split( ':' )
+    ( name, data ) = resource.split( ':', 1 )
     try:
-      resource = Resource.objects.get( name=resource_name )
+       data = json.loads( data )
+    except ( ValueError, json.JSONDecodeError ):
+      logging.error( 'Error parsing resource info: "{0}", killing the build'.format( data ) )
+      build.delete()
+      return
 
+    try:
+      resource = Resource.objects.get( name=data[ 'resource_name' ] )
     except Resource.DoesNotExist:
-      logging.error( 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( resource_name, build_name ) )
+      logging.error( 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'resource_name' ], build_name ) )
       build.delete()
       return
 
@@ -119,15 +133,27 @@ def _makeBuild( build_name, project, manual ):
     buildres.build = build
     buildres.resource = resource
     buildres.name = name
-    buildres.quanity = quanity
+    buildres.quanity = int( data.get( 'quanity', 1 ) )
+    buildres.interface_map = data.get( 'interface_map', None )
     buildres.full_clean()
     buildres.save()
 
-  network = {}
-  for name in network_list:
-    network[ name ] = ''
+  for network in network_list:
+    ( name, data ) = network.split( ':', 1 )
+    try:
+       data = json.loads( data )
+    except ( ValueError, json.JSONDecodeError ):
+      logging.error( 'Error parsing network info: "{0}", killing the build'.format( data ) )
+      build.delete()
+      return
 
-  build.network_map = network
+    build.network_map[ name ] = {}
+    for item, default in ( ( 'dedicated', False ), ):
+      build.network_map[ name ][ item ] = bool( data.get( item, default ) )
+
+    for item, default in ( ( 'min_addresses', 5 ), ):
+      build.network_map[ name ][ item ] = int( data.get( item, default ) )
+
   build.full_clean()
   build.save()
 

@@ -13,10 +13,11 @@ django.setup()
 
 import logging
 import sys
+import cinp
 from logging.handlers import SysLogHandler
 
-from mcp.Project.models import Package, PackageVersion, BuildDependancy
-from mcp.Processor.models import Promotion, QueueItem, PromotionBuild, PromotionPkgVersion
+from mcp.Project.models import Package, BuildDependancy
+from mcp.Processor.models import Promotion, QueueItem, PromotionBuild, PackageFile
 from mcp.lib.Packrat import getPackrat
 from mcp.lib.Slack import getSlack
 
@@ -53,28 +54,37 @@ available_tag_set = set( tag_requirements_map.keys() )
 tag_name_map = dict( [ ( i, i.split( ':' )[1] ) for i in available_tag_set ] )
 
 
-def _queuePromotion( pkg_version, packrat_id, tag ):
-  package = pkg_version.package
+def _tagGroup( group, tag ):
+  for package_file in PackageFile.objects.filter( group=group ):
+    logging.info( 'Tagging package "{0}" with "{1}".'.format( package_file.filename, tag ) )
+    packrat.tag( package_file.packrat_id, tag )
+    slack.post_message( 'Tagged package "{0}" with "{1}".'.format( package_file.filename, tag ), slack.SUCCESS )
 
-  dependancy_list = BuildDependancy.objects.filter( package=package, tag=tag )
+
+def _failGroup( group ):
+  for package_file in PackageFile.objects.filter( group=group ):
+    logging.info( 'Failing package "{0}".'.format( package_file.filename ) )
+    packrat.fail( package_file.packrat_id )
+    slack.post_message( 'Failed package "{0}".'.format( package_file.filename ), slack.ERROR )
+
+
+def _queuePromotion( group, package_list, tag ):
+  dependancy_list = BuildDependancy.objects.filter( package__in=package_list, tag=tag )
+
+  logging.info( 'Tagging group "{0}" with "{1}"'.format( group, tag ) )
+  _tagGroup( group, tag )
+  slack.post_message( 'Group "{0}" tagged "{1}" with'.format( group, tag ), slack.SUCCESS )
+
   if len( dependancy_list ) == 0:
-    logging.info( 'No Dependancies for package "{0}" version "{1}" for tag "{2}", tagging...'.format( package.name, pkg_version.version, tag ) )
-    packrat.tag( packrat_id, tag )
-    slack.post_message( 'No Dependancies for package "{0}" version "{1}" for tag "{2}", tagged'.format( package.name, pkg_version.version, tag ), slack.SUCCESS )
+    logging.info( 'No Dependancies for group "{0}" for tag "{1}"'.format( group, tag ) )
     return
 
-  logging.info( 'Creating Promotion for package "{0}" version "{1}" for tag "{2}"...'.format( package.name, pkg_version.version, tag ) )
+  logging.info( 'Creating Promotion check for group "{0}" for tag "{1}"...'.format( group, tag ) )
   promotion = Promotion()
+  promotion.group = group
   promotion.tag = tag
   promotion.full_clean()
   promotion.save()
-
-  promotion_pkg_version = PromotionPkgVersion()
-  promotion_pkg_version.promotion = promotion
-  promotion_pkg_version.package_version = pkg_version
-  promotion_pkg_version.packrat_id = packrat_id
-  promotion_pkg_version.full_clean()
-  promotion_pkg_version.save()
 
   for dependancy in dependancy_list:
     promition_build = PromotionBuild()
@@ -99,59 +109,76 @@ for promotion in Promotion.objects.all():
     continue
 
   if success:
-    for promotion_pkg_version in promotion.promotionpkgversion_set.all():
-      logging.info( 'Tagging "{0}" version "{1}" with "{2}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.tag ) )
-      packrat.tag( promotion_pkg_version.packrat_id, promotion.tag )
-      slack.post_message( 'Tagged "{0}" version "{1}" with "{2}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version, promotion.tag ), slack.SUCCESS )
+    logging.info( 'Group "{0}" for tag "{1}" passed.'.format( promotion.group, promotion.tag ) )
+    slack.post_message( 'Group "{0}" for tag "{1}" passed.'.format( promotion.group, promotion.tag ), slack.SUCCESS )
 
   else:
-    for promotion_pkg_version in promotion.promotionpkgversion_set.all():
-      logging.info( 'Failing "{0}" version "{1}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version ) )
-      packrat.fail( promotion_pkg_version.packrat_id )
-      slack.post_message( 'Failed "{0}" version "{1}".'.format( promotion_pkg_version.package_version.package.name, promotion_pkg_version.package_version.version ), slack.ERROR )
+    logging.info( 'Failing group "{0}".'.format( promotion.group ) )
+    _failGroup( promotion.group )
+    slack.post_message( 'Failed group "{0}".'.format( promotion.group ), slack.ERROR )
 
   promotion.delete()
 
-
-# iterate over packagefile .groupby 'group'
-# pull all the object in the group, make sure they are at the same level
-# if they are no longer in packrat, delete the PackageFile object
-# scan to see if there are tags to do, if so create promotion
-
-# look for new package versions
-for name in packrat.packages():
-  logging.info( 'Checking package "{0}"...'.format( name ) )
+# go over the package files and see if they still exist
+for package_file in PackageFile.objects.all():
+  # TODO: instead of getting them one at a time from packrat, get them in groups.
+  # TODO: have some kind of detection to see if packrat is broken and 404ing everything,
+  #       mabey when doing groups, ask for groups of 50, and if it comes back empty, bail.
   try:
-    package = Package.objects.get( pk=name )
-  except Package.DoesNotExist:
-    package = Package()
-    package.name = name
-    package.full_clean()
-    package.save()
+    packrat.cinp.get( package_file.packrat_id )
+  except cinp.client.NotFound:
+    logging.info( 'Package File "{0}", is gone, deleting...'.format( package_file.filename ) )
+    package_file.delete()
 
-  for ( package_file_uri, package_file ) in packrat.package_files( package.name ):
-    if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
+# iterate over the groups of package files
+for group in PackageFile.objects.all().values_list( 'group', flat=True ).distinct():
+  if Promotion.objects.filter( group=group ).count() > 0:
+    logging.info( 'Group "{0}" allready has promotion(s), skipping...'.format( group ) )
+    continue
+
+  id_list = list( PackageFile.objects.filter( group=group ).values_list( 'packrat_id', flat=True ) )
+  # TODO: get the full id_list from packrat in one request instead of asking for them one at a time
+  try:
+    package_file = packrat.cinp.get( id_list.pop() )
+  except cinp.client.NotFound:
+    logging.info( 'Package disapeared, will try group "{0}" next time'.format( group ) )
+    continue
+
+  if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
+   logging.info( 'Group "{0}" is deprocated/faield, skipping...'.format( group ) )
+   continue
+
+  clean = True
+  tag_list = package_file[ 'tags' ]
+  while id_list and clean:
+    try:
+      package_file = packrat.cinp.get( id_list.pop() )
+    except cinp.client.NotFound:
+      logging.info( 'Package disapeared, will try group "{0}" next time'.format( group ) )
+      clean = False
       continue
 
-    package_file_tag_set = set( package_file[ 'raw_tag_list' ] )
-    for tag in available_tag_set - package_file_tag_set:  # Iterate over all the tags not yet set
-      if len( tag_requirements_map[ tag ] - package_file_tag_set ) != 0:  # Not all requiremenets are met
-        continue
+    if package_file[ 'tags' ] != tag_list:
+      logging.warn( 'tag missmatch in group "{0}", skipping...'.format( group ) )
+      clean = False
+      continue
 
-      try:
-        pkg_version = PackageVersion.objects.get( package=package, version=package_file[ 'version' ] )
+    if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
+     logging.info( 'deprocated/faield missmatch in group "{0}", skipping...'.format( group ) )
+     clean = False
+     continue
 
-      except PackageVersion.DoesNotExist:
-        pkg_version = PackageVersion()
-        pkg_version.package = package
-        pkg_version.version = package_file[ 'version' ]
-        pkg_version.full_clean()
-        pkg_version.save()
+  if not clean:
+    continue
 
-      if pkg_version.promotion_set.all().count() > 0:  # this package is being worked on
-        continue
+  # ok, all of the group is consistant and accounted for, let's check the tags
+  package_file_tag_set = set( package_file[ 'raw_tag_list' ] )
+  for tag in available_tag_set - package_file_tag_set:  # Iterate over all the tags not yet set
+    if len( tag_requirements_map[ tag ] - package_file_tag_set ) != 0:  # Not all requiremenets are met
+      continue
 
-      _queuePromotion( pkg_version, package_file_uri, tag_name_map[ tag ] )
+    package_list = Package.objects.filter( packagefile__group=group )
+    _queuePromotion( group, package_list, tag_name_map[ tag ] )
 
 packrat.logout()
 
