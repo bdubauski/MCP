@@ -18,7 +18,7 @@ def load_users():
     u.user_permissions.add( Permission.objects.get( codename=name ) )
 
   u = User.objects.create_user( 'dev', password='dev' )
-  for name in ( 'can_ack' ):
+  for name in ( 'can_ack', ):
     u.user_permissions.add( Permission.objects.get( codename=name ) )
 
 
