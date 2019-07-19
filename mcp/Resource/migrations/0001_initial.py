@@ -11,10 +11,8 @@ BUILD_AHEAD_COUNT = { 'small': { 'ubuntu-xenial': 4, 'ubuntu-bionic': 4 } }
 def load_sites( app, schema_editor ):
   Site = app.get_model( 'Resource', 'Site' )
 
-  # site = Site( name='site1' )
-  # site.domain = 'site1.local'
-  site = Site( name='mlxlab' )
-  site.domain = 'mlxlab.local'
+  site = Site( name='site1' )
+  site.domain = 'site1.test'
   site.full_clean()
   site.save()
 
@@ -23,8 +21,7 @@ def load_resources( app, schema_editor ):
   DynamicResource = app.get_model( 'Resource', 'DynamicResource' )
   Site = app.get_model( 'Resource', 'Site' )
 
-  # site = Site.objects.get( name='site1' )
-  site = Site.objects.get( name='mlxlab' )
+  site = Site.objects.get( name='site1' )
 
   for size in ( 'small', 'medium' ):
     for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7' ):

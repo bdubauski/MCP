@@ -135,7 +135,7 @@ QueueItem
   def allocateResources( self, job, target_network ):  # warning, this dosen't check first, make sure you are sure there are resources available before calling
     for buildresource in self.build.buildresource_set.all():
       resource = buildresource.resource.subclass
-      if buildresource.interface_map is None:  # TODO: mabey the the interface_map calls for just the target_netowk?
+      if buildresource.interface_map == {}:  # TODO: mabey the the interface_map calls for just the target_netowk?, also would be better is this field was nullable
         resource.allocate( job, buildresource.name, buildresource.quanity, target_network )
       else:
         resource.allocate( job, buildresource.name, buildresource.quanity, buildresource.interface_map )

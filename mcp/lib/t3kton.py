@@ -54,11 +54,11 @@ class Contractor():
 
       if offset is not None:
         data[ 'offset' ] = offset
-        data[ 'address_block' ] = '/api/v1/Utilities/AddressBlock:{0}:'.format( interface[ 'name' ] )
+        data[ 'address_block' ] = '/api/v1/Utilities/AddressBlock:{0}:'.format( interface[ 'network' ] )
         address = self.cinp.create( '/api/v1/Utilities/Address', data )
       else:
         data[ 'structure' ] = structure  # until the new contractor is installed
-        address = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(nextAddress)'.format( interface[ 'name' ] ), data )
+        address = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(nextAddress)'.format( interface[ 'network' ] ), data )
 
     logging.debug( 'Created "{0}" on "{1}" at {2}'.format( structure, foundation, address ) )
 
