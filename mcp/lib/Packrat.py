@@ -12,8 +12,9 @@ def getPackrat():
 
 
 class Packrat():
-  def __init__( self, host, proxy, name, psk ):
-    self.name = name
+  def __init__( self, host, proxy, username, password ):
+    super().__init__()
+    self.username = username
     self.cinp = client.CInP( host, '/api/v2/', proxy )
 
     root = self.cinp.describe( '/api/v2/' )
@@ -21,7 +22,7 @@ class Packrat():
       raise Exception( 'Expected API version "{0}" found "{1}"'.format( PACKRAT_API_VERSION, root[ 'api-version' ] ) )
 
     logging.debug( 'packrat: login' )
-    self.token = self.cinp.call( '/api/v2/Auth/User(login)', { 'username': self.name, 'password': psk } )
+    self.token = self.cinp.call( '/api/v2/Auth/User(login)', { 'username': self.username, 'password': password } )
     self.cinp.setAuth( name, self.token )
 
   def logout( self ):

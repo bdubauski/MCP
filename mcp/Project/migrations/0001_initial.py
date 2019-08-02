@@ -21,14 +21,19 @@ def load_builtins( app, schema_editor ):
   BuildResource = app.get_model( 'Project', 'BuildResource' )
   Resource = app.get_model( 'Resource', 'Resource' )
 
-  for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7' ):
+  for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7', 'esx' ):
+    if name == 'esx':
+      resource = 'esx'
+    else:
+      resource = '{0}-small'.format( name )
+
     b = Build( name=name, project=p )
     b.manual = False
     b.key = '{0}_{1}'.format( b.project.name, b.name )  # from full_clean
     b.full_clean()
     b.save()
 
-    br = BuildResource( name=name, build=b, resource=Resource.objects.get( pk='{0}-small'.format( name ) ) )
+    br = BuildResource( name=name, build=b, resource=Resource.objects.get( pk=resource ) )
     br.quanity = 1
     br.key = '{0}_{1}_{2}'.format( br.build.key, br.name, br.resource.name )  # from full_clean
     br.full_clean()

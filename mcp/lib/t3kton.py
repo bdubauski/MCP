@@ -8,17 +8,27 @@ CONTRACTOR_API_VERSION = '0.9'
 
 
 def getContractor():
-  return Contractor( settings.CONTRACTOR_HOST, settings.CONTRACTOR_PROXY )
+  return Contractor( settings.CONTRACTOR_HOST, settings.CONTRACTOR_PROXY, settings.CONTRACTOR_USERNAME, settings.CONTRACTOR_PSK )
 
 
 class Contractor():
-  def __init__( self, host, proxy=None ):
+  def __init__( self, host, proxy, username, password ):
     super().__init__()
+    self.username = username
     logging.debug( 'contractor: connecting...' )
     self.cinp = client.CInP( host, '/api/v1/', proxy )
+
     root = self.cinp.describe( '/api/v1/' )
     if root[ 'api-version' ] != CONTRACTOR_API_VERSION:
       raise Exception( 'Expected API version "{0}" found "{1}"'.format( CONTRACTOR_API_VERSION, root[ 'api-version' ] ) )
+
+    logging.debug( 'packrat: login' )
+    self.token = self.cinp.call( '/api/v1/Auth/User(login)', { 'username': self.username, 'password': password } )
+    self.cinp.setAuth( name, self.token )
+
+  def logout( self ):
+    logging.debug( 'packrat: logout' )
+    self.cinp.call( '/api/v1/Auth/User(logout)', { 'token': self.token } )
 
   def getNetworkInfo( self, name ):
     block = self.cinp.get( '/api/v1/Utilities/AddressBlock:{0}'.format( name ) )
@@ -45,8 +55,16 @@ class Contractor():
     structure = self.cinp.create( '/api/v1/Building/Structure', data )[0]
 
     for name, interface in interface_map.items():
+      if name != 'eth0':
+        data = {}
+        data[ 'foundation' ] = foundation
+        data[ 'name' ] = name
+        data[ 'physical_location' ] = name
+        data[ 'is_provisioning' ] = False
+        self.cinp.create( '/api/v1/Utilities/RealNetworkInterface', data )
+
       data = {}
-      data[ 'networked' ] = structure
+      data[ 'networked' ] = structure.replace( '/Building/Structure:', '/Utilities/Networked:' )
       data[ 'interface_name' ] = name
       data[ 'is_primary' ] = interface.get( 'is_primary', name == 'eth0' )
 
@@ -57,7 +75,6 @@ class Contractor():
         data[ 'address_block' ] = '/api/v1/Utilities/AddressBlock:{0}:'.format( interface[ 'network' ] )
         address = self.cinp.create( '/api/v1/Utilities/Address', data )
       else:
-        data[ 'structure' ] = structure  # until the new contractor is installed
         address = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(nextAddress)'.format( interface[ 'network' ] ), data )
 
     logging.debug( 'Created "{0}" on "{1}" at {2}'.format( structure, foundation, address ) )

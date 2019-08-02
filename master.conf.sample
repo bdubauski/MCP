@@ -1,5 +1,7 @@
 CONTRACTOR_HOST = 'http://contractor'
 CONTRACTOR_PROXY = None
+CONTRACTOR_USERNAME = 'mcp'
+CONTRACTOR_PSK = 'mcp'
 
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'

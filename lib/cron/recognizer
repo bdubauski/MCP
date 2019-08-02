@@ -16,6 +16,7 @@ import sys
 import logging
 from logging.handlers import SysLogHandler
 from datetime import datetime, timezone
+from cinp import client
 
 from mcp.Processor.models import QueueItem, PackageFile
 from mcp.Project.models import Commit, Package
@@ -47,6 +48,7 @@ tmp = open( PID_FILE, 'w' )
 tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
+packrat = None
 slack = getSlack( 'recognizer' )
 
 # check for commits that need testing
@@ -124,6 +126,17 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Failed.'.format( commit.commit, commit.project.name, commit.branch ), slack.ERROR )
       commit.postResults()
 
+      # clean up any package file that might of been uploaded to packrat
+      if commit.branch == 'master':  # tag version on master
+        if packrat is None:
+          packrat = getPackrat()
+
+        for filename, uri in commit.package_file_map.items():
+          try:
+            packrat.cinp.delete( uri )
+          except client.NotFound:
+            continue
+
     else:
       slack.post_message( 'Build for "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.SUCCESS )
 
@@ -174,7 +187,6 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
   commit.full_clean()
   commit.save()
 
-packrat = None
 # check for commits that are done
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=False ):
   if commit.branch == 'master':  # tag version on master
