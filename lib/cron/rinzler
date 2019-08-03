@@ -134,10 +134,11 @@ def _makeBuild( build_name, project, manual ):
     buildres.resource = resource
     buildres.name = name
     buildres.quanity = int( data.get( 'quanity', 1 ) )
-    buildres.interface_map = data.get( 'interface_map', None )
+    buildres.interface_map = data.get( 'interface_map', {} )
     buildres.full_clean()
     buildres.save()
 
+  build.network_map = {}
   for network in network_list:
     ( name, data ) = network.split( ':', 1 )
     try:
@@ -156,6 +157,15 @@ def _makeBuild( build_name, project, manual ):
 
   build.full_clean()
   build.save()
+
+
+def _failCommit( commit, message ):
+  commit.lint_results = { 'makefile': { 'success': False, 'status': 'Failed', 'results': message } }
+  commit.done_at = datetime.now( timezone.utc )
+  commit.full_clean()
+  commit.save()
+
+  commit.postResults()
 
 
 # where project dosen't have any queue items
@@ -262,26 +272,36 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
     git.checkout( WORK_DIR, branch )
 
-    make = Makefile( glob.glob( '{0}/*'.format( WORK_DIR ) )[0] )
+    commit = Commit()
+    commit.project = project
+    commit.branch = branch
+    commit.commit = branch_map[ branch ]
+
+    work_dir = glob.glob( '{0}/*'.format( WORK_DIR ) )[0]
+
+    if not os.path.exists( os.path.join( work_dir, 'Makefile' ) ):
+      logging.warning( 'No Makefile, ignorning commit.' )
+      _failCommit( commit, 'No Makefile' )
+      continue
+
+    make = Makefile( work_dir )
     if not make.lint():
-      logging.error( 'Makefile does not lint, igmorning commit.' )
+      logging.error( 'Makefile does not lint, ignorning commit.' )
+      _failCommit( commit, 'Makefile does not lint' )
       continue
 
     version = make.version()
     if version is None:  # TODO: not ignore the version and just run the branch without tagging?
       logging.error( 'Unable to retrieve Version, ignorning commit.' )
+      _failCommit( commit, 'Unable to retrieve Version' )
       continue
+
+    commit.version = version
 
     if branch == 'master':
       project.build_counter += 1
       project.full_clean()
       project.save()
-
-    commit = Commit()
-    commit.project = project
-    commit.branch = branch
-    commit.commit = branch_map[ branch ]
-    commit.version = version
 
     if owner is not None:
       commit.owner_override = owner
@@ -290,6 +310,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       distro_list = make.testDistros()
     except MakeException as e:
       logging.error( 'Error Retreiving Test Distros from Makefile "{0}", ignorning commit.'.format( e ) )
+      _failCommit( commit, 'Error Retreiving Test Distros from Makefile' )
       continue
 
     commit.lint_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
@@ -303,6 +324,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
         distro_list = make.packageDistros( tmp )
       except MakeException as e:
         logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error Retreiving Packaging Distros from Makefile' )
         continue
 
       if distro_list:
@@ -325,6 +347,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
         build_list = make.autoBuilds()
       except MakeException as e:
         logging.error( 'Error Retreiving Auto Builds from Makefile "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error Retreiving Auto Builds from Makefile' )
         continue
 
       logging.debug( 'Auto Builds "{0}".'.format( build_list ) )
@@ -339,18 +362,29 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
           logging.warning( 'Build "{0}" is not longer defined, however it is still in use, will try to delete again next time.'.format( build_name ) )
           pass  # can't delete now, will try on next update
 
-      for build in build_list:
-        _makeBuild( build, project, False )
+      try:
+        for build in build_list:
+          _makeBuild( build, project, False )
+      except Exception as e:
+        logging.error( 'Error making auto build(s) "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error making auto build(s), "{0}"'.format( e ) )
+        continue
 
       try:
         build_list = make.manualBuilds()
       except MakeException as e:
         logging.error( 'Error Retreiving Manual Builds from Makefile "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error Retreiving Manual Builds from Makefile' )
         continue
 
       logging.debug( 'Manual Builds "{0}".'.format( build_list ) )
-      for build in build_list:
-        _makeBuild( build, project, True )
+      try:
+        for build in build_list:
+          _makeBuild( build, project, True )
+      except Exception as e:
+        logging.error( 'Error making manual build(s) "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error making manual build(s), "{0}"'.format( e ) )
+        continue
 
     logging.debug( 'Cleaning up work dir.' )
     shutil.rmtree( WORK_DIR )

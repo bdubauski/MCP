@@ -8,8 +8,6 @@ then
   ARGS=""
 else
   ARGS="-c"
-  #  give fullIterate a chance to take presidence, sence the cron starts both at the same time
-  sleep 5
 fi
 
 if [ -e /var/run/mcpIterate.lock ];
@@ -21,13 +19,31 @@ then
   exit 1
 fi
 
+switch=$( date +"%M" | tail -c2 )
+
 touch /var/run/mcpIterate.lock
+
+if [ "x$switch" == "x3" ] || [ "x$switch" == "x6" ] || [ "x$switch" == "x9" ]
+then
+  # get packages up to date
+  /usr/lib/mcp/cron/tron $ARGS
+
+  # get the latest from git
+  /usr/lib/mcp/cron/rinzler $ARGS
+fi
 
 # check the commits
 /usr/lib/mcp/cron/recognizer $ARGS
 
 # run thoes jobs
 /usr/lib/mcp/cron/sark $ARGS
+
+if [ "x$switch" == "x0" ]
+then
+  # update the dependancy graph
+  /usr/lib/mcp/util/graph | dot -Tpng -o/var/www/mcp/static/graph.png
+  /usr/lib/mcp/util/graph | dot -Tpdf -o/var/www/mcp/static/graph.pdf
+fi
 
 rm /var/run/mcpIterate.lock
 exit 0

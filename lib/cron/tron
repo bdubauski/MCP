@@ -73,7 +73,7 @@ def _queuePromotion( group, package_list, tag ):
 
   logging.info( 'Tagging group "{0}" with "{1}"'.format( group, tag ) )
   _tagGroup( group, tag )
-  slack.post_message( 'Group "{0}" tagged "{1}" with'.format( group, tag ), slack.SUCCESS )
+  slack.post_message( 'Group "{0}" tagged with "{1}" '.format( group, tag ), slack.SUCCESS )
 
   if len( dependancy_list ) == 0:
     logging.info( 'No Dependancies for group "{0}" for tag "{1}"'.format( group, tag ) )
