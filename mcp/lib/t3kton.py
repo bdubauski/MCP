@@ -24,7 +24,7 @@ class Contractor():
 
     logging.debug( 'packrat: login' )
     self.token = self.cinp.call( '/api/v1/Auth/User(login)', { 'username': self.username, 'password': password } )
-    self.cinp.setAuth( name, self.token )
+    self.cinp.setAuth( username, self.token )
 
   def logout( self ):
     logging.debug( 'packrat: logout' )
