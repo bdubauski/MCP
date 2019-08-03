@@ -32,6 +32,7 @@ clean:
 	$(RM) respkg
 	$(RM) -r htmlcov
 	dh_clean || true
+	$(MAKE) -C docs clean
 
 dist-clean: clean
 
@@ -85,6 +86,27 @@ respkg-file:
 	echo $(shell ls *.respkg)
 
 .PHONY:: respkg-distros respkg-requires respkg respkg-file
+
+doc-distros:
+	echo ubuntu-bionic
+
+doc-requires:
+	echo mcp-helpers
+	$(MAKE) -C docs requires
+
+ifeq ($(MAKECMDGOALS),doc)
+include /opt/mcp-helpers/Makefile.doc
+endif
+
+doc: blackduck docs/mcp.pdf
+
+docs/mcp.pdf:
+	$(MAKE) -C docs mcp.pdf VERSION=$(VERSION) BUILD=$(BUILD_NAME)
+
+doc-file:
+	echo mcp.pdf:34474541
+
+.PHONY:: doc-distros doc-requires doc doc-file
 
 # builds
 auto-builds:
