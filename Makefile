@@ -94,6 +94,7 @@ doc-requires:
 	echo mcp-helpers
 	$(MAKE) -C docs requires
 
+	NAME := mcp
 ifeq ($(MAKECMDGOALS),doc)
 include /opt/mcp-helpers/Makefile.doc
 endif
