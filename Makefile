@@ -100,7 +100,7 @@ ifeq ($(MAKECMDGOALS),doc)
 include /opt/mcp-helpers/Makefile.doc
 endif
 
-doc: blackduck.python docs/mcp.pdf
+doc: blackduck.python3 docs/mcp.pdf
 
 docs/mcp.pdf:
 	$(MAKE) -C docs mcp.pdf VERSION=$(VERSION) BUILD=$(BUILD_NAME)

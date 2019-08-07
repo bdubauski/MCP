@@ -465,7 +465,6 @@ class Instance( models.Model ):
                        'mcp_instance_id': self.pk,
                        'mcp_build_name': self.buildjob.build_name,
                        'mcp_project_name': self.buildjob.project.name,
-                       'mcp_project_version': self.buildjob.commit.version,
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
@@ -474,6 +473,16 @@ class Instance( models.Model ):
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target
                       } )
+
+      if self.buildjob.commit is not None:
+        result.update( {
+                         'mcp_commit_version': self.buildjob.commit.version
+                        } )
+
+      if self.buildjost.promotion is not None:
+        result.update( {
+                         'mcp_promotion_tag': self.buildjob.promotion.tag
+                        } )
 
     return result
 
