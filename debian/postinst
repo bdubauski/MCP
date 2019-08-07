@@ -20,13 +20,13 @@ set -e
 
 case "$1" in
     configure)
-        if [ ! -f /etc/mcp/master.conf ] ;
+        if [ ! -f /etc/mcp.conf ] ;
         then
-          cp /etc/mcp/master.conf.sample /etc/mcp/master.conf
+          cp /etc/mcp.conf.sample /etc/mcp.conf
         fi
         if [ ! -h /usr/lib/python3/dist-packages/mcp/settings.py ] ;
         then
-          ln -sf /etc/mcp/master.conf /usr/lib/python3/dist-packages/mcp/settings.py
+          ln -sf /etc/mcp.conf /usr/lib/python3/dist-packages/mcp/settings.py
         fi
 
         mkdir -p /var/www/git

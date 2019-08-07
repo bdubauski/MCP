@@ -1,3 +1,10 @@
+mcp (0.20-1) bionic; urgency=medium
+
+  * updates to help nullunit for documentation targets
+  * moved config file to /etc
+
+ -- Peter Howe <peter.howe@virtustream.com>  Tue, 06 Aug 2019 19:54:54 -0600
+
 mcp (0.19-1) bionic; urgency=medium
 
   * PackageFile tagging fixing

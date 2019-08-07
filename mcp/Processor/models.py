@@ -456,13 +456,7 @@ class Instance( models.Model ):
   def config_values( self ):
     result = {
                'mcp_host': settings.MCP_HOST,
-               'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' ),
-               'packrat_host': 'http://packrat',
-               'packrat_builder_name': 'nullunit',
-               'packrat_builder_password': 'nullunit',
-               'confluence_host': 'http://confluence',
-               'confluence_username': 'mcp',
-               'confluence_password': 'mcp'
+               'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' )
              }
 
     if self.buildjob is not None:
@@ -470,6 +464,7 @@ class Instance( models.Model ):
                        'mcp_job_id': self.buildjob.pk,
                        'mcp_instance_id': self.pk,
                        'mcp_build_name': self.buildjob.build_name,
+                       'mcp_project_name': self.buildjob.project.name,
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
@@ -478,6 +473,16 @@ class Instance( models.Model ):
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target
                       } )
+
+      if self.buildjob.commit is not None:
+        result.update( {
+                         'mcp_commit_version': self.buildjob.commit.version
+                        } )
+
+      if self.buildjost.promotion is not None:
+        result.update( {
+                         'mcp_promotion_tag': self.buildjob.promotion.tag
+                        } )
 
     return result
 

@@ -15,7 +15,7 @@ install:
 	cp -a ui/* $(DESTDIR)/var/www/mcp/ui
 	install -m 644 api/mcp.wsgi $(DESTDIR)/var/www/mcp/api
 	install -m 644 apache.conf $(DESTDIR)/etc/apache2/sites-available/mcp.conf
-	install -m 644 master.conf.sample $(DESTDIR)/etc/mcp
+	install -m 644 mcp.conf.sample $(DESTDIR)/etc/mcp
 	install -m 755 lib/cron/* $(DESTDIR)/usr/lib/mcp/cron
 	install -m 755 lib/util/* $(DESTDIR)/usr/lib/mcp/util
 	install -m 755 lib/setup/* $(DESTDIR)/usr/lib/mcp/setup
@@ -47,7 +47,7 @@ test-requires:
 test-setup:
 	su postgres -c "echo \"CREATE ROLE mcp WITH PASSWORD 'mcp' NOSUPERUSER NOCREATEROLE CREATEDB LOGIN;\" | psql"
 	pip3 install -e .
-	cp master.conf.sample mcp/settings.py
+	cp mcp.conf.sample mcp/settings.py
 
 lint:
 	flake8 --ignore=E501,E201,E202,E111,E126,E114,E402,W605 --statistics .
@@ -94,18 +94,19 @@ doc-requires:
 	echo mcp-helpers
 	$(MAKE) -C docs requires
 
-	NAME := mcp
+NAME := mcp
+DOC_EXCLUDES := **/*_test.py,**/tests.py
 ifeq ($(MAKECMDGOALS),doc)
 include /opt/mcp-helpers/Makefile.doc
 endif
 
-doc: blackduck docs/mcp.pdf
+doc: blackduck.python3 docs/mcp.pdf
 
 docs/mcp.pdf:
 	$(MAKE) -C docs mcp.pdf VERSION=$(VERSION) BUILD=$(BUILD_NAME)
 
 doc-file:
-	echo mcp.pdf:34474541
+	echo docs/mcp.pdf:34474541
 
 .PHONY:: doc-distros doc-requires doc doc-file
 

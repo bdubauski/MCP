@@ -6,7 +6,7 @@ clean:
 	$(RM) -r build
 
 requires:
-	echo mcp-helpers python3-sphinx texlive-latex-base
+	echo python3-sphinx texlive texlive-latex-extra
 
 build/mcp.tex: index.rst
 	sphinx-build -b latex -D latex_paper_size=letter . build

@@ -1,6 +1,15 @@
 [ structure.mcp-base ]
   description = 'MCP Base'
-  config_values = { '>package_list' = [ 'nullunit' ] }
+[ structure.mcp-base.config_values ]
+  '>package_list' = [ 'nullunit' ]
+  packrat_host = 'http://packrat'
+  packrat_proxy = ''
+  confluence_host = 'http://confluence'
+  confluence_proxy = ''
+  nullunit_packrat_username = 'nullunit'
+  nullunit_packrat_password = 'nullunit'
+  nullunit_confluence_username = 'nullunit'
+  nullunit_confluence_password = 'nullunit'
 
 [ structure.mcp-vmware-esx ]
   parents = [ 'vmware-esx-base', 'mcp-base' ]

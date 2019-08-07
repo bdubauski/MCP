@@ -1,0 +1,6 @@
+# this is here for tools to know what is being installed by apt
+cinp==0.14.0
+Django==1.11.11
+Werkzeug==0.14.1
+psycopg2==2.7.4
+PyGithub==1.26
