@@ -1,6 +1,9 @@
 Workflow
 ========
 
+MCP will periodically poll Git/GitHub for new commits to all branches detected.  NOTE: GitHub Pull Requests
+will apear as branches named `_PR#`.
+
 Github commit event detected
 git pull to git copy on mcp
 git checkout master
