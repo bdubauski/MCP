@@ -479,7 +479,7 @@ class Instance( models.Model ):
                          'mcp_commit_version': self.buildjob.commit.version
                         } )
 
-      if self.buildjost.promotion is not None:
+      if self.buildjob.promotion is not None:
         result.update( {
                          'mcp_promotion_tag': self.buildjob.promotion.tag
                         } )
