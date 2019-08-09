@@ -18,7 +18,7 @@ copyright = '2019, Virtustream'
 author = 'Peter Howe'
 
 version = os.environ[ 'VERSION' ]
-release = '{0}-{1}'.format( os.environ[ 'VERSION' ], os.environ[ 'BUILD' ] )
+release = '{0}-{1}'.format( os.environ[ 'VERSION' ], os.environ[ 'BUILD_NAME' ] )
 
 
 language = None
