@@ -13,7 +13,7 @@ api.rst:
 	sleep 2
 	cinp-autodoc -f api.rst http://127.0.0.1:8888/api/v1/
 	sleep 1
-	kill $(shell cat /tmp/mcp_api_server.pid )
+	kill `cat /tmp/mcp_api_server.pid`
 
 requires:
 	echo python3-pip python3-sphinx texlive texlive-latex-extra cinp-utils python3-django python3-psycopg2 python3-cinp python3-github python3-gunicorn python3-werkzeug
