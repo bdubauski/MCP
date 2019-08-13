@@ -202,7 +202,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     logging.debug( 'Creating "{0}" in "{1}"...'.format( project.name, project.local_path ) )
 
     git = project.git
-    git.setup( url )  # make sure we can chyeck things out before saving the path
+    git.setup( url )  # make sure we can check things out before saving the path
     project.full_clean()
     project.save()
 
