@@ -18,7 +18,7 @@ api.rst:
 requires:
 	echo python3-pip python3-sphinx texlive texlive-latex-extra cinp-utils python3-django python3-psycopg2 python3-cinp python3-github python3-gunicorn python3-werkzeug
 
-build/mcp.tex: index.rst api.rst
+build/mcp.tex: index.rst intro.rst stages.rst workflow.rst api.rst
 	sphinx-build -b latex -D latex_paper_size=letter . build
 
 mcp.pdf: build/mcp.tex
