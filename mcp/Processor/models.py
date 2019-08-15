@@ -45,6 +45,7 @@ class PackageFile( models.Model ):
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
+  result_map = MapField( blank=True )
   group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )  # does this need to be unique?  do we need to worry about the same group id showing up in different groups of package files
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -56,6 +57,14 @@ class Promotion( models.Model ):
     promotion_build.success = success
     promotion_build.full_clean()
     promotion_build.save()
+
+  def setResults( self, name, results ):
+    self.result_map[ name ] = results
+    self.full_clean()
+    self.save()
+
+  def getResults( self ):
+    return self.result_map
 
   @cinp.check_auth()
   @staticmethod
@@ -220,7 +229,7 @@ BuildJob
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   build_name = models.CharField( max_length=50 )
-  value_map = MapField( default={}, blank=True )  # for the job to store work values
+  value_map = MapField( blank=True )  # for the job to store work values
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -230,7 +239,7 @@ BuildJob
   user = models.CharField( max_length=150 )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
-  package_file_map = MapField( default={}, blank=True )
+  package_file_map = MapField( blank=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -281,6 +290,9 @@ BuildJob
         results_map = self.commit.getResults( self.target )
 
       score_map = self.commit.getScore( self.target )
+
+    if self.promotion is not None:
+      results_map = self.promotion.getResults()
 
     else:
       results_map = {}
@@ -553,6 +565,8 @@ class Instance( models.Model ):
 
     if self.buildjob.commit:
       self.buildjob.commit.setResults( target, self.name, results )
+    elif self.buildjob.promotion:
+      self.buildjob.promotion.setResults( self.name, results )
 
   @cinp.action( paramater_type_list=[ 'String', 'String', 'Float' ] )
   def setScore( self, cookie, target, score ):
