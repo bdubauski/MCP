@@ -597,6 +597,7 @@ class Instance( models.Model ):
                'structure_id': self.structure_id,
                'hostname': self.hostname
               }
+
     return result
 
   def build( self ):
