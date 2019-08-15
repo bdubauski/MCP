@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+import os
+
+os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
+
+import django
+django.setup()
+
+from mcp.lib.t3kton import getContractor
+from mcp.Processor.models import Instance
+
+for instance in Instance.objects.filter( buildjob__isnull=True, state='built' ):
+  print( 'Telling contractor to release "{0}"'.format( instance ) )
+  contractor = getContractor()
+  contractor.registerWebHook( instance, False )
+  contractor.destroyStructure( instance.structure_id )
+  contractor.destroyFoundation( instance.foundation_id )
+
+print( 'Done!' )

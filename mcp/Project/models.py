@@ -503,12 +503,12 @@ A Single Commit of a Project
     overall_complete &= complete
     overall_success &= success
 
-    if not overall_complete:
-      result[ 'status' ] = 'Incomplete'
-    elif overall_success:
-      result[ 'status' ] = 'Success'
-    else:
+    if not overall_success:
       result[ 'status' ] = 'Failed'
+    elif not overall_complete:
+      result[ 'status' ] = 'Incomplete'
+    else:
+      result[ 'status' ] = 'Success'
 
     return result
 
