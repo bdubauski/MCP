@@ -1,3 +1,10 @@
+mcp (0.21-1) bionic; urgency=medium
+
+  * promotion jobs now remember their output and stick arround
+  * utility to clean up pre-allocated
+
+ -- Peter Howe <peter.howe@virtustream.com>  Fri, 16 Aug 2019 07:12:01 -0600
+
 mcp (0.20-1) bionic; urgency=medium
 
   * updates to help nullunit for documentation targets

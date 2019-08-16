@@ -15,6 +15,7 @@ import logging
 import sys
 import cinp
 from logging.handlers import SysLogHandler
+from datetime import datetime, timezone
 
 from mcp.Project.models import Package, BuildDependancy
 from mcp.Processor.models import Promotion, QueueItem, PromotionBuild, PackageFile
@@ -97,7 +98,7 @@ def _queuePromotion( group, package_list, tag ):
 
 
 # look for promotion that is done
-for promotion in Promotion.objects.all():
+for promotion in Promotion.objects.filter( finished_at__isnull=True ):
   logging.debug( 'Checking promtion "{0}"'.format( promotion ) )
   done = True
   success = True
@@ -117,7 +118,16 @@ for promotion in Promotion.objects.all():
     _failGroup( promotion.group )
     slack.post_message( 'Failed group "{0}".'.format( promotion.group ), slack.ERROR )
 
-  promotion.delete()
+  promotion.done_at = datetime.now( timezone.utc )
+  promotion.full_clean()
+  promotion.save()
+
+
+# look for promotion to cleanup
+for promotion in Promotion.objects.filter( finished_at__isnull=False ):
+  if PackageFile.objects.filter( group=promotion.group ).count() == 0:
+    promotion.delete()
+
 
 # go over the package files and see if they still exist
 for package_file in PackageFile.objects.all():
