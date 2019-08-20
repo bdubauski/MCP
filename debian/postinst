@@ -32,7 +32,8 @@ case "$1" in
         mkdir -p /var/www/git
 
         a2ensite mcp.conf
-        a2enmod	wsgi
+        a2enmod wsgi
+        a2enmod rewrite
 
         systemctl restart apache2
     ;;
