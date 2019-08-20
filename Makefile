@@ -8,14 +8,13 @@ install:
 	mkdir -p $(DESTDIR)/var/www/mcp/static
 	mkdir -p $(DESTDIR)/var/www/mcp/api
 	mkdir -p $(DESTDIR)/etc/apache2/sites-available
-	mkdir -p $(DESTDIR)/etc/mcp
 	mkdir -p $(DESTDIR)/usr/lib/mcp/cron
 	mkdir -p $(DESTDIR)/usr/lib/mcp/util
 	mkdir -p $(DESTDIR)/usr/lib/mcp/setup
 	cp -a ui/* $(DESTDIR)/var/www/mcp/ui
 	install -m 644 api/mcp.wsgi $(DESTDIR)/var/www/mcp/api
 	install -m 644 apache.conf $(DESTDIR)/etc/apache2/sites-available/mcp.conf
-	install -m 644 mcp.conf.sample $(DESTDIR)/etc/mcp
+	install -m 644 mcp.conf.sample $(DESTDIR)/etc
 	install -m 755 lib/cron/* $(DESTDIR)/usr/lib/mcp/cron
 	install -m 755 lib/util/* $(DESTDIR)/usr/lib/mcp/util
 	install -m 755 lib/setup/* $(DESTDIR)/usr/lib/mcp/setup
