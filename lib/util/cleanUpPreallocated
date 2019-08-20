@@ -9,6 +9,8 @@ django.setup()
 from mcp.lib.t3kton import getContractor
 from mcp.Processor.models import Instance
 
+# sark will clean up the Instance reccords after contractor has returnd the cleanup webhook
+
 for instance in Instance.objects.filter( buildjob__isnull=True, state='built' ):
   print( 'Telling contractor to release "{0}"'.format( instance ) )
   contractor = getContractor()

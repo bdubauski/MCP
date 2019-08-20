@@ -278,7 +278,7 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.list( '/api/v1/Processor/Promotion' ) ).then(
+      $.when( cinp.list( '/api/v1/Processor/Promotion', 'in_process', {} ) ).then(
         function( data )
         {
           $.when( cinp.getObjects( data.list, null, 100 ) ).then(

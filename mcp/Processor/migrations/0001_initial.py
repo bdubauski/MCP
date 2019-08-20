@@ -83,6 +83,7 @@ class Migration(migrations.Migration):
                 ('tag', models.CharField(max_length=10)),
                 ('result_map', mcp.fields.MapField(blank=True)),
                 ('group', models.CharField(db_index=True, max_length=45)),
+                ('done_at', models.DateTimeField(blank=True, null=True)),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),
             ],

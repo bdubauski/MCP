@@ -46,8 +46,9 @@ class PackageFile( models.Model ):
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
   result_map = MapField( blank=True )
-  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )  # does this need to be unique?  do we need to worry about the same group id showing up in different groups of package files
+  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )  # does this need to be unique?  do we need to worry about the same group id showing up in different groups of package files, replace with ForeigKey to PackageFile?
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
+  done_at = models.DateTimeField( blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -65,6 +66,11 @@ class Promotion( models.Model ):
 
   def getResults( self ):
     return self.result_map
+
+  @cinp.list_filter( name='in_process', paramater_type_list=[] )
+  @staticmethod
+  def filter_in_process():
+    return Promotion.objects.filter( done_at__isnull=True )
 
   @cinp.check_auth()
   @staticmethod
