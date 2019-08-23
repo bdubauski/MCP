@@ -95,7 +95,8 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.save()
 
     # allocate the Resources
-    item.allocateResources( job, target_network )
+    item.allocateResources( job, target_network )  # TODO: allocate first, then do the create jobs, that way if there is a problem they can be rolled back
+    # item.buildResources
     logging.info( 'Starting Queue Item "{0}" as job "{1}"'.format( item, job.id ) )
 
   except Exception as e:
@@ -129,6 +130,11 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
   ready = True
   for instance in job.instance_set.all():
+    if instance.state == 'built' and instance.resource.buildresource_set.get( name=instance.name, build=job.build ).autorun:
+      instance.state = 'ran'
+      instance.full_clean()
+      instance.save()
+
     ready &= instance.state == 'ran'
 
   # all done, set to ran

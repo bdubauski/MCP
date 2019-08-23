@@ -98,7 +98,7 @@ def _queuePromotion( group, package_list, tag ):
 
 
 # look for promotion that is done
-for promotion in Promotion.objects.filter( finished_at__isnull=True ):
+for promotion in Promotion.objects.filter( done_at__isnull=True ):
   logging.debug( 'Checking promtion "{0}"'.format( promotion ) )
   done = True
   success = True
@@ -123,12 +123,6 @@ for promotion in Promotion.objects.filter( finished_at__isnull=True ):
   promotion.save()
 
 
-# look for promotion to cleanup
-for promotion in Promotion.objects.filter( finished_at__isnull=False ):
-  if PackageFile.objects.filter( group=promotion.group ).count() == 0:
-    promotion.delete()
-
-
 # go over the package files and see if they still exist
 for package_file in PackageFile.objects.all():
   # TODO: instead of getting them one at a time from packrat, get them in groups.
@@ -140,9 +134,16 @@ for package_file in PackageFile.objects.all():
     logging.info( 'Package File "{0}", is gone, deleting...'.format( package_file.filename ) )
     package_file.delete()
 
+
+# look for promotion to cleanup
+for promotion in Promotion.objects.filter( done_at__isnull=False ):
+  if PackageFile.objects.filter( group=promotion.group ).count() == 0:
+    promotion.delete()
+
+
 # iterate over the groups of package files
 for group in PackageFile.objects.all().values_list( 'group', flat=True ).distinct():
-  if Promotion.objects.filter( group=group ).count() > 0:
+  if Promotion.objects.filter( group=group, done_at__isnull=True ).count() > 0:
     logging.info( 'Group "{0}" allready has promotion(s), skipping...'.format( group ) )
     continue
 

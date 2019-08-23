@@ -30,13 +30,13 @@ class Contractor():
     logging.debug( 'packrat: logout' )
     self.cinp.call( '/api/v1/Auth/User(logout)', { 'token': self.token } )
 
-  def getNetworkInfo( self, name ):
-    block = self.cinp.get( '/api/v1/Utilities/AddressBlock:{0}'.format( name ) )
+  def getNetworkInfo( self, id ):
+    block = self.cinp.get( '/api/v1/Utilities/AddressBlock:{0}'.format( id ) )
 
     return block
 
-  def getNetworkUsage( self, name ):
-    usage = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(usage)'.format( name ), {} )
+  def getNetworkUsage( self, id ):
+    usage = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(usage)'.format( id ), {} )
 
     return usage
 
@@ -66,7 +66,7 @@ class Contractor():
       data = {}
       data[ 'networked' ] = structure.replace( '/Building/Structure:', '/Utilities/Networked:' )
       data[ 'interface_name' ] = name
-      data[ 'is_primary' ] = interface.get( 'is_primary', name == 'eth0' )
+      data[ 'is_primary' ] = interface[ 'is_primary' ]
 
       offset = interface.get( 'offset', None )
 

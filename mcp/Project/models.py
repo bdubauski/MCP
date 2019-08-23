@@ -810,6 +810,7 @@ class BuildResource( models.Model ):
   resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
+  autorun = models.BooleanField( default=False )
   interface_map = MapField( default={}, blank=True )
 
   @cinp.check_auth()

@@ -76,6 +76,7 @@ class Migration(migrations.Migration):
                 ('quanity', models.IntegerField(default=1)),
                 ('build', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Project.Build')),
                 ('resource', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='Resource.Resource')),
+                ('autorun', models.BooleanField(default=False)),
                 ('interface_map', mcp.fields.MapField(blank=True, default={})),
             ],
         ),

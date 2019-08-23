@@ -17,6 +17,7 @@ import shutil
 import socket
 import json
 import cinp
+import re
 
 from ssl import SSLError
 from datetime import datetime, timezone
@@ -32,6 +33,8 @@ from mcp.lib.Packrat import getPackrat
 
 WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
+
+name_regex = re.compile( '^[a-zA-Z0-9][a-zA-Z0-9_\-]*$' )  # from contractor/fields.py
 
 # when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-file', '*-builds', 'target'
 
@@ -57,6 +60,56 @@ tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
 slack = getSlack( 'rinzler' )
+
+
+def _cleanInterfaceMap( interface_map ):
+  if interface_map == {}:
+    return {}
+
+  if not isinstance( interface_map, dict ):
+    raise Exception( 'interface_map must be a dict' )
+
+  name_list = sorted( interface_map.keys() )  # python dicts to not stay sorted, so we are going to do it alphabetically for now
+  has_primary = False
+
+  result = {}
+
+  for name in name_list:
+    if not name_regex.match( name ) or len( name ) > 20:  # from contractor/Utilities/models.py NetworkInterface name length
+      raise ValueError( 'Interface name "{0}" is invalid'.format( name ) )
+
+    result[ name ] = {
+                       'is_primary': False
+                     }
+
+    for item in ( 'network', ):
+      try:
+        result[ name ][ item ] = interface_map[ name ][ item ]
+      except KeyError:
+        pass
+
+    for item in ( 'offset', ):
+      try:
+        result[ name ][ item ] = int( interface_map[ name ][ item ] )
+      except KeyError:
+        pass
+      except ValueError:
+        raise Exception( 'Invalid value for integer for "{0}"'.format( item ) )
+
+    for item in ( 'is_primary', ):
+      try:
+        result[ name ][ item ] = bool( interface_map[ name ][ item ] )
+      except KeyError:
+        pass
+      except ValueError:
+        raise Exception( 'Invalid value for boolean for "{0}"'.format( item ) )
+
+    has_primary |= result[ name ].get( 'is_primary', False )
+
+  if not has_primary:
+    result[ name_list[0] ][ 'is_primary' ] = True
+
+  return result
 
 
 def _makeBuild( build_name, project, manual ):
@@ -134,7 +187,8 @@ def _makeBuild( build_name, project, manual ):
     buildres.resource = resource
     buildres.name = name
     buildres.quanity = int( data.get( 'quanity', 1 ) )
-    buildres.interface_map = data.get( 'interface_map', {} )
+    buildres.interface_map = _cleanInterfaceMap( data.get( 'interface_map', {} ) )
+    buildres.autorun = data.get( 'autorun', False )
     buildres.full_clean()
     buildres.save()
 

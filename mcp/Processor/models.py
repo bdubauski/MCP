@@ -299,6 +299,7 @@ BuildJob
 
     if self.promotion is not None:
       results_map = self.promotion.getResults()
+      score_map = {}
 
     else:
       results_map = {}

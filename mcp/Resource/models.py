@@ -146,7 +146,7 @@ class DynamicResource( Resource ):
 
   def allocate( self, job, name, quantity, interface_map ):
     if not isinstance( interface_map, dict ):
-      interface_map = { 'eth0': { 'network': interface_map.name } }
+      interface_map = { 'eth0': { 'network': interface_map.name, 'is_primary': True } }
 
     instance_list = self.instance_set.filter( buildjob__isnull=True ).order_by( 'pk' ).iterator()
 
