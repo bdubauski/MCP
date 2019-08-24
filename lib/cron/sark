@@ -132,6 +132,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True,
   for instance in job.instance_set.all():
     if instance.state == 'built' and instance.resource.buildresource_set.get( name=instance.name, build=job.build ).autorun:
       instance.state = 'ran'
+      instance.success = True
       instance.full_clean()
       instance.save()
 
