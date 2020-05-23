@@ -69,18 +69,18 @@ examples::
     echo mcp:{ \"resource_name\": \"ubuntu-bionic-small\" }
 
   integrationcheck-resources:
-    echo controller:{ \"resource_name\": \"ubuntu-xenial-small\", \"interface_map\": { \"eth0\": { \"network\": \"VLAN_422\" }, \"eth1\": { \"network\": \"vlan438-mcp\", \"offset\": 10 } } }
-    echo esx01:{ \"resource_name\": \"esx\", \"interface_map\": { \"eth0\": { \"network\": \"VLAN_422\" }, \"eth1\": { \"network\": \"vlan438-mcp\", \"offset\": 20 } } }
+    echo controller:{ \"resource_name\": \"ubuntu-xenial-small\", \"interface_map\": { \"eth0\": {}, \"eth1\": { \"network\": \"vmnet\", \"offset\": 10 } } }
+    echo esx01:{ \"resource_name\": \"esx\", \"autorun\": true, \"interface_map\": { \"vmnic0\": {}, \"vmnic1\": { \"network\": \"vmnet\", \"offset\": 20 } } }
 
-- <build>-networks: echo a list of networks required for the build.  If not specified, the resources will be attached to the
-  default network configured in MCP.
+- <build>-networks: echo a list of networks required for the build.  If not specified, the resources will be attached to
+  and available network with the required number of ip addresses available.
 
 example::
   integrationcheck-networks:
-    echo installcheck:{ \"dedicated\": true, \"min_address\": 20 }
+    echo vmnet:{ \"min_size\": 128, \"dedicated\": true }
 
 - <build>-depends: echo a list of packages and tags this auto build is triggered by.  NOTE: the build is triggered when
-  the package is being tagged with the specified tag.  If the build fails, the package is tagged as falied.
+  the package is being tagged with the specified tag.  If the build fails, the package is tagged as failed.
 
 example::
 
@@ -91,8 +91,6 @@ example::
     echo contractor-plugins:stage
     echo subcontractor-plugins:stage
     echo contractor-plugins-vs:stage
-    echo tmn-servicehost:stage
-    echo tmn-vault:stage
     echo demoservice:stage
 
 
@@ -150,7 +148,7 @@ examples::
   a third parameter should be specified.
 
 examples::
-  
+
   dpkg-file:
     echo $(shell ls ../nullunit_*.deb)
 

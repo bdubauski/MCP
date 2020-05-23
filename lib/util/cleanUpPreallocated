@@ -6,10 +6,9 @@ os.environ.setdefault( 'DJANGO_SETTINGS_MODULE', 'mcp.settings' )
 import django
 django.setup()
 
+import time
 from mcp.lib.t3kton import getContractor
 from mcp.Processor.models import Instance
-
-# sark will clean up the Instance reccords after contractor has returnd the cleanup webhook
 
 for instance in Instance.objects.filter( buildjob__isnull=True, state='built' ):
   print( 'Telling contractor to release "{0}"'.format( instance ) )
@@ -17,5 +16,16 @@ for instance in Instance.objects.filter( buildjob__isnull=True, state='built' ):
   contractor.registerWebHook( instance, False )
   contractor.destroyStructure( instance.structure_id )
   contractor.destroyFoundation( instance.foundation_id )
+
+while True:
+  print( '{0} Instances remaning'.format( Instance.objects.filter( buildjob__isnull=True, state='released' ).count() ) )
+  for instance in Instance.objects.filter( buildjob__isnull=True, state='released' ):
+    print( 'Deleting Instance "{0}"'.format( instance ) )
+    instance.delete()
+
+  if Instance.objects.filter( buildjob__isnull=True, state='released' ).count() == 0:
+    break
+
+  time.sleep( 30 )
 
 print( 'Done!' )

@@ -44,7 +44,7 @@ class Contractor():
     return self.cinp.getObjets( '/api/v1/Building/Structure', id_list ).values()
 
   def createInstance( self, site_id, complex_id, blueprint_id, hostname, config_values, interface_map ):
-    foundation = self.cinp.call( '/api/v1/Building/Complex:{0}:(createFoundation)'.format( complex_id ), { 'hostname': hostname, 'can_auto_locate': True } )
+    foundation = self.cinp.call( '/api/v1/Building/Complex:{0}:(createFoundation)'.format( complex_id ), { 'hostname': hostname, 'interface_name_list': [] } )
 
     data = {}
     data[ 'site' ] = '/api/v1/Site/Site:{0}:'.format( site_id )
@@ -54,14 +54,15 @@ class Contractor():
     data[ 'config_values' ] = config_values
     structure = self.cinp.create( '/api/v1/Building/Structure', data )[0]
 
+    counter = 0
     for name, interface in interface_map.items():
-      if name != 'eth0':
-        data = {}
-        data[ 'foundation' ] = foundation
-        data[ 'name' ] = name
-        data[ 'physical_location' ] = name
-        data[ 'is_provisioning' ] = False
-        self.cinp.create( '/api/v1/Utilities/RealNetworkInterface', data )
+      data = {}
+      data[ 'foundation' ] = foundation
+      data[ 'name' ] = name
+      data[ 'physical_location' ] = 'eth{0}'.format( counter )
+      data[ 'is_provisioning' ] = bool( counter == 0 )
+      self.cinp.create( '/api/v1/Utilities/RealNetworkInterface', data )
+      counter += 1
 
       data = {}
       data[ 'networked' ] = structure.replace( '/Building/Structure:', '/Utilities/Networked:' )

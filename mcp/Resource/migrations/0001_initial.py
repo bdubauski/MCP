@@ -18,14 +18,14 @@ def load_sites( app, schema_editor ):
 
 
 def load_resources( app, schema_editor ):
-  DynamicResource = app.get_model( 'Resource', 'DynamicResource' )
+  StructureResource = app.get_model( 'Resource', 'StructureResource' )
   Site = app.get_model( 'Resource', 'Site' )
 
   site = Site.objects.get( name='site1' )
 
   for size in ( 'small', 'medium' ):
-    for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7' ):
-      dr = DynamicResource( name='{0}-{1}'.format( name, size ) )
+    for name in ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'centos-6', 'centos-7', 'esx' ):
+      dr = StructureResource( name='{0}-{1}'.format( name, size ) )
       dr.description = '{0} of {1}'.format( name.capitalize(), size.capitalize() )
       dr.blueprint = 'mcp-{0}'.format( name )
       # dr.complex = 'esx'
@@ -39,7 +39,7 @@ def load_resources( app, schema_editor ):
       dr.full_clean()
       dr.save()
 
-  dr = DynamicResource( name='vmware-esx' )
+  dr = StructureResource( name='vmware-esx' )
   dr.description = 'Vmware ESX'
   dr.blueprint = 'mcp-vmware-esx'
   # dr.complex = 'esx'
@@ -49,7 +49,7 @@ def load_resources( app, schema_editor ):
   dr.full_clean()
   dr.save()
 
-  dr = DynamicResource( name='vmware-vca' )
+  dr = StructureResource( name='vmware-vca' )
   dr.description = 'Vmware VCenter Appliance'
   dr.blueprint = 'mcp-vmware-vca'
   # dr.complex = 'esx'

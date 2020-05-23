@@ -18,6 +18,7 @@ from logging.handlers import SysLogHandler
 from datetime import datetime, timezone, timedelta
 
 from mcp.Processor.models import QueueItem, BuildJob
+from mcp.Resource.models import Network
 from mcp.lib.Slack import getSlack
 
 # in Hours
@@ -52,31 +53,6 @@ slack = getSlack( 'sark' )
 # Iterate over the Queued Items
 for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the biggest number first
   try:
-    # Check to see if resources are aviable
-    ( compute_status, network_status, target_network ) = item.checkResources()
-    if compute_status:
-      logging.info( 'Queue Item "{0}" waiting for compute "{1}"'.format( item, compute_status ) )
-      item.resource_status_map = { 'compute': compute_status }
-      item.full_clean()
-      item.save()
-      continue
-
-    if network_status:
-      logging.info( 'Queue Item "{0}" waiting for network "{1}"'.format( item, network_status ) )
-      item.resource_status_map = { 'network': network_status }
-      item.full_clean()
-      item.save()
-      continue
-
-  except Exception as e:
-    logging.exception( 'Exception "{0}" checking resources for item "{1}", skiping...'.format( e, item.pk ) )
-    item.resource_status_map = { 'error': 'Exception: "{0}"'.format( e ) }
-    item.full_clean()
-    item.save()
-    continue
-
-  job = None
-  try:
     # Build a job
     job = BuildJob()
     job.manual = item.manual
@@ -91,25 +67,47 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.target = item.target
     job.commit = item.commit
     job.promotion = item.promotion
+
+    ( missing_list, buildresource_list, network_map ) = item.allocateResources()
+    if missing_list:
+      logging.info( 'Queue Item "{0}" waiting for "{1}"'.format( item, missing_list ) )
+      item.resource_status_map = { 'resource': missing_list }
+      item.full_clean()
+      item.save()
+      continue
+
     job.full_clean()
     job.save()
 
-    # allocate the Resources
-    item.allocateResources( job, target_network )  # TODO: allocate first, then do the create jobs, that way if there is a problem they can be rolled back
-    # item.buildResources
+    job.network_list = Network.objects.filter( name__in=network_map.keys() )
+
+    for buildresource in buildresource_list:
+      quanity = buildresource.quanity
+      resource = buildresource.resource.subclass
+      interface_map = buildresource.interface_map
+      for name in interface_map.keys():
+        interface_map[ name ][ 'network' ] = network_map[ interface_map[ name ].get( 'network', '_OTHER_' ) ]
+
+      resource.allocate( job, buildresource.name, buildresource.quanity, interface_map )
+
+    job.buildResources()
     logging.info( 'Starting Queue Item "{0}" as job "{1}"'.format( item, job.id ) )
+
+    # remove the queue Item
+    slack.post_message( 'Job {0} ( project: "{1}", build: "{2}", branch: "{3}", target: "{4}" ) for Queue Item {5} submitted.'.format( job.id, job.project.name, job.build.name, job.branch, job.target, item.id ), slack.INFO )
+    item.delete()
 
   except Exception as e:
     logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
+    try:
+      job.releaseResources()
+    except Exception as e:
+      logging.exception( 'Exception "{0}" releaseing while skipping, probably creating a big mess...'.format( e, item.pk ) )
+      slack.post_message( '!!! Error releasing when there was an Exception allocating, I am probably making a mess !!!', slack.CRITICAL )
 
     item.resource_status_map = { 'error': 'Exception: "{0}"'.format( e ) }
     item.full_clean()
     item.save()
-    continue
-
-  # remove the queue Item
-  slack.post_message( 'Job {0} ( project: "{1}", build: "{2}", branch: "{3}", target: "{4}" ) for Queue Item {5} submitted.'.format( job.id, job.project.name, job.build.name, job.branch, job.target, item.id ), slack.INFO )
-  item.delete()
 
 
 # Iterate over the build new jobs

@@ -11,14 +11,14 @@ from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
 
 from mcp.Project.models import Build, Project, Package, Commit
-from mcp.Resource.models import Resource, NetworkResource
+from mcp.Resource.models import InstanceResource, Network
 
 
 cinp = CInP( 'Processor', '0.1' )
 
 GROUP_MAX_LENGTH = 45
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
-INSTANCE_STATE_LIST = ( 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
+INSTANCE_STATE_LIST = ( 'new', 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -122,38 +122,57 @@ QueueItem
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def checkResources( self ):
-    compute = {}
-    network = {}
-    total_ips = 0
+  def allocateResources( self ):
+    missing_list = []
+    buildresource_list = []
+    network_map = {}
+    other_ip_count = 0
 
     for buildresource in self.build.buildresource_set.all():
       quanity = buildresource.quanity
       resource = buildresource.resource.subclass
-      tmp = resource.available( quanity )
-      if not tmp:
-        compute[ resource.name ] = 'Not Available'
+      if not resource.available( quanity ):
+        missing_list.append( 'Resource "{0}" Not Available'.format( resource.name ) )
 
-      total_ips += quanity
+      buildresource_list.append( buildresource )
 
-    target_network = None
-    for resource in NetworkResource.objects.all().order_by( '-preference' ):  # THOUGHT: for builds that don't specifically call for a network, should we have a default pool, and if it's full block other builds for the default?  this would affect the pre-built stuffm which is all in single ip stuff
-      if resource.available( total_ips ):
-        target_network = resource
-        break
+      for item in buildresource.network_map.values():
+        if 'network' not in item:
+          other_ip_count += quanity
 
-    if target_network is None:
-      network[ 'network' ] = 'Need: {0}'.format( total_ips )
+    for name, item in self.build.network_map.items:
+      if item[ 'dedicated' ]:
+        try:
+          network_map[ name ] = Network.objects.filter( monalythic=True, size__gte=item[ 'size' ], build__isnull=True )[ 0 ].name
+        except IndexError:
+          missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
 
-    return ( compute, network, target_network )
-
-  def allocateResources( self, job, target_network ):  # warning, this dosen't check first, make sure you are sure there are resources available before calling
-    for buildresource in self.build.buildresource_set.all():
-      resource = buildresource.resource.subclass
-      if buildresource.interface_map == {}:  # TODO: mabey the the interface_map calls for just the target_netowk?, also would be better is this field was nullable
-        resource.allocate( job, buildresource.name, buildresource.quanity, target_network )
       else:
-        resource.allocate( job, buildresource.name, buildresource.quanity, buildresource.interface_map )
+        for network in Network.objects.filter( monalythic=False, size__gte=item[ 'size' ] ):
+          if network.available( item[ 'size' ] ):
+             network_map[ name ] = network.name
+             break
+
+        try:
+          network[ name ]
+        except KeyError:
+          missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
+
+    if other_ip_count:
+      for network in Network.objects.filter( monalythic=False, size__gte=other_ip_count, pk__notin=network_map.items() ):
+        if network.available( other_ip_count ):
+           network_map[ '_OTHER_' ] = network.name
+           break
+
+      try:
+        network[ '_OTHER_' ]
+      except KeyError:
+        missing_list.append( 'Other Network Not Available' )
+
+    if missing_list:
+      return ( missing_list, None, None )
+
+    return ( None, buildresource_list, network_map )
 
   @staticmethod
   def inQueueBuild( build, branch, manual, priority, user, promotion=None ):
@@ -236,6 +255,7 @@ BuildJob
   target = models.CharField( max_length=50 )
   build_name = models.CharField( max_length=50 )
   value_map = MapField( blank=True )  # for the job to store work values
+  network_list = models.ManyToManyField( Network )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -453,7 +473,7 @@ def getCookie():
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values' ] )
 class Instance( models.Model ):
-  resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
+  resource = models.ForeignKey( InstanceResource, on_delete=models.PROTECT )
   interface_map = MapField()
   cookie = models.CharField( max_length=36, default=getCookie )
   hostname = models.CharField( max_length=100 )
@@ -461,7 +481,7 @@ class Instance( models.Model ):
   buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
   name = models.CharField( max_length=50, blank=True, null=True  )
   index = models.IntegerField( blank=True, null=True )
-  state = models.CharField( max_length=9, default='allocated', choices=[ ( i, i ) for i in INSTANCE_STATE_LIST ] )
+  state = models.CharField( max_length=9, default='new', choices=[ ( i, i ) for i in INSTANCE_STATE_LIST ] )
   message = models.CharField( max_length=200, default='', blank=True )
   # results info
   success = models.BooleanField( default=False )
@@ -510,7 +530,7 @@ class Instance( models.Model ):
     if self.cookie != cookie:
       return
 
-    if self.state not in ( 'allocated', 'building' ):  # allready moved on, don't touch
+    if self.state not in ( 'new', 'allocated', 'building' ):  # allready moved on, don't touch
       return
 
     self.state = 'built'
@@ -546,7 +566,7 @@ class Instance( models.Model ):
     if self.cookie != cookie:
       return
 
-    if self.state not in ( 'allocated', 'building', 'built' ):  # don't go back to a previous state
+    if self.state not in ( 'new', 'allocated', 'building', 'built' ):  # don't go back to a previous state
       return
 
     self.state = 'ran'
@@ -621,14 +641,30 @@ class Instance( models.Model ):
 
     return result
 
+  def allocate( self ):
+    if self.state != 'new':
+      raise Exception( 'Allready allocated' )
+
+    contractor = getContractor()
+
+    ( foundation_id, structure_id ) = contractor.createInstance( self.site.name, self.complex, self.blueprint, self.hostname, self.config_values, self.interface_map )
+    self.foundation_id = foundation_id
+    self.structure_id = structure_id
+    self.state = 'allocated'
+    self.full_clean()
+    self.save()
+
   def build( self ):
     if self.state in ( 'building', 'built' ):
       return
 
-    if self.state in ( 'releasing', 'released' ):
-      raise Exception( 'Can not build while released/releasing' )
+    if self.state != 'allocated':
+      raise Exception( 'Can only build when allocated' )
 
-    self.resource.subclass.build( self )
+    contractor = getContractor()
+    contractor.registerWebHook( self, True )
+    contractor.createFoundation( self.foundation_id )
+    contractor.createStructure( self.structure_id )
 
     self.state = 'building'
     self.full_clean()
@@ -638,10 +674,31 @@ class Instance( models.Model ):
     if self.state in ( 'releasing', 'released' ):
       return
 
-    if self.state not in ( 'ran', 'built' ):
+    if self.state == 'new':
+      self.state = 'released'
+      self.full_clean()
+      self.save()
+      return
+
+    elif self.state == 'allocated':
+      contractor = getContractor()
+      contractor.deleteStructure( self.structure_id )
+      contractor.deleteFoundation( self.foundation_id )
+
+      self.state = 'released'
+      self.structure_id = None
+      self.foundation_id = None
+      self.full_clean()
+      self.save()
+      return
+
+    if self.state not in ( 'built', 'ran' ):
       raise Exception( 'Can not release when not built' )
 
-    self.resource.subclass.release( self )
+    contractor = getContractor()
+    contractor.registerWebHook( self, False )
+    contractor.destroyStructure( self.structure_id )
+    contractor.destroyFoundation( self.foundation_id )
 
     self.state = 'releasing'
     self.full_clean()

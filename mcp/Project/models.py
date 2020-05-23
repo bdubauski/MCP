@@ -387,7 +387,7 @@ A Single Commit of a Project
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  package_file_map = MapField( default={}, blank=True )
+  package_file_map = MapField( blank=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -765,6 +765,10 @@ This is a type of Build that can be done
     if not name_regex.match( self.name ):
       errors[ 'name' ] = 'Invalid'
 
+    for name in self.network_map.keys():
+      if not name_regex.match( name ):
+        errors[ 'network_map' ] = 'Invalid network name "{0}"'.format( name )
+
     if errors:
       raise ValidationError( errors )
 
@@ -805,13 +809,14 @@ class BuildDependancy( models.Model ):
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class BuildResource( models.Model ):
-  key = models.CharField( max_length=250, editable=False, primary_key=True )  # until djanog supports multi filed primary keys
+  key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
+  blueprint = models.CharField( max_length=40 )
   autorun = models.BooleanField( default=False )
-  interface_map = MapField( default={}, blank=True )
+  interface_map = MapField( blank=True )
 
   @cinp.check_auth()
   @staticmethod
@@ -832,3 +837,22 @@ class BuildResource( models.Model ):
 
   class Meta:
     unique_together = ( 'build', 'name' )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+class PreAllocatedBuildResources( models.Model ):
+  resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
+  blueprint = models.CharField( max_length=40 )
+  interface_map = MapField( blank=True )
+  quanity = models.IntegerField( default=1 )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'PreAllocatedBuildResources resource "{1}" blueprint "{2}"'.format( self.resource.name, self.blueprint )
+
+  class Meta:
+    unique_together = ( 'resource', 'blueprint' )

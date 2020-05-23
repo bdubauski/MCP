@@ -1,7 +1,7 @@
 
 # These template Items would be added to an existing makefile or used to generate a new Makefile
 # These are the Targets that MCP uses to know what to do with the project.  The targets
-# are are examples, and still probably need to be tweeked depending on the charistics of your
+# are are examples, and still probably need to be tweaked depending on the characteristics of your
 # project
 
 # any local changes for targets executed on MCP should be avoided, and will not be saved
@@ -194,7 +194,7 @@ rpm:
 # in this case we are pulling some values from a "settings" file for the version numbers
 # and such
 respkg:
-	respkg -b ecs2_$(shell /bin/bash -c '. settings ; echo "$$RESOURCE_PKG_VERSION-$$RESOURCE_PKG_BUILD"').respkg -n ecs2 -e $(shell /bin/bash -c '. settings ; echo "$$RESOURCE_PKG_VERSION-$$RESOURCE_PKG_BUILD"') -c "ECS2 Resources" -t load_plato_data.sh -d resources -f base-os -p base-os
+	respkg -b storage_$(shell /bin/bash -c '. settings ; echo "$$RESOURCE_PKG_VERSION-$$RESOURCE_PKG_BUILD"').respkg -n storage -e $(shell /bin/bash -c '. settings ; echo "$$RESOURCE_PKG_VERSION-$$RESOURCE_PKG_BUILD"') -c "Storage Resources" -t load_contractor_data.sh -d resources -f base-os -p base-os
 	touch respkg
 
 # this is executed to do the resource build
@@ -252,15 +252,15 @@ manual-builds:
 	echo tsdb:1:medium-generic-trusty
 	echo nsq:2:small-generic-xenial
 	echo bridge:1:small-generic-xenial
-	echo plato-master:1:small-generic-precise
-	echo atmos:4:ecs-gen4-6t-blank
+	echo contractor:1:small-generic-bionic
+	echo storage:4:gen4-6t-blank
 
-# this target is exectued to retrieve any networks (in plato subnets) required by this build
+# this target is exectued to retrieve any networks (in contractor networks) required by this build
 <target>-networks:
 
 ## These targets are executed on target distro system ##
 
-# this target is executed to retrieve any config values needed to be injected into plato
+# this target is executed to retrieve any config values needed to be injected into contractor
 # in this case we are using nullunitInterface to get ip-address information about the various
 # nodes so they can communicate
 <target>-config:
@@ -287,7 +287,7 @@ endif
 	echo router_external:$(shell nullunitInterface -r router-ext -i 0 -c 1 --primary-ip)
 
 # this target outputs the required packages, note, the config values have allready
-# been pushed into plato, so the packages can auto configure when installed
+# been pushed into contractor, so the packages can auto configure when installed
 <target>-requires:
 ifeq (tsdb, $(RESOURCE_NAME))
 	echo hbase opentsdb gnuplot

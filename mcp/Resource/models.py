@@ -1,18 +1,25 @@
-from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.apps import apps
 
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.lib.t3kton import getContractor
-from mcp.fields import name_regex
+from mcp.fields import MapField, name_regex
 
-# NOTE: these are not "thread safe", there is not per-instance resource reservation
+# NOTE: these are not "thread safe", there is no per-instance resource reservation
 # make sure only one thing is calling these methods at a time...
-# other than ready, that is thread safe
 
 
 cinp = CInP( 'Resource', '0.1' )
+
+
+def _getAvailibleNetwork( site, quantity ):
+  for network in site.networkresoure_set.filter( monalythic=True ):
+    if network.available( quantity ):
+      return network.contractor_id
+
+  return None
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -45,37 +52,18 @@ Site
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Resource( models.Model ):
-  """
-Resource
-  """
-  name = models.CharField( max_length=50, primary_key=True )
-  priority = models.IntegerField( default=50 )  # higher the value, higer the priority
-  description = models.CharField( max_length=100 )
-  blueprint = models.CharField( max_length=40 )
+  key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   site = models.ForeignKey( Site, on_delete=models.CASCADE )
+  name = models.CharField( max_length=50 )
+  description = models.CharField( max_length=100 )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  @property
-  def subclass( self ):
-    try:
-      return self.dynamicresource
-    except ObjectDoesNotExist:
-      pass
-
-    return self
-
-  def available( self, quantity ):  # called first to see if resources are aviable
+  def available( self, quantity, interface_map ):
     return False
 
-  def allocate( self, job, name, quantity ):  # called second to allocate the resources to the project
-    return None  # the id of the allocated resource
-
-  def build( self, instance ):
-    raise Exception( 'Not Implemented' )
-
-  def release( self, instance ):
-    raise Exception( 'Not Implemented' )
+  def allocate( job, name, quantity, interface_map ):
+    raise Exception( 'can not allocate a Base level Resource' )
 
   @cinp.check_auth()
   @staticmethod
@@ -84,25 +72,75 @@ Resource
 
   def clean( self, *args, **kwargs ):
     super().clean( *args, **kwargs )
-    errors = {}
+    self.key = '{0}_{1}'.format( self.site.name, self.name )
 
-    if not name_regex.match( self.name ):
-      errors[ 'name' ] = 'Invalid'
+    errors = {}
 
     if errors:
       raise ValidationError( errors )
 
   def __str__( self ):
-    return 'Generic Resource "{0}"'.format( self.description )
+    return 'Resource "{0}"'.format( self.name )
+
+  class Meta:
+    unique_together = ( 'name', 'site' )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+class StaticResource( Resource ):
+  """
+StaticResource
+  """
+  interface_map = MapField()
+
+  def available( self, quantity, interface_map ):  # TODO: also check interface_map
+    for name in interface_map.keys():
+      try:  # we only care if the interfaces named in the config match the resource, extra interfaces on the resource are fine
+        if interface_map[ name ][ 'network' ] != self.interface_map[ name ][ 'network' ]:
+          return False
+      except KeyError:
+        return False
+
+    return self.staticresourceitem_set.filter( buildjob__isnull=True ).count() >= quantity
+
+  def allocate( job, name, quantity, interface_map ):
+    pass
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'StaticResource "{0}"'.format( self.name )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+class StaticResourceItem( models.Model ):
+  """
+StaticResourceItem
+  """
+  static_resource = models.ForeignKey( StaticResource, on_delete=models.CASCADE )
+  contractor_id = models.IntegerField
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'StaticResourceItem for "{0}" contractor id: "{1}"'.format( self.static_resource, self.contractor_id )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class DynamicResource( Resource ):
+  """
+DynamicResource
+  """
   build_ahead_count = models.IntegerField( default=0 )
   complex = models.CharField( max_length=40 )
-
-  def available( self, quantity ):
-    return True
 
   def _takeOver( self, instance, buildjob, name, index ):
     instance.buildjob = buildjob
@@ -127,81 +165,92 @@ class DynamicResource( Resource ):
     instance.full_clean()
     instance.save()
 
-    instance.build()
+    instance.allocate()
 
-  def _replentishPreAllocate( self, interface_map ):
+  def _replentishPreAllocate( self ):
+    quantity = self.build_ahead_count - self.instance_set.filter( buildjob__isnull=True ).count()
+    if quantity < 1:
+      return
+
+    network_id = _getAvailibleNetwork( self.site, quantity )
+    if network_id is None:
+      return
+
     Instance = apps.get_model( 'Processor', 'Instance' )
-    while self.instance_set.filter( buildjob__isnull=True ).count() < self.build_ahead_count:  # TODO: make sure there is room for more vms in the subnet
+    for _ in range( 0, quantity ):
       instance = Instance( resource=self )
-      instance.interface_map = interface_map
-      instance.hostname = 'mcp-preallocate--{0}-'.format( self.name )
-      instance.full_clean()
-      instance.save()
-
+      instance.interface_map = { 'eth0': { 'network': network_id, 'is_primary': True } }
       instance.hostname = 'mcp-preallocate--{0}-{1}'.format( self.name, instance.pk )
       instance.full_clean()
       instance.save()
 
+      instance.allocate()
       instance.build()
 
+  def available( self, quantity, interface_map ):
+    if not interface_map:  # for now is {} when empty would be nice if it was also None, this will cover both
+      return _getAvailibleNetwork( self.site, quantity ) is not None
+
+    return True
+
   def allocate( self, job, name, quantity, interface_map ):
-    if not isinstance( interface_map, dict ):
-      interface_map = { 'eth0': { 'network': interface_map.name, 'is_primary': True } }
+    if not interface_map:  # for now is {} when empty would be nice if it was also None, this will cover both
+      interface_map = { 'eth0': { 'network': _getAvailibleNetwork( self.site, quantity ), 'is_primary': True } }
 
-    instance_list = self.instance_set.filter( buildjob__isnull=True ).order_by( 'pk' ).iterator()
+      instance_list = self.instance_set.filter( buildjob__isnull=True ).order_by( 'pk' ).iterator()
 
-    for index in range( 0, quantity ):
-      instance = next( instance_list, None )
-      while instance is not None and instance.interface_map != interface_map:  # dicts don't allways sort the same way, so trying to query by interface_map will not work very well
+      for index in range( 0, quantity ):
         instance = next( instance_list, None )
+        while instance is not None and instance.interface_map != interface_map:  # dicts don't allways sort the same way, so trying to query by interface_map will not work very well
+          instance = next( instance_list, None )
 
-      if instance is not None:
-        self._takeOver( instance, job, name, index )
-      else:
+        if instance is not None:
+          self._takeOver( instance, job, name, index )
+        else:
+          self._createNew( interface_map, job, name, index )
+
+        self._replentishPreAllocate()
+
+    else:
+      for index in range( 0, quantity ):
         self._createNew( interface_map, job, name, index )
-
-    self._replentishPreAllocate( interface_map )
-
-  def build( self, instance ):
-    contractor = getContractor()
-
-    ( foundation_id, structure_id ) = contractor.createInstance( self.site.name, self.complex, self.blueprint, instance.hostname, instance.config_values, instance.interface_map )
-    instance.foundation_id = foundation_id
-    instance.structure_id = structure_id
-    instance.full_clean()
-    instance.save()
-    contractor.registerWebHook( instance, True )
-    contractor.createFoundation( instance.foundation_id )
-    contractor.createStructure( instance.structure_id )
-
-  def release( self, instance ):
-    contractor = getContractor()
-    contractor.registerWebHook( instance, False )
-    contractor.destroyStructure( instance.structure_id )
-    contractor.destroyFoundation( instance.foundation_id )
 
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
     return True
 
+  def clean( self, *args, **kwargs ):
+    super().clean( *args, **kwargs )
+    errors = {}
+
+    if not name_regex.match( self.name ):
+      errors[ 'name' ] = 'Invalid'
+
+    if errors:
+      raise ValidationError( errors )
+
   def __str__( self ):
-    return 'Dynmaic Resource "{0}"'.format( self.description )
+    return 'Resource "{0}"({1})'.format( self.description, self.name )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class NetworkResource( models.Model ):
+class Network( models.Model ):
   """
-NetworkResource, name is the name of the SubNet/AddressBlock.  Really only used by DynamicResources
+Network, name is the name of the SubNet/AddressBlock.
   """
-  name = models.CharField( max_length=40, primary_key=True )
-  preference = models.IntegerField( default=100 )  # the higher the number the greater the preference
-  # use_all_at_once = boolean
-  # unuse = boolean
+  name = models.CharField( max_length=50, primary_key=True )
+  site = models.ForeignKey( Site, on_delete=models.CASCADE )
+  contractor_id = models.IntegerField( unique=True )
+  monalythic = models.BooleanField( default=True )  # only use for one build at a time, also use for sub-let builds, ie: we are not going to ask contractor about it.
+  size = models.IntegerField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
-  def available( self, quantity ):
+  def available( self, quantity ):  # TODO: rethink, mabey it should be a class method, and probably should return the resources, merge with allocate?
+    if self.monalythic:
+      return self.build_set.all().count() == 0
+
     contractor = getContractor()
 
     network = contractor.getNetworkUsage( self.name )
