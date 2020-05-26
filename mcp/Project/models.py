@@ -12,6 +12,7 @@ from cinp.orm_django import DjangoCInP as CInP
 from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH
 from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
+from mcp.lib.GitLab import GitLab
 from mcp.Resource.models import Resource
 
 
@@ -166,28 +167,20 @@ This is a Generic Project
     except ObjectDoesNotExist:
       pass
 
+    try:
+      self.gitlabproject
+      return 'GitLabProject'
+    except ObjectDoesNotExist:
+      pass
+
     return 'Project'
 
-  @property
-  def git( self ):
-    return Git( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
+  # @property
+  # def git( self ):
+  #   return Git( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
 
   @property
-  def org( self ):
-    try:
-      return self.githubproject._org
-    except ObjectDoesNotExist:
-      return None
-
-  @property
-  def repo( self ):
-    try:
-      return self.githubproject._repo
-    except ObjectDoesNotExist:
-      return None
-
-  @property
-  def busy( self ):  # ie. can it be updated, and scaned for new things to do
+  def busy( self ):  # ie: can it be updated, and scaned for new things to do
     not_busy = True
     for build in self.build_set.all():
       for item in build.queueitem_set.all():
@@ -309,12 +302,22 @@ This is a GitHub Project
   @property
   def org( self ):
     try:
+      return self._org
+    except ObjectDoesNotExist:
+      return None
+
+    try:
       return self.githubproject._org
     except ObjectDoesNotExist:
       return None
 
   @property
   def repo( self ):
+    try:
+      return self._repo
+    except ObjectDoesNotExist:
+      return None
+
     try:
       return self.githubproject._repo
     except ObjectDoesNotExist:
@@ -338,6 +341,58 @@ This is a GitHub Project
 
   def __str__( self ):
     return 'GitHub Project "{0}"({1}/{2})'.format( self.name, self._org, self._repo )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CALL' ], read_only_list=[ 'last_checked', 'build_counter' ] )
+class GitLabProject( Project ):
+  """
+This is a GitLab Project
+  """
+  _group = models.CharField( max_length=50 )
+  _project = models.CharField( max_length=50 )
+
+  @property
+  def org( self ):
+    try:
+      return self._org
+    except ObjectDoesNotExist:
+      return None
+
+    try:
+      return self.gitlabproject._org
+    except ObjectDoesNotExist:
+      return None
+
+  @property
+  def repo( self ):
+    try:
+      return self._repo
+    except ObjectDoesNotExist:
+      return None
+
+    try:
+      return self.gitlabproject._repo
+    except ObjectDoesNotExist:
+      return None
+
+  @property
+  def github( self ):
+    try:
+      if self._gitlab:
+        return self._gitlab
+    except AttributeError:
+      pass
+
+    self._gitlab = GitLab( settings.GITLAB_API_HOST, settings.GITLAB_PROXY, settings.GITLAB_USER, settings.GITLAB_PASS, self.group, self.project )
+    return self._gitlab
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'GitLab Project "{0}"({1}/{2})'.format( self.name, self._group, self._project )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )

@@ -121,7 +121,7 @@ class StaticResourceItem( models.Model ):
 StaticResourceItem
   """
   static_resource = models.ForeignKey( StaticResource, on_delete=models.CASCADE )
-  contractor_id = models.IntegerField
+  contractor_structure_id = models.IntegerField( unique=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -241,7 +241,8 @@ Network, name is the name of the SubNet/AddressBlock.
   """
   name = models.CharField( max_length=50, primary_key=True )
   site = models.ForeignKey( Site, on_delete=models.CASCADE )
-  contractor_id = models.IntegerField( unique=True )
+  contractor_addressblock_id = models.IntegerField( unique=True )
+  contractor_network_name = models.CharField( max_length=40 )  # see contractor.Utilities.modes Network.name
   monalythic = models.BooleanField( default=True )  # only use for one build at a time, also use for sub-let builds, ie: we are not going to ask contractor about it.
   size = models.IntegerField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -253,7 +254,7 @@ Network, name is the name of the SubNet/AddressBlock.
 
     contractor = getContractor()
 
-    network = contractor.getNetworkUsage( self.name )
+    network = contractor.getNetworkUsage( self.contractor_addressblock_id )
     if int( network[ 'total' ] ) - ( int( network[ 'static' ] ) + int( network[ 'dynamic' ] ) + int( network[ 'reserved' ] ) ) < quantity:
       return False
 

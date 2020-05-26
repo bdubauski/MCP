@@ -35,7 +35,7 @@ else
 fi
 
 echo
-echo "-- Setting up mcp master --"
+echo "-- Setting up mcp --"
 echo "Install Postgres: $POSTGRES_LOCAL"
 echo "Postgres Host: $POSTGRES_HOST"
 

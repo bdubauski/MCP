@@ -61,10 +61,10 @@ class custom_build( build_py ):
         os.rename('mcp/settings.py.tmp', 'mcp/settings.py')
 
 
-setup( name='mcp-master',
+setup( name='mcp',
        description='MCP',
        author='Peter Howe',
-       author_email='peter.howe@virtustream.com',
+       author_email='pnhowe@gmail.com',
        include_package_data=True,
        packages=find_packages(),
        cmdclass={ 'build_py': custom_build }
