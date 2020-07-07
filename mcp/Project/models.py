@@ -198,7 +198,7 @@ This is a Generic Project
 
   @property
   def internal_git( self ):
-    return InternalGit( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
+    return InternalGit( os.path.join( settings.GIT_LOCAL_PATH, self.local_path, self.release_branch ) )
 
   @property
   def busy( self ):  # ie: can it be updated, and scaned for new things to do
@@ -252,7 +252,7 @@ This is a Generic Project
   @property
   def status( self ):
     try:
-      commit = self.commit_set.filter( branch='master', done_at__isnull=False ).order_by( '-created' )[0]
+      commit = self.commit_set.filter( branch=self.release_branch, done_at__isnull=False ).order_by( '-created' )[0]
     except IndexError:
       return { 'test': None, 'build': None, 'doc': None, 'at': None }
 
@@ -528,7 +528,7 @@ A Single Commit of a Project
     overall_complete &= complete
     overall_success &= success
 
-    if self.branch == 'master':
+    if self.branch == self.release_branch:
       complete = True
       success = True
       for ( name, value ) in self.doc_results.items():

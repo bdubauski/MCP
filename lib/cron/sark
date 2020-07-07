@@ -60,7 +60,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.build = item.build
     job.project = item.project
     job.branch = item.branch
-    if item.branch == 'master':
+    if item.branch == item.project.release_branch:
       job.build_name = str( item.project.build_counter )
     else:
       job.build_name = '{0}-{1}'.format( item.project.build_counter, item.branch )

@@ -212,7 +212,7 @@ QueueItem
 
   @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build }, 'String', 'Boolean', 'Integer' ] )
   @staticmethod
-  def queue( user, build, branch='master', manual=True, priority=100 ):
+  def queue( user, build, branch, manual=True, priority=100 ):
     item = QueueItem.inQueueBuild( build, branch, manual, priority, user.username )
     return item.pk
 
@@ -504,7 +504,7 @@ class Instance( models.Model ):
                        'mcp_instance_cookie': self.cookie,
                        'mcp_resource_name': self.name,
                        'mcp_resource_index': self.index,
-                       'mcp_store_packages': self.buildjob.branch == 'master',
+                       'mcp_store_packages': self.buildjob.branch == self.buildjob.project.release_branch,
                        'mcp_git_url': self.buildjob.project.internal_git_url,
                        'mcp_git_branch': self.buildjob.branch,
                        'mcp_make_target': self.buildjob.target

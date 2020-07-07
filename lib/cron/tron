@@ -94,7 +94,7 @@ def _queuePromotion( group, package_list, tag ):
     promition_build.status = 'queued'
     promition_build.full_clean()
     promition_build.save()
-    promotion.queueitem_set.add( QueueItem.inQueueBuild( dependancy.build, 'master', False, QUEUE_PRIORITY, '*AUTO*', promotion=promotion ) )
+    promotion.queueitem_set.add( QueueItem.inQueueBuild( dependancy.build, dependancy.build.project.release_branch, False, QUEUE_PRIORITY, '*AUTO*', promotion=promotion ) )
 
 
 # look for promotion that is done

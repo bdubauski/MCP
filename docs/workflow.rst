@@ -41,7 +41,7 @@ pseudo code of the project scanner::
 
       store the version number in the commit record
 
-      if branch name is 'master':
+      if branch is the release branch:
         increment the project build counter
 
       retrieve the list of resources for test by running `make test-distros`
@@ -49,7 +49,7 @@ pseudo code of the project scanner::
       for packaging in 'dpkg', 'rpm', 'respkg', 'resource':
         retrieve list of resources for packaging by running `make <packaging>-distros`
 
-      if branch name is 'master':
+      if branch is the release branch:
         retrieve list of resources for documentation by running `make doc-distros`
 
       retrieve list of auto(integration testing) builds by running `make auto-builds`
@@ -64,7 +64,7 @@ pseudo code of the project scanner::
 
 After the commit records are created, MCP goes over targets and allocates resources.  The
 targets are `test`, packaging ( `dpkg`, `rpm`, `respkg`, `resource` ) and if the commit
-is for the master branch `doc`.
+is for the release branch `doc`.
 
 
 pseudo code for the resource running a target::
@@ -88,10 +88,10 @@ pseudo code for the resource running a target::
   else if packaging:
     build the package with `make <target>`
     retrieve the list of files by `make <target>-file`
-    if branch is master:
+    if branch is the release branch::
       upload file(s) to packrat
 
-  else if `doc` and branch is master:
+  else if `doc` and branch is the release branch::
     build the documents with `make doc`
     retrieve the list of files with `make doc-file`
     upload file(s) to confluence

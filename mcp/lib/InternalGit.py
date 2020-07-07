@@ -7,8 +7,9 @@ GIT_CMD = '/usr/bin/git'
 
 
 class InternalGit():
-  def __init__( self, dir ):
+  def __init__( self, dir, release_branch ):
     self.dir = dir
+    self.release_branch = release_branch
 
   def _execute( self, args, cwd=None ):
     logging.debug( 'git: running "{0}"'.format( args ) )
@@ -63,8 +64,8 @@ class InternalGit():
     self._execute( [ 'update-server-info' ] )  # should not have to run this... the hook/post-update should be doing this
 
   def remove_branch( self, branch ):
-    if branch == 'master':
-      raise Exception( 'Master Branch is not Deleteable' )
+    if branch == self.release_branch:
+      raise Exception( 'Release Branch "{0}" is not Deleteable'.format( self.release_branch ) )
 
     self._execute( [ 'branch', '-D', branch ] )
 

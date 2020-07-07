@@ -114,6 +114,7 @@ class Migration(migrations.Migration):
             name='Project',
             fields=[
                 ('name', models.CharField(max_length=50, primary_key=True, serialize=False)),
+                ('release_branch', models.CharField(max_length=100, default='master')),
                 ('local_path', models.CharField(blank=True, editable=False, max_length=150, null=True)),
                 ('build_counter', models.IntegerField(default=0)),
                 ('last_checked', models.DateTimeField(default=datetime.min)),

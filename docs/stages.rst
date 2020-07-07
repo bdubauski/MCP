@@ -100,8 +100,8 @@ Make targets Run on target resource (By nullunit)
 nullunit setts the folling environment variables:
 
 - NULLUNIT=1
-- BUILD_NAME : for builds on the master branch this is a plain number, for other branches it is the number for the last
-  master branch bhuld appended by '-<branch name>'.  forexample `14-_PR5`
+- BUILD_NAME : for builds on the release branch this is a plain number, for other branches it is the number for the last
+  release branch bhuld appended by '-<branch name>'.  forexample `14-_PR5`
 
 if the target is *NOT* in `test`, packaging ( `dpkg`, `rpm`, `respkg`, `resource` ), or `doc`:
 

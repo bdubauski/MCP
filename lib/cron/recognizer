@@ -127,7 +127,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
       commit.postResults()
 
       # clean up any package file that might of been uploaded to packrat
-      if commit.branch == 'master':  # tag version on master
+      if commit.branch == commit.project.release_branch:  # tag version
         if packrat is None:
           packrat = getPackrat()
 
@@ -145,7 +145,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
 
 # check for commits that need doc
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=True ):
-  if commit.branch != 'master':  # only build doc from master branch
+  if commit.branch != commit.project.release_branch:
     commit.doc_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()
@@ -189,11 +189,11 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
 
 # check for commits that are done
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=False, doc_at__isnull=False ):
-  if commit.branch == 'master':  # tag version on master
+  if commit.branch == commit.project.release_branch:  # tag version
     if packrat is None:
       packrat = getPackrat()
 
-    # only look to tag new package files on master, they shold only be created on master anyway
+    # only look to tag new package files on the release branch, they shold only be created on release branch anyway
     for filename, uri in commit.package_file_map.items():
       packrat_packagefile = packrat.cinp.get( uri )
       try:

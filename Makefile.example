@@ -47,7 +47,7 @@
 
 # in addition to 'NULLUNIT', an environment var 'BUILD_NAME' is set to the build name
 # for these targets.  The build name is a monotonically increasing number for builds on
-# the master branch, otherwise the build name is <counter>-<branch name>
+# the release branch, otherwise the build name is <counter>-<branch name>
 # <target>-setup
 # <target>
 
@@ -69,7 +69,7 @@ DISTRO_NAME := $(shell lsb_release -sc | tr A-Z a-z)
 # other users can use your Makefile sanily
 
 # If you would like MCP to tag the git repo with the version when all the stages on
-# the master branch
+# the release branch
 version:
 	echo 1.0
 

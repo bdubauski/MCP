@@ -335,7 +335,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
     commit.version = version
 
-    if branch == 'master':
+    if branch == project.release_branch:
       project.build_counter += 1
       project.full_clean()
       project.save()
@@ -364,7 +364,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       if distro_list:
         commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
 
-    if branch == 'master':
+    if branch == project.release_branch:
       logging.info( 'Adding Doc Build...' )
       try:
         distro_list = make.docDistros()
@@ -375,7 +375,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
     commit.build_results = commit.build_results
 
-    if branch == 'master':
+    if branch == project.release_branch:
       logging.info( 'Updating Builds info...' )
       try:
         build_list = make.autoBuilds()
