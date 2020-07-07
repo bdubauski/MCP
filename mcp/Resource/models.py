@@ -1,4 +1,4 @@
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import models
 from django.apps import apps
 
@@ -87,10 +87,75 @@ class Resource( models.Model ):
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+class ResourceInstance( models.Model ):
+  @property
+  def resource( self ):
+    try:
+      return self.dynamicresourceitem.resource()
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      return self.staticresourceitem.resource()
+    except ObjectDoesNotExist:
+      pass
+
+    return None
+
+  def build( self ):
+    try:
+      self.dynamicresourceitem.build()
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      self.staticresourceitem.build()
+    except ObjectDoesNotExist:
+      pass
+
+  def allocate( self, blueprint_id, config_values, interface_map, hostname ):
+    try:
+      self.dynamicresourceitem.allocate( blueprint_id, config_values, interface_map, hostname )
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      self.staticresourceitem.allocate( blueprint_id, config_values, interface_map, hostname )
+    except ObjectDoesNotExist:
+      pass
+
+  def release( self ):
+    try:
+      self.dynamicresourceitem.release()
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      self.staticresourceitem.release()
+    except ObjectDoesNotExist:
+      pass
+
+  def cleanup( self ):
+    try:
+      self.dynamicresourceitem.cleanup()
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      self.staticresourceitem.cleanup()
+    except ObjectDoesNotExist:
+      pass
+
+  class Meta:
+    abstract = True
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class StaticResource( Resource ):
   """
 StaticResource
   """
+  group_name = models.CharField( max_length=50 )
   interface_map = MapField()
 
   def available( self, quantity, interface_map ):  # TODO: also check interface_map
@@ -116,14 +181,37 @@ StaticResource
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class StaticResourceItem( models.Model ):
+class StaticResourceInstance( ResourceInstance ):
   """
-StaticResourceItem
+StaticResourceInstance
   """
   static_resource = models.ForeignKey( StaticResource, on_delete=models.CASCADE )
   contractor_structure_id = models.IntegerField( unique=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @property
+  def resource( self ):
+    return self.static_resource
+
+  def allocate( self, blueprint_id, config_values, interface_map, hostname ):
+    # TODO: verify self.static_resource.interface_map has interface_map covered
+    contractor = getContractor()
+    contractor.allocateStaticResource( self.contractor_structure_id, blueprint_id, config_values, hostname )
+    contractor.registerWebHook( self.instance, True, structure_id=self.contractor_structure_id )
+
+  def build( self ):
+    contractor = getContractor()
+    contractor.builStaticResource( self.contractor_structure_id )
+    contractor.registerWebHook( self.instance, True, structure_id=self.contractor_structure_id )
+
+  def release( self ):
+    contractor = getContractor()
+    contractor.releaseStatic( self.contractor_structure_id )
+    contractor.registerWebHook( self.instance, False, structure_id=self.contractor_structure_id )
+
+  def cleanup( self ):
+    pass
 
   @cinp.check_auth()
   @staticmethod
@@ -140,7 +228,8 @@ class DynamicResource( Resource ):
 DynamicResource
   """
   build_ahead_count = models.IntegerField( default=0 )
-  complex = models.CharField( max_length=40 )
+  blueprint_id = models.CharField( max_length=40 )
+  complex_id = models.CharField( max_length=40 )  # should match contractor complex name/pk
 
   def _takeOver( self, instance, buildjob, name, index ):
     instance.buildjob = buildjob
@@ -232,6 +321,57 @@ DynamicResource
 
   def __str__( self ):
     return 'Resource "{0}"({1})'.format( self.description, self.name )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ] )
+class DynamicResourceInstance( ResourceInstance ):
+  """
+DynamicResourceInstance
+  """
+  dynamic_resource = models.ForeignKey( DynamicResource, on_delete=models.PROTECT )  # this is protected so we don't leave VMs laying arround
+  contractor_structure_id = models.IntegerField( unique=True )
+  contractor_foundation_id = models.CharField( max_length=100 )  # should match foundation locator
+  interface_map = MapField()
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @property
+  def resource( self ):
+    return self.dynamic_resource
+
+  def takeOver( self, config_values, hostname ):
+    contractor = getContractor()
+    contractor.updateDynamicResource( self.contractor_structure_id, config_values, hostname )
+
+  def allocate( self, blueprint_id, config_values, interface_map, hostname ):
+    if blueprint_id != self.dynamic_resource.blueprint_id:
+      raise Exception( 'Can not chage the blueprint of a Dynamic Resource' )
+
+    contractor = getContractor()
+    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.complex_id, self.dynamic_resource.blueprint_id, config_values, interface_map, hostname )
+
+  def build( self ):
+    contractor = getContractor()
+    contractor.buildDynamicResource( self.contractor_foundation_id, self.contractor_structure_id )
+    contractor.registerWebHook( self.instance, True, structure_id=self.contractor_structure_id )
+
+  def release( self ):
+    contractor = getContractor()
+    contractor.releaseDynamic( self.contractor_foundation_id, self.contractor_structure_id )
+    contractor.registerWebHook( self.instance, False, foundation_id=self.contractor_foundation_id )
+
+  def cleanup( self ):
+    contractor = getContractor()
+    contractor.deleteDynamic( self.contractor_foundation_id, self.contractor_structure_id )
+    self.delete()
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return True
+
+  def __str__( self ):
+    return 'DynamicResourceInstance for "{0}" contractor id: "{1}"'.format( self.dynamic_resource, self.contractor_structure_id )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )

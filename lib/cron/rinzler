@@ -224,6 +224,7 @@ def _failCommit( commit, message ):
 
 # where project dosen't have any queue items
 for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_checked' ):
+  # skip internal projects
   if project.name.startswith( '_' ):
     continue
 
@@ -255,7 +256,7 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     project.local_path = '{0}/{1}'.format( project.pk, os.path.basename( url ) )
     logging.debug( 'Creating "{0}" in "{1}"...'.format( project.name, project.local_path ) )
 
-    git = project.git
+    git = project.internal_git
     git.setup( url )  # make sure we can check things out before saving the path
     project.full_clean()
     project.save()
@@ -266,36 +267,31 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
   git.update()
 
-  github = None
+  try:
+    scm = project.scm
+  except ( socket.timeout, socket.error, SSLError ):
+    logging.warning( 'Connection Error connecting to remote scm, will try again later.' )
+    continue
 
-  if project.type == 'GitHubProject':
-    try:
-      github = project.githubproject.github
-    except ( socket.timeout, socket.error, SSLError ):
-      logging.warning( 'Connection Error connecting to github, will try again later.' )
+  try:
+    merge_list = scm.getMergeList()
+  except ( socket.timeout, socket.error, SSLError ):
+    logging.warning( 'Connection Error getting Merge List, will try again later.' )
+    continue
+
+  for branch in git.ref_map():
+    merge = scm.branchToMerge( branch )
+    if merge is not None and merge not in merge_list:
+      logging.debug( 'Cleaning up branch "{0}"'.format( branch ) )
+      git.remove_branch( branch )
+
+  for merge in merge_list:
+    branch_name = scm.mergeToBranch( merge )
+    if project.commit_set.filter( branch=branch_name, done_at__isnull=True ).count() > 0:
       continue
 
-  if github is not None:
-    try:
-      pull_list = github.getPullRequests()
-    except ( socket.timeout, socket.error, SSLError ):
-      logging.warning( 'Connection Error getting PRs from github, will try again later.' )
-      continue
-
-    for branch in git.ref_map():
-      if branch.startswith( '_PR' ):
-        number = int( branch[3:] )
-        if number not in pull_list:
-          logging.debug( 'Cleaning up branch "{0}"'.format( branch ) )
-          git.remove_branch( branch )
-
-    for pull in pull_list:
-      branch_name = '_PR{0}'.format( pull )
-      if project.commit_set.filter( branch=branch_name, done_at__isnull=True ).count() > 0:
-        continue
-
-      logging.info( '  Pulling PR #{0}'.format( pull ) )
-      git.fetch_branch( 'refs/pull/{0}/head'.format( pull ), branch_name )
+    logging.info( '  Pulling MR/PR "{0}"'.format( merge ) )
+    git.fetch_branch( scm.mergeToRef( merge ), branch_name )
 
   branch_map = git.ref_map()
 
@@ -308,21 +304,8 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
     except Commit.DoesNotExist:
       pass
 
-    owner = None
-    if branch.startswith( '_PR' ) and github is not None:
-      try:
-        owner = github.getPullRequestOwner( int( branch[3:] ) )
-      except ( socket.timeout, socket.error, SSLError ):
-        logging.warning( 'Connection Error gettting PR owner, will try again later.' )
-        continue
-
-    if owner is not None:
-      logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}" owned by "{3}"...'.format( branch_map[ branch ], branch, project.name, owner ) )
-      slack.post_message( 'New Commit "{0}" on Branch "{1}"({2}) of Project "{3}".'.format( branch_map[ branch ], branch, owner, project.name ), slack.INFO )
-
-    else:
-      logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}"...'.format( branch_map[ branch ], branch, project.name ) )
-      slack.post_message( 'New Commit "{0}" on Branch "{1}" of Project "{2}".'.format( branch_map[ branch ], branch, project.name ), slack.INFO )
+    logging.info( 'New Commit "{0}" on Branch "{1}" of Project "{2}"...'.format( branch_map[ branch ], branch, project.name ) )
+    slack.post_message( 'New Commit "{0}" on Branch "{1}" of Project "{2}".'.format( branch_map[ branch ], branch, project.name ), slack.INFO )
 
     git.checkout( WORK_DIR, branch )
 
@@ -356,9 +339,6 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       project.build_counter += 1
       project.full_clean()
       project.save()
-
-    if owner is not None:
-      commit.owner_override = owner
 
     try:
       distro_list = make.testDistros()

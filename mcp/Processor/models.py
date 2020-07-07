@@ -7,11 +7,10 @@ from django.core.exceptions import ValidationError
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.lib.t3kton import getContractor
 from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
 
 from mcp.Project.models import Build, Project, Package, Commit
-from mcp.Resource.models import InstanceResource, Network
+from mcp.Resource.models import ResourceInstance, Network
 
 
 cinp = CInP( 'Processor', '0.1' )
@@ -470,11 +469,12 @@ BuildJob
 def getCookie():
   return str( uuid.uuid4() )
 
+# Next up- the Instance/resource_instance allocation
+
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values' ] )
 class Instance( models.Model ):
-  resource = models.ForeignKey( InstanceResource, on_delete=models.PROTECT )
-  interface_map = MapField()
+  resource_instance = models.ForeignKey( ResourceInstance, on_delete=models.PROTECT, blank=True, null=True )
   cookie = models.CharField( max_length=36, default=getCookie )
   hostname = models.CharField( max_length=100 )
   # build info
@@ -487,9 +487,6 @@ class Instance( models.Model ):
   success = models.BooleanField( default=False )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
-  # contractor specific
-  foundation_id = models.CharField( max_length=100, blank=True, null=True )
-  structure_id = models.CharField( max_length=100, blank=True, null=True )
 
   @property
   def config_values( self ):
@@ -526,7 +523,7 @@ class Instance( models.Model ):
     return result
 
   @cinp.action( paramater_type_list=[ 'String' ] )
-  def isBuilt( self, cookie ):  # called from webhook
+  def signal_built( self, cookie ):  # called from webhook
     if self.cookie != cookie:
       return
 
@@ -538,17 +535,14 @@ class Instance( models.Model ):
     self.save()
 
   @cinp.action( paramater_type_list=[ 'String' ] )
-  def isDestroyed( self, cookie ):  # called from webhook
+  def signal_destroyed( self, cookie ):  # called from webhook
     if self.cookie != cookie:
       return
 
-    contractor = getContractor()
-    contractor.deleteStructure( self.structure_id )
-    contractor.deleteFoundation( self.foundation_id )
+    self.resource_instance.cleanup()
 
+    self.resource_instance = None
     self.state = 'released'
-    self.structure_id = None
-    self.foundation_id = None
     self.full_clean()
     self.save()
 
@@ -645,11 +639,8 @@ class Instance( models.Model ):
     if self.state != 'new':
       raise Exception( 'Allready allocated' )
 
-    contractor = getContractor()
+    self.resource_instance.allocate( self.blueprint_id, self.config_values, self.interface_map, self.hostname )
 
-    ( foundation_id, structure_id ) = contractor.createInstance( self.site.name, self.complex, self.blueprint, self.hostname, self.config_values, self.interface_map )
-    self.foundation_id = foundation_id
-    self.structure_id = structure_id
     self.state = 'allocated'
     self.full_clean()
     self.save()
@@ -661,10 +652,7 @@ class Instance( models.Model ):
     if self.state != 'allocated':
       raise Exception( 'Can only build when allocated' )
 
-    contractor = getContractor()
-    contractor.registerWebHook( self, True )
-    contractor.createFoundation( self.foundation_id )
-    contractor.createStructure( self.structure_id )
+    self.resource_instance.build()
 
     self.state = 'building'
     self.full_clean()
@@ -681,13 +669,10 @@ class Instance( models.Model ):
       return
 
     elif self.state == 'allocated':
-      contractor = getContractor()
-      contractor.deleteStructure( self.structure_id )
-      contractor.deleteFoundation( self.foundation_id )
+      self.resource_instance.cleanup()
+      self.resource_instance = None
 
       self.state = 'released'
-      self.structure_id = None
-      self.foundation_id = None
       self.full_clean()
       self.save()
       return
@@ -695,10 +680,7 @@ class Instance( models.Model ):
     if self.state not in ( 'built', 'ran' ):
       raise Exception( 'Can not release when not built' )
 
-    contractor = getContractor()
-    contractor.registerWebHook( self, False )
-    contractor.destroyStructure( self.structure_id )
-    contractor.destroyFoundation( self.foundation_id )
+    self.resource_instance.release()
 
     self.state = 'releasing'
     self.full_clean()

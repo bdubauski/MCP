@@ -10,6 +10,7 @@ from django.conf import settings
 from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH
+from mcp.lib.InternalGit import InternalGit
 from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
 from mcp.lib.GitLab import GitLab
@@ -147,6 +148,7 @@ class Project( models.Model ):
 This is a Generic Project
   """
   name = models.CharField( max_length=50, primary_key=True )
+  release_branch = models.CharField( max_length=100, default='master' )
   local_path = models.CharField( max_length=150, null=True, blank=True, editable=False )
   build_counter = models.IntegerField( default=0 )
   last_checked = models.DateTimeField( default=datetime.min )
@@ -155,12 +157,6 @@ This is a Generic Project
 
   @property
   def type( self ):
-    try:
-      self.gitproject
-      return 'GitProject'
-    except ObjectDoesNotExist:
-      pass
-
     try:
       self.githubproject
       return 'GitHubProject'
@@ -173,11 +169,36 @@ This is a Generic Project
     except ObjectDoesNotExist:
       pass
 
+    try:
+      self.gitproject
+      return 'GitProject'
+    except ObjectDoesNotExist:
+      pass
+
     return 'Project'
 
-  # @property
-  # def git( self ):
-  #   return Git( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
+  @property
+  def scm( self ):
+    try:
+      return self.githubproject.scm
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      return self.gitlabproject.scm
+    except ObjectDoesNotExist:
+      pass
+
+    try:
+      return self.gitproject.scm
+    except ObjectDoesNotExist:
+      pass
+
+    return None
+
+  @property
+  def internal_git( self ):
+    return InternalGit( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ) )
 
   @property
   def busy( self ):  # ie: can it be updated, and scaned for new things to do
@@ -280,7 +301,15 @@ class GitProject( Project ):
   """
 This is a Git Project
   """
-  git_url = models.CharField( max_length=200 )
+  git_repo = models.CharField( max_length=200 )
+
+  @property
+  def type( self ):
+    return 'GitProject'
+
+  @property
+  def scm( self ):
+    Git( self.git_repo )
 
   @cinp.check_auth()
   @staticmethod
@@ -296,42 +325,22 @@ class GitHubProject( Project ):
   """
 This is a GitHub Project
   """
-  _org = models.CharField( max_length=50 )
-  _repo = models.CharField( max_length=50 )
+  github_org = models.CharField( max_length=50 )
+  github_repo = models.CharField( max_length=50 )
 
   @property
-  def org( self ):
-    try:
-      return self._org
-    except ObjectDoesNotExist:
-      return None
-
-    try:
-      return self.githubproject._org
-    except ObjectDoesNotExist:
-      return None
+  def type( self ):
+    return 'GitHubProject'
 
   @property
-  def repo( self ):
-    try:
-      return self._repo
-    except ObjectDoesNotExist:
-      return None
-
-    try:
-      return self.githubproject._repo
-    except ObjectDoesNotExist:
-      return None
-
-  @property
-  def github( self ):
+  def scm( self ):
     try:
       if self._github:
         return self._github
     except AttributeError:
       pass
 
-    self._github = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS, self.org, self.repo )
+    self._github = GitHub( settings.GITHUB_API_HOST, settings.GITHUB_PROXY, settings.GITHUB_USER, settings.GITHUB_PASS, self.github_org, self.github_repo )
     return self._github
 
   @cinp.check_auth()
@@ -348,42 +357,22 @@ class GitLabProject( Project ):
   """
 This is a GitLab Project
   """
-  _group = models.CharField( max_length=50 )
-  _project = models.CharField( max_length=50 )
+  gitlab_group_id = models.IntegerField()
+  gitlab_project_id = models.IntegerField()
 
   @property
-  def org( self ):
-    try:
-      return self._org
-    except ObjectDoesNotExist:
-      return None
-
-    try:
-      return self.gitlabproject._org
-    except ObjectDoesNotExist:
-      return None
+  def type( self ):
+    return 'GitLabProject'
 
   @property
-  def repo( self ):
-    try:
-      return self._repo
-    except ObjectDoesNotExist:
-      return None
-
-    try:
-      return self.gitlabproject._repo
-    except ObjectDoesNotExist:
-      return None
-
-  @property
-  def github( self ):
+  def scm( self ):
     try:
       if self._gitlab:
         return self._gitlab
     except AttributeError:
       pass
 
-    self._gitlab = GitLab( settings.GITLAB_API_HOST, settings.GITLAB_PROXY, settings.GITLAB_USER, settings.GITLAB_PASS, self.group, self.project )
+    self._gitlab = GitLab( settings.GITLAB_API_HOST, settings.GITLAB_PROXY, settings.GITLAB_USER, settings.GITLAB_PASS, self.group_id, self.project_id )
     return self._gitlab
 
   @cinp.check_auth()
@@ -392,7 +381,7 @@ This is a GitLab Project
     return True
 
   def __str__( self ):
-    return 'GitLab Project "{0}"({1}/{2})'.format( self.name, self._group, self._project )
+    return 'GitLab Project "{0}"({1}/{2})'.format( self.name, self._group_id, self._project_id )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -430,7 +419,6 @@ class Commit( models.Model ):
 A Single Commit of a Project
   """
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
-  owner_override = models.CharField( max_length=50, blank=True, null=True )
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
   version = models.CharField( max_length=50, blank=True, null=True )
@@ -701,18 +689,13 @@ A Single Commit of a Project
       return
 
     gh = self.project.githubproject.github
-    # if self.owner_override:
-    #   gh.setOwner( self.owner_override )
     gh.postCommitStatus( self.commit, 'pending' )
-    # gh.setOwner()
 
   def postResults( self ):
     if self.project.type != 'GitHubProject':
       return
 
     gh = self.project.githubproject.github
-    # if self.owner_override:
-    #   gh.setOwner( self.owner_override )
 
     comment = self.results
 
@@ -869,7 +852,7 @@ class BuildResource( models.Model ):
   resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
   name = models.CharField( max_length=50 )
   quanity = models.IntegerField( default=1 )
-  blueprint = models.CharField( max_length=40 )
+  blueprint_id = models.CharField( max_length=40 )
   autorun = models.BooleanField( default=False )
   interface_map = MapField( blank=True )
 
@@ -897,7 +880,6 @@ class BuildResource( models.Model ):
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class PreAllocatedBuildResources( models.Model ):
   resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
-  blueprint = models.CharField( max_length=40 )
   interface_map = MapField( blank=True )
   quanity = models.IntegerField( default=1 )
 
@@ -907,7 +889,4 @@ class PreAllocatedBuildResources( models.Model ):
     return True
 
   def __str__( self ):
-    return 'PreAllocatedBuildResources resource "{1}" blueprint "{2}"'.format( self.resource.name, self.blueprint )
-
-  class Meta:
-    unique_together = ( 'resource', 'blueprint' )
+    return 'PreAllocatedBuildResources resource "{0}"'.format( self.resource.name )

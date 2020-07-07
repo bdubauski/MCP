@@ -8,7 +8,7 @@ PACKRAT_API_VERSION = '2.0'
 
 def getPackrat():
   logging.debug( 'packrat: connecting to Packrat...' )
-  return Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKRAT_USERNAME, settings.PACKRAT_PSK )
+  return Packrat( settings.PACKRAT_HOST, settings.PACKRAT_PROXY, settings.PACKRAT_USERNAME, settings.PACKRAT_PASSWORD )
 
 
 class Packrat():

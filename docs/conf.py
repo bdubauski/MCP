@@ -14,7 +14,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'mcp'
-copyright = '2019, Virtustream'
+copyright = '2020, Peter Howe'
 author = 'Peter Howe'
 
 version = os.environ[ 'VERSION' ]

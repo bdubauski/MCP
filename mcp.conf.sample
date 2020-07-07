@@ -1,22 +1,26 @@
 CONTRACTOR_HOST = 'http://contractor'
 CONTRACTOR_PROXY = None
 CONTRACTOR_USERNAME = 'mcp'
-CONTRACTOR_PSK = 'mcp'
+CONTRACTOR_PASSWORD = 'mcp'
 
 GIT_LOCAL_PATH = '/var/www/git'
 GIT_HOST = 'http://git/'
+# to set a http_proxy for git use `git config --system http.proxy <http proxy>`
 
 GITHUB_API_HOST = 'https://github/api/v3'
 GITHUB_HOST = 'https://github/'
 GITHUB_USER = 'mcp'  # if using auth token, set the username to the token and set GITHUB_PASS to None
 GITHUB_PASS = 'mcp'
 GITHUB_PROXY = None
-# to set a http_proxy for git use `git config --system http.proxy <http proxy>`
+
+GITLAB_HOST = 'https://gitlab'
+GITLAB_PRIVATE_TOKEN = ''
+GITLAB_PROXY = None
 
 PACKRAT_HOST = 'http://packrat'
 PACKRAT_PROXY = None
 PACKRAT_USERNAME = 'mcp'
-PACKRAT_PSK = 'mcp'
+PACKRAT_PASSWORD = 'mcp'
 
 # optional: appends to the process name in slack messages, if there are multiple MCPs reporting to the same slack channel
 SITE_NAME = None
