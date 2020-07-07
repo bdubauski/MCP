@@ -117,7 +117,7 @@ installcheck-depends:
 	echo mcp:dev
 
 installcheck-resources:
-	echo mcp:{ \"resource_name\": \"ubuntu-bionic-small\" }
+	echo mcp:{ \"resource_name\": \"ubuntu-bionic\" }
 
 installcheck:
 	apt install -y mcp

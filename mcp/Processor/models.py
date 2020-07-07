@@ -127,18 +127,20 @@ QueueItem
     network_map = {}
     other_ip_count = 0
 
+    # first allocate the resource(s)
     for buildresource in self.build.buildresource_set.all():
       quanity = buildresource.quanity
       resource = buildresource.resource.subclass
-      if not resource.available( quanity ):
+      if not resource.available( quanity, buildresource.interface_map ):
         missing_list.append( 'Resource "{0}" Not Available'.format( resource.name ) )
 
       buildresource_list.append( buildresource )
 
-      for item in buildresource.network_map.values():
+      for item in buildresource.interface_map.values():
         if 'network' not in item:
           other_ip_count += quanity
 
+    # second allocate the network(s)
     for name, item in self.build.network_map.items:
       if item[ 'dedicated' ]:
         try:
@@ -157,6 +159,7 @@ QueueItem
         except KeyError:
           missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
 
+    # lastly make sure we have the IPs
     if other_ip_count:
       for network in Network.objects.filter( monalythic=False, size__gte=other_ip_count, pk__notin=network_map.items() ):
         if network.available( other_ip_count ):
@@ -412,6 +415,34 @@ BuildJob
 
     return result
 
+  def release( self ):
+    for instance in self.instance_set.all():
+        instance.release()
+
+  @property
+  def instances_built( self ):
+    for instance in self.instance_set.all():
+      if instance.state not in ( 'built', 'ran' ):
+        return False
+
+    return True
+
+  @property
+  def instances_ran( self ):
+    for instance in self.instance_set.all():
+      if instance.state != 'ran':
+        return False
+
+    return True
+
+  @property
+  def instances_released( self ):
+    for instance in self.instance_set.all():
+      if instance.state != 'released':
+        return False
+
+    return True
+
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod
   def filter_project( project ):
@@ -468,8 +499,6 @@ BuildJob
 
 def getCookie():
   return str( uuid.uuid4() )
-
-# Next up- the Instance/resource_instance allocation
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values' ] )
@@ -530,7 +559,13 @@ class Instance( models.Model ):
     if self.state not in ( 'new', 'allocated', 'building' ):  # allready moved on, don't touch
       return
 
-    self.state = 'built'
+    if self.resource.buildresource_set.get( name=self.name, build=self.buildjob ).autorun:
+      self.state = 'ran'
+      self.success = True
+
+    else:
+      self.state = 'built'
+
     self.full_clean()
     self.save()
 

@@ -142,7 +142,7 @@ def _commitSumary2Str( summary ):
                                                                                summary[ 'status' ] )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', 'org', 'repo', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ], read_only_list=[ 'last_checked', 'build_counter' ] )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ], hide_field_list=[ 'local_path' ], property_list=[ 'type', { 'name': 'busy', 'type': 'Boolean' }, 'upstream_git_url', 'internal_git_url', { 'name': 'status', 'type': 'Map' } ], read_only_list=[ 'last_checked', 'build_counter' ] )
 class Project( models.Model ):
   """
 This is a Generic Project
@@ -198,7 +198,7 @@ This is a Generic Project
 
   @property
   def internal_git( self ):
-    return InternalGit( os.path.join( settings.GIT_LOCAL_PATH, self.local_path, self.release_branch ) )
+    return InternalGit( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ), self.release_branch )
 
   @property
   def busy( self ):  # ie: can it be updated, and scaned for new things to do
@@ -213,39 +213,42 @@ This is a Generic Project
     return not not_busy
 
   @property
-  def internal_git_url( self ):
+  def internal_git_url( self ):  # for hading out to nullunit, ie: the one hosted by MCP
     return '{0}{1}'.format( settings.GIT_HOST, self.local_path )
 
   @property
-  def upstream_git_url( self ):
-    try:  # for now we only support git based projects
-      return '{0}/{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo )
-    except ObjectDoesNotExist:
-      pass
+  def upstream_git_url( self ):  # a helpfull link for users clone to the project from the upstream SCM
+    if self.type == 'GitHubProject':
+      return '{0}/{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.github_org, self.githubproject.github_repo )
 
-    try:
-      return self.gitproject.git_url
-    except ObjectDoesNotExist:
-      pass
+    elif self.type == 'GitLabProject':
+      return '{0}/{1}/{2}.git'.format( settings.GITLAB_HOST, self.gitlabproject.gitlab_group_id, self.gitlabproject.gitlab_project_id )
+
+    elif self.type == 'GitProject':
+      return self.gitproject.git_repo
 
     return None
 
   @property
-  def clone_git_url( self ):
-    if settings.GITHUB_PASS is not None:
-      auth = '{0}:{1}'.format( settings.GITHUB_USER, settings.GITHUB_PASS )
-    else:
-      auth = settings.GITHUB_USER
+  def clone_git_url( self ):  # url used by rinzler to clone the repo
+    if self.type == 'GitHubProject':
+      if settings.GITHUB_PASS is not None:
+        auth = '{0}:{1}'.format( settings.GITHUB_USER, settings.GITHUB_PASS )
+      else:
+        auth = settings.GITHUB_USER
 
-    try:  # for now we only support git based projects
-      return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.org, self.githubproject.repo ) ).replace( '://', '://{0}@'.format( auth ) )
-    except ObjectDoesNotExist:
-      pass
+      return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.github_org, self.githubproject.github_repo ) ).replace( '://', '://{0}@'.format( auth ) )
 
-    try:
-      return self.gitproject.git_url
-    except ObjectDoesNotExist:
-      pass
+    elif self.type == 'GitLabProject':
+      if settings.GITLAB_PASS is not None:
+        auth = '{0}:{1}'.format( settings.GITLAB_USER, settings.GITLAB_PASS )
+      else:
+        auth = settings.GITLAB_USER
+
+      return ( '{0}{1}/{2}.git'.format( settings.GITLAB_HOST, self.githubproject.gitlab_group_id, self.githubproject.gitlab_project_id ) ).replace( '://', '://{0}@'.format( auth ) )
+
+    elif self.type == 'GitProject':
+      return self.gitproject.git_repo
 
     return None
 
@@ -286,7 +289,7 @@ This is a Generic Project
 
     errors = {}
 
-    if not name_regex.match( self.name ):
+    if self.name != '_builtin_' and not name_regex.match( self.name ):
       errors[ 'name' ] = 'Invalid'
 
     if errors:
@@ -309,7 +312,7 @@ This is a Git Project
 
   @property
   def scm( self ):
-    Git( self.git_repo )
+    return Git( self.git_repo )
 
   @cinp.check_auth()
   @staticmethod
@@ -528,7 +531,7 @@ A Single Commit of a Project
     overall_complete &= complete
     overall_success &= success
 
-    if self.branch == self.release_branch:
+    if self.branch == self.project.release_branch:
       complete = True
       success = True
       for ( name, value ) in self.doc_results.items():

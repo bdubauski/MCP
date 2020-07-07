@@ -7,3 +7,23 @@ The only "Configuration" is to register the project with MCP, all other configur
 in the code of the project.
 
 See the docs dir for more info.
+
+
+Install
+-------
+
+as root
+
+from package::
+
+  dpkg -i mcp_*.deb
+
+from source::
+
+  DESTDIR=/ make install
+
+then::
+  su postgres -c "echo \"CREATE ROLE packrat WITH PASSWORD 'mcp' NOSUPERUSER NOCREATEDB NOCREATEROLE LOGIN;\" | psql"
+  su postgres -c "createdb -O mcp mcp"
+  /usr/lib/mcp/util/manage.py migrate
+  /usr/lib/mcp/setup/setupWizzard

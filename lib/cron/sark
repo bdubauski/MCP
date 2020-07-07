@@ -100,9 +100,9 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
   except Exception as e:
     logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
     try:
-      job.releaseResources()
-    except Exception as e:
-      logging.exception( 'Exception "{0}" releaseing while skipping, probably creating a big mess...'.format( e, item.pk ) )
+      job.release()
+    except Exception as e2:
+      logging.exception( 'Exception "{0}" releaseing while skipping, probably creating a big mess...'.format( e2, item.pk ) )
       slack.post_message( '!!! Error releasing when there was an Exception allocating, I am probably making a mess !!!', slack.CRITICAL )
 
     item.resource_status_map = { 'error': 'Exception: "{0}"'.format( e ) }
@@ -112,12 +112,8 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
 
 # Iterate over the build new jobs
 for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
-  ready = True
-  for instance in job.instance_set.all():
-    ready &= instance.state in ( 'built', 'ran' )
-
   # all done, set to built
-  if ready:
+  if job.instances_built:
     logging.info( 'Setting job "{0}" to Built.'.format( job.id ) )
     job.built_at = datetime.now( timezone.utc )
     job.full_clean()
@@ -126,18 +122,8 @@ for job in BuildJob.objects.filter( built_at__isnull=True, ran_at__isnull=True, 
 
 # Iterate over the built jobs and see if all the instances are done, if so, flag as ran
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=True, reported_at__isnull=True, released_at__isnull=True ):
-  ready = True
-  for instance in job.instance_set.all():
-    if instance.state == 'built' and instance.resource.buildresource_set.get( name=instance.name, build=job.build ).autorun:
-      instance.state = 'ran'
-      instance.success = True
-      instance.full_clean()
-      instance.save()
-
-    ready &= instance.state == 'ran'
-
   # all done, set to ran
-  if ready:
+  if job.instances_ran:
     logging.info( 'Setting job "{0}" to Ran.'.format( job.id ) )
     job.ran_at = datetime.now( timezone.utc )
     job.full_clean()
@@ -195,16 +181,10 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
-  for instance in job.instance_set.all():
-    if instance.state in ( 'ran', 'built' ):
-      instance.release()
-
-  ready = True
-  for instance in job.instance_set.all():
-    ready &= instance.state == 'released'
+  job.release()
 
   # resources all released, set job to released
-  if ready:
+  if job.instances_released:
     logging.info( 'Setting job "{0}" to Released.'.format( job.id ) )
     job.released_at = datetime.now( timezone.utc )
     job.full_clean()

@@ -249,10 +249,10 @@ manual-builds:
 # this target is execute to retireve the resources required by this build
 # the format is <Resource Name>:<Number of this Reqource>:<resource type required by this resource>
 <target>-resources:
-	echo tsdb:1:medium-generic-trusty
-	echo nsq:2:small-generic-xenial
-	echo bridge:1:small-generic-xenial
-	echo contractor:1:small-generic-bionic
+	echo tsdb:1:ubuntu-trusty-medium
+	echo nsq:2:ubuntu-xenial
+	echo bridge:1:ubuntu-xenial
+	echo contractor:1:ubuntu-bionic
 	echo storage:4:gen4-6t-blank
 
 # this target is exectued to retrieve any networks (in contractor networks) required by this build

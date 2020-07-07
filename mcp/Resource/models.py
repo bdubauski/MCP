@@ -15,7 +15,7 @@ cinp = CInP( 'Resource', '0.1' )
 
 
 def _getAvailibleNetwork( site, quantity ):
-  for network in site.networkresoure_set.filter( monalythic=True ):
+  for network in site.network_set.filter( monalythic=True ):
     if network.available( quantity ):
       return network.contractor_id
 
@@ -64,6 +64,20 @@ class Resource( models.Model ):
 
   def allocate( job, name, quantity, interface_map ):
     raise Exception( 'can not allocate a Base level Resource' )
+
+  @property
+  def subclass( self ):
+    try:
+      return self.dynamicresource
+    except AttributeError:
+      pass
+
+    try:
+      return self.staticresource
+    except AttributeError:
+      pass
+
+    return self
 
   @cinp.check_auth()
   @staticmethod
@@ -162,7 +176,7 @@ StaticResource
   group_name = models.CharField( max_length=50 )
   interface_map = MapField()
 
-  def available( self, quantity, interface_map ):  # TODO: also check interface_map
+  def available( self, quantity, interface_map ):
     for name in interface_map.keys():
       try:  # we only care if the interfaces named in the config match the resource, extra interfaces on the resource are fine
         if interface_map[ name ][ 'network' ] != self.interface_map[ name ][ 'network' ]:
@@ -229,7 +243,6 @@ class DynamicResource( Resource ):
 DynamicResource
   """
   build_ahead_count = models.IntegerField( default=0 )
-  blueprint_id = models.CharField( max_length=40 )
   complex_id = models.CharField( max_length=40 )  # should match contractor complex name/pk
 
   def _takeOver( self, instance, buildjob, name, index ):
@@ -342,11 +355,8 @@ DynamicResourceInstance
     contractor.updateDynamicResource( self.contractor_structure_id, config_values, hostname )
 
   def allocate( self, blueprint_id, config_values, interface_map, hostname ):
-    if blueprint_id != self.dynamic_resource.blueprint_id:
-      raise Exception( 'Can not chage the blueprint of a Dynamic Resource' )
-
     contractor = getContractor()
-    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.complex_id, self.dynamic_resource.blueprint_id, config_values, interface_map, hostname )
+    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.complex_id, blueprint_id, config_values, interface_map, hostname )
 
   def build( self ):
     contractor = getContractor()
