@@ -41,10 +41,10 @@ MCP_PROXY = None
 # Application definition
 
 INSTALLED_APPS = (
-    'mcp.Project',
-    'mcp.Resource',
-    'mcp.Processor',
     'mcp.Auth',
+    'mcp.Resource',
+    'mcp.Project',
+    'mcp.Processor',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions'

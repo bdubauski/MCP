@@ -88,6 +88,10 @@ class Resource( models.Model ):
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class ResourceInstance( models.Model ):
+  contractor_structure_id = models.IntegerField( unique=True )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
   @property
   def resource( self ):
     try:
@@ -146,8 +150,8 @@ class ResourceInstance( models.Model ):
     except ObjectDoesNotExist:
       pass
 
-  class Meta:
-    abstract = True
+  def __str__( self ):
+    return 'ResourceInstance'
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -186,9 +190,6 @@ class StaticResourceInstance( ResourceInstance ):
 StaticResourceInstance
   """
   static_resource = models.ForeignKey( StaticResource, on_delete=models.CASCADE )
-  contractor_structure_id = models.IntegerField( unique=True )
-  created = models.DateTimeField( editable=False, auto_now_add=True )
-  updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
   def resource( self ):
@@ -329,11 +330,8 @@ class DynamicResourceInstance( ResourceInstance ):
 DynamicResourceInstance
   """
   dynamic_resource = models.ForeignKey( DynamicResource, on_delete=models.PROTECT )  # this is protected so we don't leave VMs laying arround
-  contractor_structure_id = models.IntegerField( unique=True )
   contractor_foundation_id = models.CharField( max_length=100 )  # should match foundation locator
   interface_map = MapField()
-  created = models.DateTimeField( editable=False, auto_now_add=True )
-  updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
   def resource( self ):
