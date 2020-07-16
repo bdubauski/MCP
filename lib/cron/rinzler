@@ -26,7 +26,7 @@ from logging.handlers import SysLogHandler
 from django.db.models import ProtectedError
 
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
-from mcp.Resource.models import Resource
+from mcp.Resource.models import BluePrint, Resource
 from mcp.lib.Makefile import Makefile, MakeException
 from mcp.lib.Slack import getSlack
 from mcp.lib.Packrat import getPackrat
@@ -182,11 +182,19 @@ def _makeBuild( build_name, project, manual ):
       build.delete()
       return
 
+    try:
+      blueprint = BluePrint.objects.get( name=data[ 'blueprint' ] )
+    except BluePrint.DoesNotExist:
+      logging.error( 'Blueprint "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'blueprint' ], build_name ) )
+      build.delete()
+      return
+
     buildres = BuildResource()
     buildres.build = build
     buildres.resource = resource
+    buildres.blueprint = blueprint
     buildres.name = name
-    buildres.quanity = int( data.get( 'quanity', 1 ) )
+    buildres.quantity = int( data.get( 'quantity', 1 ) )
     buildres.interface_map = _cleanInterfaceMap( data.get( 'interface_map', {} ) )
     buildres.autorun = data.get( 'autorun', False )
     buildres.full_clean()

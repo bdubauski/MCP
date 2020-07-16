@@ -9,20 +9,11 @@ django.setup()
 import sys
 import argparse
 import getpass
-from datetime import datetime, timezone
 
 from django.contrib.auth.models import User, Permission
-from mcp.Project.models import Project, Build, BuildResource
-from mcp.Resource.models import Site, Resource, DynamicResource
-
-BUILD_AHEAD_COUNT = { 'ubuntu-bionic': 4 }
-RESOURCE_LOAD_LIST = ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'debian-buster', 'centos-6', 'centos-7', 'esx', 'proxmox' )
 
 parser = argparse.ArgumentParser( description='MCP SetupWizzard, must be run as root' )
 parser.add_argument( '--root-password', help='password to use for the root user, if not specified it will be prompted for' )
-parser.add_argument( '--site-name', help='name of the initial site to create, default: site1', metavar='SITE', default='site1' )
-parser.add_argument( '--site-domain', help='domain name of the initial site to create, default: site1.test', metavar='DOMAIN', default='site1.test' )
-parser.add_argument( '--dynamic-resource-complex', help='name of the complex to host the dynamic resources, default: vca', default='vca' )
 
 args = parser.parse_args()
 
@@ -36,48 +27,8 @@ else:
   print( 'Please Specify the password to use for the root user' )
   root_password = getpass.getpass()
 
-print( 'Creating site...' )
-s1 = Site( name=args.site_name )
-s1.domain = args.site_domain
-s1.full_clean()
-s1.save()
-
-print( 'Creating Dynamic Resources...' )
-for name in RESOURCE_LOAD_LIST:
-  dr = DynamicResource( name=name )
-  dr.description = 'Built in resource {0}'.format( name.capitalize() )
-  dr.complex_id = args.dynamic_resource_complex
-  dr.site = s1
-  try:
-    dr.build_ahead_count = BUILD_AHEAD_COUNT[ name ]
-  except KeyError:
-    dr.build_ahead_count = 0
-
-  dr.full_clean()
-  dr.save()
-
-print( 'Creating Builtin project...' )
-p = Project( name='_builtin_' )
-p.local_path = ''
-p.last_checked = datetime.now( timezone.utc )
-p.full_clean()
-p.save()
-
-for name in RESOURCE_LOAD_LIST:
-  b = Build( name=name, project=p )
-  b.manual = False
-  b.full_clean()
-  b.save()
-
-  br = BuildResource( name=name, build=b, resource=Resource.objects.get( name=name, site=s1 ) )
-  br.quanity = 1
-  br.blueprint_id = 'mcp-{0}'.format( name )
-  br.autorun = False
-  br.full_clean()
-  br.save()
-
 print( 'Creating users...' )
-User.objects.create_superuser( username='root', password=root_password, email='root@{0}'.format( args.site_domain ) )
+User.objects.create_superuser( username='root', password=root_password, email='root@localhost' )
 
 u = User.objects.create_user( 'manager', password='manager' )
 for name in ( 'can_build', 'can_ran', 'can_ack' ):

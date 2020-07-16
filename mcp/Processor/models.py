@@ -9,8 +9,8 @@ from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
 
-from mcp.Project.models import Build, Project, Package, Commit
-from mcp.Resource.models import ResourceInstance, Network
+from mcp.Project.models import Build, Project, Package, Commit, BuildResource
+from mcp.Resource.models import ResourceInstance, Network, BluePrint
 
 
 cinp = CInP( 'Processor', '0.1' )
@@ -129,19 +129,19 @@ QueueItem
 
     # first allocate the resource(s)
     for buildresource in self.build.buildresource_set.all():
-      quanity = buildresource.quanity
+      quantity = buildresource.quantity
       resource = buildresource.resource.subclass
-      if not resource.available( quanity, buildresource.interface_map ):
+      if not resource.available( quantity, buildresource.interface_map ):
         missing_list.append( 'Resource "{0}" Not Available'.format( resource.name ) )
 
       buildresource_list.append( buildresource )
 
       for item in buildresource.interface_map.values():
         if 'network' not in item:
-          other_ip_count += quanity
+          other_ip_count += quantity
 
     # second allocate the network(s)
-    for name, item in self.build.network_map.items:
+    for name, item in self.build.network_map.items():
       if item[ 'dedicated' ]:
         try:
           network_map[ name ] = Network.objects.filter( monalythic=True, size__gte=item[ 'size' ], build__isnull=True )[ 0 ].name
@@ -195,9 +195,19 @@ QueueItem
   @staticmethod
   def inQueueTarget( project, branch, manual, distro, target, priority, user, commit=None ):
     try:
-      build = Build.objects.get( project_id='_builtin_', name=distro )
-    except Build.DoesNotExist:
+      blueprint = BluePrint.objects.get( name=distro )
+    except BluePrint.DoesNotExist:
       raise Exception( 'distro "{0}" not set up'.format( distro ) )
+
+    try:
+      project = Project( pk='_builtin_' )
+    except Project.DoesNotExist:
+      raise Exception( 'project "_builtin_" missing' )
+
+    try:
+      build = Build.objects.get( project=project, buildresource__blueprint=blueprint )
+    except Build.DoesNotExist:
+      raise Exception( 'build for _builtin_ project and blueprint "{0}" not found'.format( blueprint ) )
 
     item = QueueItem()
     item.user = user
@@ -258,6 +268,7 @@ BuildJob
   build_name = models.CharField( max_length=50 )
   value_map = MapField( blank=True )  # for the job to store work values
   network_list = models.ManyToManyField( Network )
+  resources = models.ManyToManyField( ResourceInstance, through='BuildJobResourceInstance' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
   ran_at = models.DateTimeField( editable=False, blank=True, null=True )
   reported_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -299,7 +310,7 @@ BuildJob
       return None
 
     result = True
-    for instance in self.instance_set.all():
+    for instance in self.buildjobresourceinstance_set.all():
       result &= instance.success
 
     return result
@@ -328,7 +339,7 @@ BuildJob
       score_map = {}
 
     result = {}
-    for instance in self.instance_set.all():
+    for instance in self.buildjobresourceinstance_set.all():
       item = {
                 'id': instance.pk,
                 'success': instance.success,
@@ -381,14 +392,14 @@ BuildJob
   def getInstanceState( self, name=None ):
     result = {}
     if name is not None:
-      for instance in self.instance_set.all():
+      for instance in self.buildjobresourceinstance_set.all():
         if instance.name != name:
           continue
 
         result[ instance.index ] = instance.state
 
     else:
-      for instance in self.instance_set.all():
+      for instance in self.buildjobresourceinstance_set.all():
         try:
           result[ instance.name ][ instance.index ] = instance.state
         except KeyError:
@@ -400,14 +411,14 @@ BuildJob
   def getInstanceDetail( self, name=None ):
     result = {}
     if name is not None:
-      for instance in self.instance_set.all():
+      for instance in self.buildjobresourceinstance_set.all():
         if instance.name != name:
           continue
 
         result[ instance.index ] = instance.getDetail()
 
     else:
-      for instance in self.instance_set.all():
+      for instance in self.buildjobresourceinstance_set.all():
         try:
           result[ instance.name ][ instance.index ] = instance.getDetail()
         except KeyError:
@@ -415,13 +426,17 @@ BuildJob
 
     return result
 
-  def release( self ):
-    for instance in self.instance_set.all():
+  def buildResources( self ):
+    for instance in self.buildjobresourceinstance_set.all():
+        instance.build()
+
+  def releaseResources( self ):
+    for instance in self.buildjobresourceinstance_set.all():
         instance.release()
 
   @property
   def instances_built( self ):
-    for instance in self.instance_set.all():
+    for instance in self.buildjobresourceinstance_set.all():
       if instance.state not in ( 'built', 'ran' ):
         return False
 
@@ -429,7 +444,7 @@ BuildJob
 
   @property
   def instances_ran( self ):
-    for instance in self.instance_set.all():
+    for instance in self.buildjobresourceinstance_set.all():
       if instance.state != 'ran':
         return False
 
@@ -437,7 +452,7 @@ BuildJob
 
   @property
   def instances_released( self ):
-    for instance in self.instance_set.all():
+    for instance in self.buildjobresourceinstance_set.all():
       if instance.state != 'released':
         return False
 
@@ -485,6 +500,12 @@ BuildJob
     if errors:
       raise ValidationError( errors )
 
+  def delete( self, *args, **kwargs ):
+    for instance in self.buildjobresourceinstance_set.all():
+      instance.delete()
+
+    super().delete( *args, **kwargs )
+
   class Meta:
     default_permissions = ()
     permissions = (
@@ -501,13 +522,13 @@ def getCookie():
   return str( uuid.uuid4() )
 
 
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values' ] )
-class Instance( models.Model ):
-  resource_instance = models.ForeignKey( ResourceInstance, on_delete=models.PROTECT, blank=True, null=True )
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values', 'hostname' ] )
+class BuildJobResourceInstance( models.Model ):
+  buildjob = models.ForeignKey( BuildJob, on_delete=models.PROTECT )  # protected so we don't leave stranded resources
+  resource_instance = models.ForeignKey( ResourceInstance, on_delete=models.PROTECT )
+  blueprint = models.ForeignKey( BluePrint, on_delete=models.PROTECT )
   cookie = models.CharField( max_length=36, default=getCookie )
-  hostname = models.CharField( max_length=100 )
   # build info
-  buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )
   name = models.CharField( max_length=50, blank=True, null=True  )
   index = models.IntegerField( blank=True, null=True )
   state = models.CharField( max_length=9, default='new', choices=[ ( i, i ) for i in INSTANCE_STATE_LIST ] )
@@ -516,6 +537,10 @@ class Instance( models.Model ):
   success = models.BooleanField( default=False )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @property
+  def hostname( self ):
+    return 'mcp-auto--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
 
   @property
   def config_values( self ):
@@ -576,7 +601,6 @@ class Instance( models.Model ):
 
     self.resource_instance.cleanup()
 
-    self.resource_instance = None
     self.state = 'released'
     self.full_clean()
     self.save()
@@ -674,7 +698,7 @@ class Instance( models.Model ):
     if self.state != 'new':
       raise Exception( 'Allready allocated' )
 
-    self.resource_instance.allocate( self.blueprint_id, self.config_values, self.interface_map, self.hostname )
+    self.resource_instance.allocate( self.blueprint, self.config_values, self.hostname )
 
     self.state = 'allocated'
     self.full_clean()
@@ -705,7 +729,6 @@ class Instance( models.Model ):
 
     elif self.state == 'allocated':
       self.resource_instance.cleanup()
-      self.resource_instance = None
 
       self.state = 'released'
       self.full_clean()
@@ -724,10 +747,10 @@ class Instance( models.Model ):
   @cinp.check_auth()
   @staticmethod
   def checkAuth( user, verb, id_list, action=None ):
-    return cinp.basic_auth_check( user, verb, Instance )
+    return cinp.basic_auth_check( user, verb, BuildJobResourceInstance )
 
   class Meta:
     default_permissions = ()
 
   def __str__( self ):
-    return 'Instance "{0}" for BuildJob "{1}" Named "{2}"'.format( self.pk, self.buildjob, self.hostname )
+    return 'BuildJobResourceInstance "{0}" for BuildJob "{1}" Named "{2}"'.format( self.pk, self.buildjob, self.hostname )

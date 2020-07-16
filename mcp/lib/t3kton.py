@@ -42,8 +42,9 @@ class Contractor():
     for name, interface in interface_map.items():
       data = {}
       data[ 'foundation' ] = foundation
-      data[ 'name' ] = name
       data[ 'physical_location' ] = 'eth{0}'.format( counter )
+      data[ 'name' ] = name
+      data[ 'network' ] = '/api/v1/Utilities/Network:{0}:'.format( interface[ 'network_id' ] )
       data[ 'is_provisioning' ] = bool( counter == 0 )
       self.cinp.create( '/api/v1/Utilities/RealNetworkInterface', data )
       counter += 1
@@ -133,12 +134,21 @@ class Contractor():
       data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(isDestroyed)'.format( settings.MCP_HOST, instance.pk )
       self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )
 
-  def getNetworkInfo( self, id ):
-    block = self.cinp.get( '/api/v1/Utilities/AddressBlock:{0}'.format( id ) )
-
-    return block
-
   def getNetworkUsage( self, id ):
-    usage = self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(usage)'.format( id ), {} )
+    return self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(usage)'.format( id ), {} )
 
-    return usage
+  # used by manageResources.py
+  def getBluePrint( self, id ):
+    return self.cinp.get( '/api/v1/BluePrint/StructureBluePrint:{0}:'.format( id ) )
+
+  def getSite( self, id ):
+    return self.cinp.get( '/api/v1/Site/Site:{0}:'.format( id ) )
+
+  def getNetwork( self, id ):
+    return self.cinp.get( '/api/v1/Utilities/Network:{0}:'.format( id ) )
+
+  def getAddressBlock( self, id ):
+    return self.cinp.get( '/api/v1/Utilities/AddressBlock:{0}:'.format( id ) )
+
+  def getComplex( self, id ):
+    return self.cinp.get( '/api/v1/Building/Complex:{0}:'.format( id ) )

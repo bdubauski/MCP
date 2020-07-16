@@ -14,7 +14,7 @@ from mcp.lib.InternalGit import InternalGit
 from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
 from mcp.lib.GitLab import GitLab
-from mcp.Resource.models import Resource
+from mcp.Resource.models import Resource, BluePrint
 
 
 cinp = CInP( 'Project', '0.1' )
@@ -852,10 +852,10 @@ class BuildDependancy( models.Model ):
 class BuildResource( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
-  resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
+  resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
+  blueprint = models.ForeignKey( BluePrint, on_delete=models.PROTECT )
   name = models.CharField( max_length=50 )
-  quanity = models.IntegerField( default=1 )
-  blueprint_id = models.CharField( max_length=40 )
+  quantity = models.IntegerField( default=1 )
   autorun = models.BooleanField( default=False )
   interface_map = MapField( blank=True )
 
@@ -878,18 +878,3 @@ class BuildResource( models.Model ):
 
   class Meta:
     unique_together = ( 'build', 'name' )
-
-
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class PreAllocatedBuildResources( models.Model ):
-  resource = models.ForeignKey( Resource, on_delete=models.CASCADE )
-  interface_map = MapField( blank=True )
-  quanity = models.IntegerField( default=1 )
-
-  @cinp.check_auth()
-  @staticmethod
-  def checkAuth( user, verb, id_list, action=None ):
-    return True
-
-  def __str__( self ):
-    return 'PreAllocatedBuildResources resource "{0}"'.format( self.resource.name )

@@ -53,6 +53,15 @@ slack = getSlack( 'sark' )
 # Iterate over the Queued Items
 for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the biggest number first
   try:
+    # see if we can get the resources
+    ( missing_list, buildresource_list, network_map ) = item.allocateResources()
+    if missing_list:
+      logging.info( 'Queue Item "{0}" waiting for "{1}"'.format( item, missing_list ) )
+      item.resource_status_map = { 'resource': missing_list }
+      item.full_clean()
+      item.save()
+      continue
+
     # Build a job
     job = BuildJob()
     job.manual = item.manual
@@ -67,28 +76,18 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.target = item.target
     job.commit = item.commit
     job.promotion = item.promotion
-
-    ( missing_list, buildresource_list, network_map ) = item.allocateResources()
-    if missing_list:
-      logging.info( 'Queue Item "{0}" waiting for "{1}"'.format( item, missing_list ) )
-      item.resource_status_map = { 'resource': missing_list }
-      item.full_clean()
-      item.save()
-      continue
-
     job.full_clean()
     job.save()
 
     job.network_list = Network.objects.filter( name__in=network_map.keys() )
 
     for buildresource in buildresource_list:
-      quanity = buildresource.quanity
       resource = buildresource.resource.subclass
       interface_map = buildresource.interface_map
       for name in interface_map.keys():
         interface_map[ name ][ 'network' ] = network_map[ interface_map[ name ].get( 'network', '_OTHER_' ) ]
 
-      resource.allocate( job, buildresource.name, buildresource.quanity, interface_map )
+      resource.allocate( job, buildresource, interface_map )
 
     job.buildResources()
     logging.info( 'Starting Queue Item "{0}" as job "{1}"'.format( item, job.id ) )
@@ -100,7 +99,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
   except Exception as e:
     logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
     try:
-      job.release()
+      job.releaseResources()
     except Exception as e2:
       logging.exception( 'Exception "{0}" releaseing while skipping, probably creating a big mess...'.format( e2, item.pk ) )
       slack.post_message( '!!! Error releasing when there was an Exception allocating, I am probably making a mess !!!', slack.CRITICAL )
@@ -153,7 +152,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
   job.save()
 
   results = ''
-  for instance in job.instance_set.all().order_by( 'name' ):
+  for instance in job.buildjobresourceinstance_set.all().order_by( 'name' ):
     results += 'Instance: *{0}*\n'.format( instance )
     try:
       results += 'Success: *{0}*\n'.format( instance.success )
@@ -181,7 +180,7 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
 # iterate over the Acknoledged jobs, and release the resources
 for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False, reported_at__isnull=False, acknowledged_at__isnull=False, released_at__isnull=True ):
-  job.release()
+  job.releaseResources()
 
   # resources all released, set job to released
   if job.instances_released:
@@ -193,10 +192,6 @@ for job in BuildJob.objects.filter( built_at__isnull=False, ran_at__isnull=False
 
 # Iterate over released jobs that are at least CLEANUP_DELAY hours old and delete them
 for job in BuildJob.objects.filter( released_at__lt=( datetime.now( timezone.utc ) - timedelta( hours=CLEANUP_DELAY ) ) ):
-  logging.info( 'Cleaning up job "{0}".'.format( job.id ) )
-  for instance in job.instance_set.all():
-    instance.delete()
-
   job.delete()
 
 

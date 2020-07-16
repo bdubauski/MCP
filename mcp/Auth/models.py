@@ -56,7 +56,7 @@ class User():
     else:
       raise InvalidRequest( 'Invalid Login' )
 
-    request = Request(session=session_engine.SessionStore( None ), user=user )
+    request = Request( session=session_engine.SessionStore( None ), user=user )
 
     auth.login( request, user )
     request.session.save()
