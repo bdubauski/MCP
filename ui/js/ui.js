@@ -71,7 +71,7 @@ $( document ).ready(
 );
 
 function permissions() {
-  mcp.permissions();
+  //mcp.permissions();
 }
 
 function mcpModal(title, body, footer) {

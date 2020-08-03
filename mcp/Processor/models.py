@@ -9,7 +9,7 @@ from cinp.orm_django import DjangoCInP as CInP
 
 from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
 
-from mcp.Project.models import Build, Project, Package, Commit, BuildResource
+from mcp.Project.models import Build, Project, Package, Commit
 from mcp.Resource.models import ResourceInstance, Network, BluePrint
 
 
@@ -200,12 +200,12 @@ QueueItem
       raise Exception( 'distro "{0}" not set up'.format( distro ) )
 
     try:
-      project = Project( pk='_builtin_' )
+      builtin_project = Project( pk='_builtin_' )
     except Project.DoesNotExist:
       raise Exception( 'project "_builtin_" missing' )
 
     try:
-      build = Build.objects.get( project=project, buildresource__blueprint=blueprint )
+      build = Build.objects.get( project=builtin_project, buildresource__blueprint=blueprint )
     except Build.DoesNotExist:
       raise Exception( 'build for _builtin_ project and blueprint "{0}" not found'.format( blueprint ) )
 
@@ -525,7 +525,7 @@ def getCookie():
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values', 'hostname' ] )
 class BuildJobResourceInstance( models.Model ):
   buildjob = models.ForeignKey( BuildJob, on_delete=models.PROTECT )  # protected so we don't leave stranded resources
-  resource_instance = models.ForeignKey( ResourceInstance, on_delete=models.PROTECT )
+  resource_instance = models.OneToOneField( ResourceInstance, blank=True, null=True, on_delete=models.SET_NULL )
   blueprint = models.ForeignKey( BluePrint, on_delete=models.PROTECT )
   cookie = models.CharField( max_length=36, default=getCookie )
   # build info
@@ -601,6 +601,7 @@ class BuildJobResourceInstance( models.Model ):
 
     self.resource_instance.cleanup()
 
+    self.resource_instance = None  # techinically this is done for us
     self.state = 'released'
     self.full_clean()
     self.save()
@@ -728,7 +729,8 @@ class BuildJobResourceInstance( models.Model ):
       return
 
     elif self.state == 'allocated':
-      self.resource_instance.cleanup()
+      if self.resource_instance is not None:
+        self.resource_instance.cleanup()
 
       self.state = 'released'
       self.full_clean()
@@ -737,6 +739,12 @@ class BuildJobResourceInstance( models.Model ):
 
     if self.state not in ( 'built', 'ran' ):
       raise Exception( 'Can not release when not built' )
+
+    if self.resource_instance is None:
+      self.state = 'released'
+      self.full_clean()
+      self.save()
+      return
 
     self.resource_instance.release()
 

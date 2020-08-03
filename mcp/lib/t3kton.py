@@ -25,10 +25,9 @@ class Contractor():
   def logout( self ):
     self.cinp.call( '/api/v1/Auth/User(logout)', { 'token': self.token } )
 
-  def allocateDynamicResource( self, complex_id, blueprint_id, config_values, interface_map, hostname ):
+  def allocateDynamicResource( self, site_id, complex_id, blueprint_id, config_values, interface_map, hostname ):
     complex_uri = '/api/v1/Building/Complex:{0}:'.format( complex_id )
-    site_id = self.cinp.uri.extractIds( self.cinp.get( complex_uri )[ 'site' ] )[0]
-    foundation = self.cinp.call( '{0}(createFoundation)'.format( complex_uri ), { 'hostname': hostname, 'interface_name_list': [] } )
+    foundation = self.cinp.call( '{0}(createFoundation)'.format( complex_uri ), { 'hostname': hostname, 'interface_name_list': [], 'site': '/api/v1/Site/Site:{0}:'.format( site_id ) } )
 
     data = {}
     data[ 'site' ] = '/api/v1/Site/Site:{0}:'.format( site_id )
@@ -66,16 +65,29 @@ class Contractor():
     return ( self.cinp.uri.extractIds( foundation )[0], self.cinp.uri.extractIds( structure )[0] )
 
   def buildDynamicResource( self, foundation_id, structure_id ):
-    self.createStructure( foundation_id )
+    self.createFoundation( foundation_id )
     self.createStructure( structure_id )
 
   def releaseDynamicResource( self, foundation_id, structure_id ):
-    self.destroyStructure( structure_id )
-    self.destroyFoundation( foundation_id )
+    try:
+      self.destroyStructure( structure_id )
+    except client.NotFound:
+      pass
+    try:
+      self.destroyFoundation( foundation_id )
+    except client.NotFound:
+      return False
+    return True
 
   def deleteDynamicResource( self, foundation_id, structure_id ):
-    self.deleteStructure( structure_id )
-    self.deleteFoundation( foundation_id )
+    try:
+       self.deleteStructure( structure_id )
+    except client.NotFound:
+      pass
+    try:
+      self.deleteFoundation( foundation_id )
+    except client.NotFound:
+      pass
 
   def updateDynamicResource( self, structure_id, config_values, hostname ):
     data = {}
@@ -128,10 +140,10 @@ class Contractor():
       raise Exception( 'structure or foundation must be specified' )
 
     if on_build:
-      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(isBuilt)'.format( settings.MCP_HOST, instance.pk )
+      data[ 'url' ] = '{0}/api/v1/Processor/BuildJobResourceInstance:{1}:(signal_built)'.format( settings.MCP_HOST, instance.pk )
       self.cinp.create( '/api/v1/PostOffice/StructureBox', data )
     else:
-      data[ 'url' ] = '{0}/api/v1/Processor/Instance:{1}:(isDestroyed)'.format( settings.MCP_HOST, instance.pk )
+      data[ 'url' ] = '{0}/api/v1/Processor/BuildJobResourceInstance:{1}:(signal_destroyed)'.format( settings.MCP_HOST, instance.pk )
       self.cinp.create( '/api/v1/PostOffice/FoundationBox', data )
 
   def getNetworkUsage( self, id ):

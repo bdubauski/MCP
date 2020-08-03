@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
                 ('updated', models.DateTimeField(auto_now=True)),
                 ('blueprint', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='Resource.BluePrint')),
                 ('buildjob', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='Processor.BuildJob')),
-                ('resource_instance', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='Resource.ResourceInstance')),
+                ('resource_instance', models.OneToOneField(on_delete=django.db.models.deletion.SET_NULL, to='Resource.ResourceInstance', blank=True, null=True)),
             ],
             options={
                 'default_permissions': (),

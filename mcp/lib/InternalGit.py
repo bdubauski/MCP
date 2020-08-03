@@ -11,7 +11,7 @@ class InternalGit():
     self.dir = dir
     self.release_branch = release_branch
 
-  def _execute( self, args, cwd=None ):
+  def _execute( self, args, cwd=None, ignore_rc_1=True ):
     logging.debug( 'git: running "{0}"'.format( args ) )
 
     try:
@@ -30,7 +30,10 @@ class InternalGit():
     logging.debug( 'git: output:\n----------\n{0}\n---------'.format( stdout ) )
 
     if proc.returncode != 0:
-      raise Exception( 'git returned "{0}"'.format( proc.returncode ) )
+      if ignore_rc_1 and proc.returncode == 1:
+        pass
+      else:
+        raise Exception( 'git returned "{0}"'.format( proc.returncode ) )
 
     result = []
     for line in stdout.strip().splitlines():
@@ -71,7 +74,7 @@ class InternalGit():
 
   def ref_map( self ):
     result = {}
-    ref_list = self._execute( [ 'show-ref' ] )
+    ref_list = self._execute( [ 'show-ref' ], ignore_rc_1=True )
     for item in ref_list:
       ( ref_hash, ref ) = item.split()
       if not ref.startswith( 'refs/heads/' ):

@@ -735,7 +735,7 @@ A Single Commit of a Project
     if self.version is None:
       return
 
-    self.project.git.tag( self.version, _commitSumary2Str( self.summary ) )
+    self.project.internal_git.tag( self.version, _commitSumary2Str( self.summary ) )
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
   @staticmethod

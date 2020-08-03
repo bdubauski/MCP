@@ -10,10 +10,10 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.call( '/api/v1/Auth(login)', { 'username': username, 'password': password } ) ).then(
+      $.when( cinp.call( '/api/v1/Auth/User(login)', { 'username': username, 'password': password } ) ).then(
         function( data )
         {
-          deferred.resolve( data.result.value );
+          deferred.resolve( data.result );
         }
       ).fail(
         function( reason )
@@ -27,12 +27,12 @@ var mcpBuilder = {};
 
     mcp.logout = function()
     {
-       cinp.call( '/api/v1/Auth(logout)', { 'token': cinp.auth_token } );
+       cinp.call( '/api/v1/Auth/User(logout)', { 'token': cinp.auth_token } );
     };
 
     mcp.keepalive = function()
     {
-       cinp.call( '/api/v1/Auth(keepalive)', {} );
+       //cinp.call( '/api/v1/Auth(keepalive)', {} );
     };
 
     mcp.permissions = function()
@@ -42,7 +42,7 @@ var mcpBuilder = {};
        $.when( cinp.call( '/api/v1/Auth(permissions)', {} ) ).then(
          function( data )
          {
-           deferred.resolve( data.result.value );
+           deferred.resolve( data.result );
          }
        ).fail(
          function( reason )
@@ -61,7 +61,7 @@ var mcpBuilder = {};
        $.when( cinp.call( '/api/v1/Users(getProfile)', {} ) ).then(
          function( data )
          {
-           deferred.resolve( data.result.value );
+           deferred.resolve( data.result );
          }
        ).fail(
          function( reason )
@@ -80,7 +80,7 @@ var mcpBuilder = {};
        $.when( cinp.call( '/api/v1/Users(updateProfile)', { 'first_name': first_name, 'last_name': last_name, 'email': email, 'slack_handle': slack_handle } ) ).then(
          function( data )
          {
-           deferred.resolve( data.result.value );
+           deferred.resolve( data.result );
          }
        ).fail(
          function( reason )
@@ -99,7 +99,7 @@ var mcpBuilder = {};
        $.when( cinp.call( '/api/v1/Users(selfRegister)', { 'github_username': github_username, 'github_password': github_password } ) ).then(
          function( data )
          {
-           deferred.resolve( data.result.value );
+           deferred.resolve( data.result );
          }
        ).fail(
          function( reason )
@@ -345,7 +345,7 @@ var mcpBuilder = {};
     {
       var deferred = $.Deferred();
 
-      $.when( cinp.call( '/api/v1/Processor/Instance:' + instance_id + ':(getDetail)', { name: name } ) ).then(
+      $.when( cinp.call( '/api/v1/Processor/BuildJobResourceInstance:' + instance_id + ':(getDetail)', { name: name } ) ).then(
         function( data )
         {
           deferred.resolve( data.result );

@@ -1,4 +1,4 @@
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.apps import apps
 
@@ -136,62 +136,46 @@ class ResourceInstance( models.Model ):
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
-  def resource( self ):
+  def subclass( self ):
     try:
-      return self.dynamicresourceitem.resource()
+      return self.dynamicresource
     except AttributeError:
       pass
 
     try:
-      return self.staticresourceitem.resource()
+      return self.staticresource
     except AttributeError:
       pass
 
     return None
 
-  def build( self ):
-    try:
-      self.dynamicresourceitem.build()
-    except AttributeError:
-      pass
+  @property
+  def resource( self ):
+    subclass = self.subclass
+    if subclass is not None:
+      return subclass.resource()
 
-    try:
-      self.staticresourceitem.build()
-    except AttributeError:
-      pass
+    return None
+
+  def build( self ):
+    subclass = self.subclass
+    if subclass is not None:
+      subclass.build()
 
   def allocate( self, blueprint, config_values, hostname ):
-    try:
-      self.dynamicresourceitem.allocate( blueprint, config_values, hostname )
-    except AttributeError:
-      pass
-
-    try:
-      self.staticresourceitem.allocate( blueprint, config_values, hostname )
-    except AttributeError:
-      pass
+    subclass = self.subclass
+    if subclass is not None:
+      subclass.allocate( blueprint, config_values, hostname )
 
   def release( self ):
-    try:
-      self.dynamicresourceitem.release()
-    except AttributeError:
-      pass
-
-    try:
-      self.staticresourceitem.release()
-    except AttributeError:
-      pass
+    subclass = self.subclass
+    if subclass is not None:
+      subclass.release()
 
   def cleanup( self ):
-    try:
-      self.dynamicresourceitem.cleanup()
-    except AttributeError:
-      pass
-
-    try:
-      self.staticresourceitem.cleanup()
-    except AttributeError:
-      pass
+    subclass = self.subclass
+    if subclass is not None:
+      subclass.cleanup()
 
   def __str__( self ):
     return 'ResourceInstance'
@@ -213,7 +197,7 @@ StaticResource
       except KeyError:
         return False
 
-    return self.staticresourceitem_set.filter( buildjob__isnull=True ).count() >= quantity
+    return self.staticresourceinstance_set.filter( buildjob__isnull=True ).count() >= quantity
 
   def allocate( job, buildresource, interface_map ):
     pass
@@ -241,17 +225,17 @@ StaticResourceInstance
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()
     contractor.allocateStaticResource( self.contractor_structure_id, blueprint.contractor_blueprint_id, config_values, hostname )
-    contractor.registerWebHook( self.instance, True, structure_id=self.contractor_structure_id )
+    contractor.registerWebHook( self.buildjobresourceinstance, True, structure_id=self.contractor_structure_id )
 
   def build( self ):
     contractor = getContractor()
     contractor.builStaticResource( self.contractor_structure_id )
-    contractor.registerWebHook( self.instance, True, structure_id=self.contractor_structure_id )
+    contractor.registerWebHook( self.buildjobresourceinstance, True, structure_id=self.contractor_structure_id )
 
   def release( self ):
     contractor = getContractor()
     contractor.releaseStatic( self.contractor_structure_id )
-    contractor.registerWebHook( self.instance, False, structure_id=self.contractor_structure_id )
+    contractor.registerWebHook( self.buildjobresourceinstance, False, structure_id=self.contractor_structure_id )
 
   def cleanup( self ):
     pass
@@ -262,7 +246,7 @@ StaticResourceInstance
     return True
 
   def __str__( self ):
-    return 'StaticResourceItem for "{0}" contractor id: "{1}"'.format( self.static_resource, self.contractor_id )
+    return 'StaticResourceInstance for "{0}" contractor id: "{1}"'.format( self.static_resource, self.contractor_id )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -406,23 +390,23 @@ DynamicResourceInstance
 
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()
-    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.complex_id, blueprint.contractor_blueprint_id, config_values, self.interface_map, hostname )
+    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint.contractor_blueprint_id, config_values, self.interface_map, hostname )
     self.full_clean()
     self.save()
 
   def build( self ):
     contractor = getContractor()
     contractor.buildDynamicResource( self.contractor_foundation_id, self.contractor_structure_id )
-    contractor.registerWebHook( self.instance, True, structure_id=self.contractor_structure_id )
+    contractor.registerWebHook( self.buildjobresourceinstance, True, structure_id=self.contractor_structure_id )
 
   def release( self ):
     contractor = getContractor()
-    contractor.releaseDynamic( self.contractor_foundation_id, self.contractor_structure_id )
-    contractor.registerWebHook( self.instance, False, foundation_id=self.contractor_foundation_id )
+    if contractor.releaseDynamicResource( self.contractor_foundation_id, self.contractor_structure_id ):
+      contractor.registerWebHook( self.buildjobresourceinstance, False, foundation_id=self.contractor_foundation_id )
 
   def cleanup( self ):
     contractor = getContractor()
-    contractor.deleteDynamic( self.contractor_foundation_id, self.contractor_structure_id )
+    contractor.deleteDynamicResource( self.contractor_foundation_id, self.contractor_structure_id )
     self.delete()
 
   @cinp.check_auth()

@@ -1,3 +1,9 @@
+mcp (0.23-1) bionic; urgency=medium
+
+  * Reworked Resources to bring back the static resource
+
+ -- Peter Howe <pnhowe@gmail.com>  Mon, 03 Aug 2020 06:52:57 -0600
+
 mcp (0.22-1) bionic; urgency=medium
 
   * Packaging fix
