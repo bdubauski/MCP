@@ -337,7 +337,7 @@ DynamicResourceInstance
   """
   dynamic_resource = models.ForeignKey( DynamicResource, on_delete=models.PROTECT )  # this is protected so we don't leave VMs laying arround
   contractor_foundation_id = models.CharField( max_length=100, blank=True, null=True )  # should match foundation locator
-  interface_map = MapField( blank=True )
+  interface_map = MapField()
 
   @property
   def resource( self ):

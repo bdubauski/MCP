@@ -223,6 +223,8 @@ if args.update_builtin:
   br.full_clean()
   br.save()
 
+  print( 'blueprint "{0}" added to builting project'.format( args.update_builtin ) )
+
   sys.exit( 0 )
 
 print( 'No Action specified' )

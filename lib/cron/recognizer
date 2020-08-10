@@ -18,8 +18,8 @@ from logging.handlers import SysLogHandler
 from datetime import datetime, timezone
 from cinp import client
 
-from mcp.Processor.models import QueueItem, PackageFile
-from mcp.Project.models import Commit, Package
+from mcp.Processor.models import QueueItem
+from mcp.Project.models import Commit, Package, PackageFile
 from mcp.lib.Slack import getSlack
 from mcp.lib.Packrat import getPackrat
 
@@ -94,7 +94,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True 
 # check for commits that need building
 for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False, build_at__isnull=True ):
   if not commit.build_results:
-    slack.post_message( 'No Build for "{0}".'.format( commit.project.name, slack.INFO ) )
+    slack.post_message( 'No Build for "{0}".'.format( commit.project.name ), slack.INFO )
     commit.build_at = datetime.now( timezone.utc )
     commit.full_clean()
     commit.save()

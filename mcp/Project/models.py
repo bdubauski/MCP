@@ -201,16 +201,26 @@ This is a Generic Project
     return InternalGit( os.path.join( settings.GIT_LOCAL_PATH, self.local_path ), self.release_branch )
 
   @property
-  def busy( self ):  # ie: can it be updated, and scaned for new things to do
-    not_busy = True
-    for build in self.build_set.all():
-      for item in build.queueitem_set.all():
-        not_busy &= item.manual
+  def busy( self ):
+    # have any commits in flight
+    if self.commit_set.filter( done_at__isnull=True ).count() > 0:
+      return True
 
-      for job in build.buildjob_set.all():
-        not_busy &= job.manual
+    # have any queue items
+    if self.queueitem_set.count() > 0:
+      return True
 
-    return not not_busy
+    # have manual jobs that have not run
+    # or auto jobs that have not reported
+    for job in self.buildjob_set.all():
+      if job.manual:
+        if job.state not in ( 'ran', 'reported', 'acknowledged', 'released' ):
+          return True
+      else:
+        if job.state not in ( 'reported', 'acknowledged', 'released' ):
+          return True
+
+    return False
 
   @property
   def internal_git_url( self ):  # for hading out to nullunit, ie: the one hosted by MCP

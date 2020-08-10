@@ -159,32 +159,22 @@ function hashChange( event )
           var buildPass = '';
           var jobBuilt = data.status.built;
           buildPass += '<span>';
-          if( data.status.passed )
+          if( data.status.test == "Success" )
           {
             buildPass += '<img src="/ui/image/test-pass.svg" /> ';
-          } else if( data.status.passed === null )
-          {
           } else {
             buildPass += '<img src="/ui/image/test-error.svg" /> ';
           }
 
-          if( data.status.built )
+          if( data.status.build == "Success"  )
           {
             buildPass += '<img src="/ui/image/build-pass.svg" />';
-          } else if( data.status.built === null )
-          {
           } else {
             buildPass += '<img src="/ui/image/build-error.svg" />';
           }
           buildPass += '</span>';
-          if( data.type == 'GitHubProject' )
-          {
-            mainTitle.html( '<a href="https://github.emcrubicon.com/' + data.org + '" target="_blank">' + data.org + '</a> / <a href="https://github.emcrubicon.com/' + data.org + '/' + data.repo + '" target="_blank">' + data.repo + '</a> <i class="fa fa-github fa-fw"/>' + buildPass );
-          } else if( data.type == 'GitProject' ) {
-            mainTitle.html( '<a href="' + data.upstream_git_url + '" target="_blank">' + data.upstream_git_url + '</a>' + buildPass );
-          } else {
-            mainTitle.html( data.name + buildPass );
-          }
+
+          mainTitle.html( data.name + buildPass );
 
           $.when( mcp.getCommits( id ) ).then(
             function( data )
@@ -629,10 +619,10 @@ function loadProjects()
         var timestamp = new Date(item.status.at).getTime();
         var projList = ''
 
-        if( item.status.passed && item.status.built )
+        if( item.status.test == "Success" && item.status.build == "Success" )
         {
           projList += '<div class="project passed" timestamp="' + timestamp + '">'
-        } else if( ( item.status.passed && !item.status.built ) || ( !item.status.passed && item.status.built ) )
+        } else if( ( item.status.test == "Success" && item.status.build != "Success" ) || ( item.status.test != "Success" && item.status.build == "Success" ) )
         {
           busy = '<i class="fa fa-exclamation fa-lg fa-fw"></i>'
           projList += '<div class="project warn" timestamp="' + timestamp + '">'
@@ -648,7 +638,7 @@ function loadProjects()
 
         if( isToday( item.created ))
         {
-          var projCreated = new Date(item.created).toLocaleTimeString()
+          var projCreated = 'Today at ' + new Date(item.created).toLocaleTimeString()
         } else {
           var projCreated = new Date(item.created).toLocaleDateString()
         }
@@ -659,16 +649,20 @@ function loadProjects()
           var projUpdated = new Date(item.status.at).toLocaleString()
         }
 
-        var gitRepo = item.repo
-        var gitOrg = item.org
-        var gitIcon = '<i class="fa fa-github-square fa-lg fa-fw"></i>'
-        if( item.type === 'GitProject' )
+        var gitIcon
+        var name
+        if( item.type === 'GitHubProject' )
         {
-          gitOrg = item.org
-          gitRepo = item.repo
-          gitIcon = '<i class="fa fa-code-fork fa-lg fa-fw"></i>'
+          gitIcon = '<i class="fab fa-github fa-lg fa-fw"></i>&nbsp; ' + item.github_org
+          name = item.github_repo
+        } else if ( item.type === 'GitLabProject' ) {
+          gitIcon = '<i class="fab fa-gitlab fa-lg fa-fw"></i>&nbsp; ' + item.gitlab_group_id
+          name = item.gitlab_project_id
+        } else {
+          gitIcon = '<i class="fab fa-git fa-lg fa-fw"></i>'
+          name = item.name
         }
-        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;<span class="project-name">' + gitRepo + '</span></dt><dd>' + gitIcon + '&nbsp; ' + gitOrg + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
+        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;<span class="project-name">' + name + '</span></dt><dd>' + gitIcon + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
         projectList.append(projList);
         $('#project-list').sortDivs();
       }
