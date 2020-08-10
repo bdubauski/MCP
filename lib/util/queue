@@ -13,19 +13,19 @@ from mcp.Processor.models import QueueItem
 from mcp.Project.models import Build, Project
 
 oparser = optparse.OptionParser( description='Queue Job', usage='prog [options]\n-b/--build and -t/--target are mutually exclusive, only one of the will process.' )
-oparser.add_option( '-p', '--priority', help='Queue Item Priority (default: 50)', dest='priority', default=50 )
-oparser.add_option( '-r', '--branch', help='git branch to check out (default: the release_branch for the project)', dest='branch', default='**RELEASE_BRANCH**' )
+oparser.add_option( '-p', '--priority', help='Queue Item Priority (default: 50)', default=50 )
+oparser.add_option( '-r', '--branch', help='git branch to check out (default: the release_branch for the project)', default='**RELEASE_BRANCH**' )
 # oparser.add_option( '-e', '--resource-group', help='Resource Group to use (can be specified multiple times)', dest='resource_group', default=[], action='append' )
-oparser.add_option( '-m', '--manual', help='Flag as Manual Build, ie: manual -> no auto cleanup (default: False)', dest='manual', default=False, action='store_true' )
-oparser.add_option( '-o', '--project', help='Project to target', dest='project' )
+oparser.add_option( '-m', '--manual', help='Flag as Manual Build, ie: manual -> no auto cleanup (default: False)', default=False, action='store_true' )
+oparser.add_option( '-o', '--project', help='Project to target' )
 
 ogroup = optparse.OptionGroup( oparser, 'Queue Build', '' )
-ogroup.add_option( '-b', '--build', help='Pre-defined Build Name', dest='build' )
+ogroup.add_option( '-b', '--build', help='Pre-defined Build Name' )
 oparser.add_option_group( ogroup )
 
 ogroup = optparse.OptionGroup( oparser, 'Queue Target', '' )
-ogroup.add_option( '-t', '--target', help='Target Name', dest='target' )
-ogroup.add_option( '-d', '--distro', help='Submit Task on Sepecified Distro', dest='distro' )
+ogroup.add_option( '-t', '--target', help='Target Name' )
+ogroup.add_option( '-b', '--blueprint', help='Submit Task on Sepecified BluePrint' )
 oparser.add_option_group( ogroup )
 
 ( options, args ) = oparser.parse_args()
@@ -53,8 +53,8 @@ if options.build:
   item = QueueItem.inQueueBuild( build, options.branch, options.manual, options.priority, '*CLI*' )
 
 elif options.target:
-  if not options.distro or not options.project:
-    print( 'distro and project are required for target' )
+  if not options.blueprint or not options.project:
+    print( 'blueprint and project are required for target' )
     sys.exit( 1 )
 
   try:
@@ -63,7 +63,7 @@ elif options.target:
     print( 'Project "{0}" not found'.format( options.project ) )
     sys.exit( 1 )
 
-  item = QueueItem.inQueueTarget( project, options.branch, options.manual, options.distro, options.target, options.priority, '*CLI*' )
+  item = QueueItem.inQueueTarget( project, options.branch, options.manual, options.blueprint, options.target, options.priority, '*CLI*' )
 
 else:
   oparser.print_help()

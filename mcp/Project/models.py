@@ -9,12 +9,12 @@ from django.conf import settings
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
+from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH, BLUEPRINT_NAME_LENGTH
 from mcp.lib.InternalGit import InternalGit
 from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
 from mcp.lib.GitLab import GitLab
-from mcp.Resource.models import Resource, BluePrint
+from mcp.Resource.models import Resource
 
 
 cinp = CInP( 'Project', '0.1' )
@@ -425,15 +425,15 @@ A Single Commit of a Project
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
   version = models.CharField( max_length=50, blank=True, null=True )
-  lint_results = MapField()
-  test_results = MapField()
-  build_results = MapField()
-  doc_results = MapField()
+  lint_results = MapField( blank=True )
+  test_results = MapField( blank=True )
+  build_results = MapField( blank=True )
+  doc_results = MapField( blank=True )
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  package_file_map = MapField()
+  package_file_map = MapField( blank=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -813,7 +813,7 @@ This is a type of Build that can be done
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
   resources = models.ManyToManyField( Resource, through='BuildResource', help_text='' )
-  network_map = MapField()
+  network_map = MapField( blank=True )
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -885,11 +885,11 @@ class BuildResource( models.Model ):
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
   name = models.CharField( max_length=50 )
   resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
-  blueprint = models.ForeignKey( BluePrint, on_delete=models.PROTECT )
-  config_values = MapField()
+  blueprint = models.CharField( max_length=BLUEPRINT_NAME_LENGTH )
+  config_values = MapField( blank=True )
   quantity = models.IntegerField( default=1 )
   autorun = models.BooleanField( default=False )
-  interface_map = MapField()
+  interface_map = MapField( blank=True )
 
   @cinp.check_auth()
   @staticmethod

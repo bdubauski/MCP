@@ -23,34 +23,6 @@ def _getAvailibleNetwork( site, quantity ):
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class BluePrint( models.Model ):
-  """
-BluePrint
-  """
-  name = models.CharField( max_length=40, primary_key=True )
-  created = models.DateTimeField( editable=False, auto_now_add=True )
-  updated = models.DateTimeField( editable=False, auto_now=True )
-
-  def clean( self, *args, **kwargs ):
-    super().clean( *args, **kwargs )
-    errors = {}
-
-    if not name_regex.match( self.name ):  # should we also ping contractor?
-      errors[ 'name' ] = 'Invalid'
-
-    if errors:
-      raise ValidationError( errors )
-
-  @cinp.check_auth()
-  @staticmethod
-  def checkAuth( user, verb, id_list, action=None ):
-    return True
-
-  def __str__( self ):
-    return 'BluePrint "{0}"'.format( self.name )
-
-
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Site( models.Model ):
   """
 Site
@@ -174,7 +146,7 @@ class StaticResource( Resource ):
 StaticResource
   """
   group_name = models.CharField( max_length=50 )
-  interface_map = MapField()
+  interface_map = MapField( blank=True )
 
   def available( self, quantity, interface_map ):
     for name in interface_map.keys():
@@ -211,7 +183,7 @@ StaticResourceInstance
 
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()
-    contractor.allocateStaticResource( self.contractor_structure_id, blueprint.name, config_values, hostname )
+    contractor.allocateStaticResource( self.contractor_structure_id, blueprint, config_values, hostname )
     contractor.registerWebHook( self.buildjobresourceinstance, True, structure_id=self.contractor_structure_id )
 
   def build( self ):
@@ -365,7 +337,7 @@ DynamicResourceInstance
   """
   dynamic_resource = models.ForeignKey( DynamicResource, on_delete=models.PROTECT )  # this is protected so we don't leave VMs laying arround
   contractor_foundation_id = models.CharField( max_length=100, blank=True, null=True )  # should match foundation locator
-  interface_map = MapField()
+  interface_map = MapField( blank=True )
 
   @property
   def resource( self ):
@@ -377,7 +349,7 @@ DynamicResourceInstance
 
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()
-    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint.name, config_values, self.interface_map, hostname )
+    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint, config_values, self.interface_map, hostname )
     self.full_clean()
     self.save()
 

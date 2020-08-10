@@ -62,19 +62,19 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=True 
 
   done = True
   success = True
-  for distro in commit.test_results:
-    if not commit.test_results[ distro ].get( 'status', None ):
-      logging.info( 'Queuing up Test job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
+  for blueprint in commit.test_results:
+    if not commit.test_results[ blueprint ].get( 'status', None ):
+      logging.info( 'Queuing up Test job for "{0}", branch "{1}", blueprint "{2}"'.format( commit.project.name, commit.branch, blueprint ) )
       try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'test', QUEUE_PRIORITY, '*AUTO*', commit )
-        commit.test_results[ distro ][ 'status' ] = 'building'
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, blueprint, 'test', QUEUE_PRIORITY, '*AUTO*', commit )
+        commit.test_results[ blueprint ][ 'status' ] = 'building'
 
       except Exception as e:
-        commit.test_results[ distro ][ 'status' ] = 'done'
-        commit.test_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+        commit.test_results[ blueprint ][ 'status' ] = 'done'
+        commit.test_results[ blueprint ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-    done &= commit.test_results[ distro ][ 'status' ] == 'done'
-    success &= commit.test_results[ distro ].get( 'success', False )
+    done &= commit.test_results[ blueprint ][ 'status' ] == 'done'
+    success &= commit.test_results[ blueprint ].get( 'success', False )
 
   if done:
     logging.info( 'Test Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )
@@ -103,19 +103,19 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
   done = True
   success = True
   for target in commit.build_results:
-    for distro in commit.build_results[ target ]:
-      if not commit.build_results[ target ][ distro ].get( 'status', None ):
-        logging.info( 'Queuing up "{0}" job for "{1}", branch "{2}", distro "{3}"'.format( target, commit.project.name, commit.branch, distro ) )
+    for blueprint in commit.build_results[ target ]:
+      if not commit.build_results[ target ][ blueprint ].get( 'status', None ):
+        logging.info( 'Queuing up "{0}" job for "{1}", branch "{2}", blueprint "{3}"'.format( target, commit.project.name, commit.branch, blueprint ) )
         try:
-          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, target, QUEUE_PRIORITY, '*AUTO*', commit )
-          commit.build_results[ target ][ distro ][ 'status' ] = 'building'
+          item = QueueItem.inQueueTarget( commit.project, commit.branch, False, blueprint, target, QUEUE_PRIORITY, '*AUTO*', commit )
+          commit.build_results[ target ][ blueprint ][ 'status' ] = 'building'
 
         except Exception as e:
-          commit.build_results[ target ][ distro ][ 'status' ] = 'done'
-          commit.build_results[ target ][ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+          commit.build_results[ target ][ blueprint ][ 'status' ] = 'done'
+          commit.build_results[ target ][ blueprint ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-      done &= commit.build_results[ target ][ distro ][ 'status' ] == 'done'
-      success &= commit.build_results[ target ][ distro ].get( 'success', False )
+      done &= commit.build_results[ target ][ blueprint ][ 'status' ] == 'done'
+      success &= commit.build_results[ target ][ blueprint ].get( 'success', False )
 
   if done:
     logging.info( 'Build Complete for "{0}" of "{1}" branch "{2}" Complete'.format( commit.commit, commit.project.name, commit.branch ) )
@@ -160,19 +160,19 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
 
   done = True
   success = True
-  for distro in commit.doc_results:
-    if not commit.doc_results[ distro ].get( 'status', None ):
-      logging.info( 'Queuing up Doc job for "{0}", branch "{1}", distro "{2}"'.format( commit.project.name, commit.branch, distro ) )
+  for blueprint in commit.doc_results:
+    if not commit.doc_results[ blueprint ].get( 'status', None ):
+      logging.info( 'Queuing up Doc job for "{0}", branch "{1}", blueprint "{2}"'.format( commit.project.name, commit.branch, blueprint ) )
       try:
-        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, distro, 'doc', QUEUE_PRIORITY, '*AUTO*', commit )
-        commit.doc_results[ distro ][ 'status' ] = 'building'
+        item = QueueItem.inQueueTarget( commit.project, commit.branch, False, blueprint, 'doc', QUEUE_PRIORITY, '*AUTO*', commit )
+        commit.doc_results[ blueprint ][ 'status' ] = 'building'
 
       except Exception as e:
-        commit.doc_results[ distro ][ 'status' ] = 'done'
-        commit.doc_results[ distro ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
+        commit.doc_results[ blueprint ][ 'status' ] = 'done'
+        commit.doc_results[ blueprint ][ 'results' ] = 'Exception Queuing: "{0}"'.format( e )
 
-    done &= commit.doc_results[ distro ][ 'status' ] == 'done'
-    success &= commit.doc_results[ distro ].get( 'success', False )
+    done &= commit.doc_results[ blueprint ][ 'status' ] == 'done'
+    success &= commit.doc_results[ blueprint ].get( 'success', False )
 
   if done:  # failed doc building dosen't block anything, just make the comment and move on
     logging.info( 'Doc Complete for "{0}", branch "{1}"'.format( commit.project.name, commit.branch ) )

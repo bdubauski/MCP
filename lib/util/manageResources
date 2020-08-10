@@ -12,18 +12,12 @@ import cinp
 from datetime import datetime, timezone
 
 from mcp.Project.models import Project, Build, BuildResource
-from mcp.Resource.models import BluePrint, Site, Network, DynamicResource
+from mcp.Resource.models import Site, Network, DynamicResource
 from mcp.lib.t3kton import getContractor
 
 RESOURCE_OS_LIST = ( 'ubuntu-trusty', 'ubuntu-xenial', 'ubuntu-bionic', 'debian-buster', 'centos-6', 'centos-7', 'esx', 'proxmox' )
 
 parser = argparse.ArgumentParser( description='resource manager - add/remove static and dynamic resources' )
-parser.add_argument( '--dynamic-resource-blueprint', help='blueprint for the resources hosted on the resource complex' )
-
-parser.add_argument( '--blueprint-list', help='List the (Structure) Blueprints', action='store_true' )
-parser.add_argument( '--blueprint-add', help='Add a (Structure) Blueprint, this should be the name on Contractor', metavar='BLUEPRINT NAME' )
-parser.add_argument( '--blueprint-remove', help='Remove a (Structure) Blueprints, this should be the blueprint id in MCP', metavar='BLUEPRINT NAME' )
-
 parser.add_argument( '--site-list', help='List the Curent Sites', action='store_true'  )
 parser.add_argument( '--site-add', help='Add a Site, this should be the site name on Contractor', metavar='SITE NAME' )
 parser.add_argument( '--site-remove', help='Remove a Site, this should be the site name in MCP', metavar='SITE NAME' )
@@ -40,7 +34,7 @@ parser.add_argument( '--dynamic-resource-add-name', help='Name to assign to the 
 parser.add_argument( '--dynamic-resource-remove', help='Remove a Dynamic Resource, this should be the resource id in MCP', metavar='RESOURCE NAME' )
 
 # this one is a hack and is temporary until the dynamic/bluprint/stuff mess is figured out
-parser.add_argument( '--update-builtin', help='Update the Builtin project with the curent blueprints', action='store_true' )
+parser.add_argument( '--update-builtin', help='Add the blueprint to the Builtin project', metavar='BLUEPRINT NAME' )
 
 args = parser.parse_args()
 
@@ -53,14 +47,6 @@ if args.site:
     sys.exit( 1 )
 
 # list operations
-if args.blueprint_list:
-  print( 'Name' )
-  print( '-------------------------' )
-  for blueprint in BluePrint.objects.all().order_by( 'pk' ):
-    print( '{0}   {1}'.format( blueprint.name ) )
-
-  sys.exit( 0 )
-
 if args.site_list:
   print( 'Name' )
   print( '----' )
@@ -90,33 +76,6 @@ if args.dynamic_resource_list:
   sys.exit( 0 )
 
 contractor = getContractor()
-
-# blueprint operations
-if args.blueprint_add:
-  try:
-    contractor_site = contractor.getBluePrint( args.blueprint_add )
-  except cinp.client.NotFound:
-    print( 'BluePrint "{0}" not found on Contractor'.format( args.blueprint_add ) )
-    sys.exit( 1 )
-
-  blueprint = BluePrint()
-  blueprint.name = args.blueprint_add
-  blueprint.full_clean()
-  blueprint.save()
-
-  print( 'BluePrint "{0}" Created.'.format( blueprint.name ) )
-  sys.exit( 0 )
-
-if args.blueprint_remove:
-  try:
-    blueprint = BluePrint.objects.get( name=args.blueprint_remove )
-  except BluePrint.DoesNotExist:
-    print( 'BluePrint "{0}" not found in MCP'.format( args.blueprint_remove ) )
-    sys.exit( 1 )
-
-  blueprint.delete()
-  print( 'BluePrint "{0}" deleted.'.format( args.blueprint_remove ) )
-  sys.exit( 0 )
 
 # site operations
 if args.site_add:
@@ -252,27 +211,17 @@ if args.update_builtin:
     project.full_clean()
     project.save()
 
-  for blueprint in BluePrint.objects.all():
-    try:
-      BuildResource.objects.get( build__project=project, blueprint=blueprint )
-      continue
-    except BuildResource.DoesNotExist:
-      pass
+  build = Build( name=args.update_builtin, project=project )
+  build.manual = False
+  build.full_clean()
+  build.save()
 
-    build = Build( name=blueprint.name, project=project )
-    build.manual = False
-    build.full_clean()
-    build.save()
-
-    br = BuildResource( name=blueprint.name, build=build, resource=resource )
-    br.quantity = 1
-    br.blueprint = blueprint
-    br.autorun = False
-    br.full_clean()
-    br.save()
-
-  for build in project.build_set.all():
-    print( build )
+  br = BuildResource( name=args.update_builtin, build=build, resource=resource )
+  br.quantity = 1
+  br.blueprint = args.update_builtin
+  br.autorun = False
+  br.full_clean()
+  br.save()
 
   sys.exit( 0 )
 

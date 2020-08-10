@@ -79,11 +79,11 @@ class Makefile():
   def depends( self, build ):
     return self._execute( '{0}-depends'.format( build ), do_split=False )
 
-  def testDistros( self ):
-    return self._execute( 'test-distros' )
+  def testBluePrints( self ):
+    return self._execute( 'test-blueprints' )
 
-  def docDistros( self ):
-    return self._execute( 'doc-distros' )
+  def docBluePrints( self ):
+    return self._execute( 'doc-blueprints' )
 
-  def packageDistros( self, type ):  # type in dpkg, rpm, respkg, resource
-    return self._execute( '{0}-distros'.format( type ) )
+  def packageBluePrints( self, type ):  # type in dpkg, rpm, respkg, resource
+    return self._execute( '{0}-blueprints'.format( type ) )

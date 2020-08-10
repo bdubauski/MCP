@@ -26,8 +26,9 @@ from logging.handlers import SysLogHandler
 from django.db.models import ProtectedError
 
 from mcp.Project.models import Project, Commit, Build, Package, BuildDependancy, BuildResource
-from mcp.Resource.models import BluePrint, Resource
+from mcp.Resource.models import Resource
 from mcp.lib.Makefile import Makefile, MakeException
+from mcp.lib.t3kton import getContractor
 from mcp.lib.Slack import getSlack
 from mcp.lib.Packrat import getPackrat
 
@@ -35,6 +36,8 @@ WORK_DIR = '/tmp/rinzler'
 PID_FILE = '/var/run/rinzler.pid'
 
 name_regex = re.compile( '^[a-zA-Z0-9][a-zA-Z0-9_\-]*$' )  # from contractor/fields.py
+
+blueprint_cache_map = {}
 
 # when loading build targets, make sure the target name isn't reserved: 'lint', 'test', 'rpm', 'dpkg', 'respkg', 'resource', 'doc', 'all', 'clean', '*-targets', '*-requires', '*-depends', '*-file', '*-builds', 'target'
 
@@ -60,6 +63,22 @@ tmp.write( '{0}\n'.format( os.getpid() ) )
 tmp.close()
 
 slack = getSlack( 'rinzler' )
+contractor = getContractor()
+
+
+def _checkBluePrint( blueprint ):
+  global blueprint_cache_map
+
+  if blueprint in blueprint_cache_map:
+    return blueprint_cache_map[ blueprint ]
+
+  try:
+    contractor.getBluePrint( blueprint )
+    blueprint_cache_map[ blueprint ] = True
+  except cinp.client.NotFound:
+    blueprint_cache_map[ blueprint ] = False
+
+  return blueprint_cache_map[ blueprint ]
 
 
 def _cleanInterfaceMap( interface_map ):
@@ -179,16 +198,13 @@ def _makeBuild( build_name, project, manual ):
       build.delete()
       return 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'resource' ], build_name )
 
-    try:
-      blueprint = BluePrint.objects.get( name=data[ 'blueprint' ] )
-    except BluePrint.DoesNotExist:
-      build.delete()
-      return 'Blueprint "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'blueprint' ], build_name )
+    if not _checkBluePrint( data[ 'blueprint' ] ):
+      return 'Blueprint "{0}" not found'.format( data[ 'blueprint' ] )
 
     buildres = BuildResource()
     buildres.build = build
     buildres.resource = resource
-    buildres.blueprint = blueprint
+    buildres.blueprint = data[ 'blueprint' ]
     buildres.name = name
     buildres.quantity = int( data.get( 'quantity', 1 ) )
     buildres.interface_map = _cleanInterfaceMap( data.get( 'interface_map', {} ) )
@@ -347,13 +363,13 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       project.save()
 
     try:
-      distro_list = make.testDistros()
+      blueprint_list = make.testBluePrints()
     except MakeException as e:
-      logging.error( 'Error Retreiving Test Distros from Makefile "{0}", ignorning commit.'.format( e ) )
-      _failCommit( commit, 'Error Retreiving Test Distros from Makefile' )
+      logging.error( 'Error Retreiving Test BluePrints from Makefile "{0}", ignorning commit.'.format( e ) )
+      _failCommit( commit, 'Error Retreiving Test BluePrints from Makefile' )
       continue
 
-    commit.lint_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+    commit.lint_results = dict( zip( blueprint_list, [{}] * len( blueprint_list ) ) )
     commit.test_results = commit.lint_results
     commit.build_results = {}
 
@@ -361,23 +377,23 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
     for tmp in ( 'dpkg', 'rpm', 'respkg', 'resource' ):
       try:
-        distro_list = make.packageDistros( tmp )
+        blueprint_list = make.packageBluePrints( tmp )
       except MakeException as e:
-        logging.error( 'Error Retreiving Packaging Distros from Makefile "{0}", ignorning commit.'.format( e ) )
-        _failCommit( commit, 'Error Retreiving Packaging Distros from Makefile' )
+        logging.error( 'Error Retreiving Packaging BluePrints from Makefile "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error Retreiving Packaging BluePrints from Makefile' )
         continue
 
-      if distro_list:
-        commit.build_results[ tmp ] = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+      if blueprint_list:
+        commit.build_results[ tmp ] = dict( zip( blueprint_list, [{}] * len( blueprint_list ) ) )
 
     if branch == project.release_branch:
       logging.info( 'Adding Doc Build...' )
       try:
-        distro_list = make.docDistros()
+        blueprint_list = make.docBluePrints()
       except MakeException:
-        distro_list = []
+        blueprint_list = []
 
-      commit.doc_results = dict( zip( distro_list, [{}] * len( distro_list ) ) )
+      commit.doc_results = dict( zip( blueprint_list, [{}] * len( blueprint_list ) ) )
 
     commit.build_results = commit.build_results
 

@@ -149,10 +149,10 @@ class Contractor():
   def getNetworkUsage( self, id ):
     return self.cinp.call( '/api/v1/Utilities/AddressBlock:{0}:(usage)'.format( id ), {} )
 
-  # used by manageResources.py
   def getBluePrint( self, id ):
     return self.cinp.get( '/api/v1/BluePrint/StructureBluePrint:{0}:'.format( id ) )
 
+  # used by manageResources.py
   def getSite( self, id ):
     return self.cinp.get( '/api/v1/Site/Site:{0}:'.format( id ) )
 

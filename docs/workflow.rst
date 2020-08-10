@@ -44,13 +44,13 @@ pseudo code of the project scanner::
       if branch is the release branch:
         increment the project build counter
 
-      retrieve the list of resources for test by running `make test-distros`
+      retrieve the list of resources for test by running `make test-blueprints`
 
       for packaging in 'dpkg', 'rpm', 'respkg', 'resource':
-        retrieve list of resources for packaging by running `make <packaging>-distros`
+        retrieve list of resources for packaging by running `make <packaging>-blueprints`
 
       if branch is the release branch:
-        retrieve list of resources for documentation by running `make doc-distros`
+        retrieve list of resources for documentation by running `make doc-blueprints`
 
       retrieve list of auto(integration testing) builds by running `make auto-builds`
 

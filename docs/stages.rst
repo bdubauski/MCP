@@ -34,15 +34,15 @@ example::
   version:
     echo 2.3
 
-- <target>-distros. test-distros, doc-distros, dpkg-distros, rpm-distros, respkg-distros, resource-distros: echo a list of resource types
+- <target>-blueprints. test-blueprints, doc-blueprints, dpkg-blueprints, rpm-blueprints, respkg-blueprints, resource-blueprints: echo a list of resource types
   that are used for the target( test, doc, dpkg, rpm, respkg, resource) to run on.
 
 examples::
 
-  test-distros:
+  test-blueprints:
     echo ubuntu-bionic
 
-  dpkg-distros:
+  dpkg-blueprints:
     echo ubuntu-bionic
 
 
@@ -143,7 +143,7 @@ examples::
     touch dpkg-setup
 
 - <target>-file: for packaging target.  return a list of files that should be uploaded to packrat.  For doc-file
-  there also specify the page the file should be attached to.  For files going to packrat, a distro version should
+  there also specify the page the file should be attached to.  For files going to packrat, a blueprint version should
   be specified if packrat will not be able to auto-detect the version.  And if the file type will not be auto-detectable
   a third parameter should be specified.
 

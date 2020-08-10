@@ -7,10 +7,10 @@ from django.core.exceptions import ValidationError
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH
+from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, BLUEPRINT_NAME_LENGTH
 
 from mcp.Project.models import Build, Project, Commit
-from mcp.Resource.models import ResourceInstance, Network, BluePrint
+from mcp.Resource.models import ResourceInstance, Network
 
 
 cinp = CInP( 'Processor', '0.1' )
@@ -22,7 +22,7 @@ INSTANCE_STATE_LIST = ( 'new', 'allocated', 'building', 'built', 'ran', 'releasi
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  result_map = MapField()
+  result_map = MapField( blank=True )
   commit = models.ForeignKey( Commit, on_delete=models.PROTECT )
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
   done_at = models.DateTimeField( blank=True, null=True )
@@ -93,7 +93,7 @@ QueueItem
   priority = models.IntegerField( default=50 )  # higher the value, higer the priority
   manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   user = models.CharField( max_length=150 )
-  resource_status_map = MapField()
+  resource_status_map = MapField( blank=True )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -171,12 +171,7 @@ QueueItem
     return item
 
   @staticmethod
-  def inQueueTarget( project, branch, manual, distro, target, priority, user, commit=None ):
-    try:
-      blueprint = BluePrint.objects.get( name=distro )
-    except BluePrint.DoesNotExist:
-      raise Exception( 'distro "{0}" not set up'.format( distro ) )
-
+  def inQueueTarget( project, branch, manual, blueprint, target, priority, user, commit=None ):
     try:
       builtin_project = Project( pk='_builtin_' )
     except Project.DoesNotExist:
@@ -244,7 +239,7 @@ BuildJob
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   build_name = models.CharField( max_length=50 )
-  value_map = MapField()  # for the job to store work values
+  value_map = MapField( blank=True )  # for the job to store work values
   network_list = models.ManyToManyField( Network )
   resources = models.ManyToManyField( ResourceInstance, through='BuildJobResourceInstance' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -256,7 +251,7 @@ BuildJob
   user = models.CharField( max_length=150 )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
-  package_file_map = MapField()
+  package_file_map = MapField( blank=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -504,7 +499,7 @@ def getCookie():
 class BuildJobResourceInstance( models.Model ):
   buildjob = models.ForeignKey( BuildJob, on_delete=models.PROTECT )  # protected so we don't leave stranded resources
   resource_instance = models.OneToOneField( ResourceInstance, blank=True, null=True, on_delete=models.SET_NULL )
-  blueprint = models.ForeignKey( BluePrint, on_delete=models.PROTECT )
+  blueprint = models.CharField( max_length=BLUEPRINT_NAME_LENGTH )
   cookie = models.CharField( max_length=36, default=getCookie )
   # build info
   name = models.CharField( max_length=50, blank=True, null=True  )
