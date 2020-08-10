@@ -28,7 +28,6 @@ clean:
 	./setup.py clean || true
 	$(RM) -r build
 	$(RM) dpkg
-	$(RM) respkg
 	$(RM) -r htmlcov
 	dh_clean || true
 	$(MAKE) -C docs clean
@@ -70,21 +69,6 @@ dpkg-file:
 	echo $(shell ls ../mcp_*.deb):bionic
 
 .PHONY:: dpkg-distros dpkg-requires dpkg-file
-
-respkg-distros:
-	echo ubuntu-bionic
-
-respkg-requires:
-	echo respkg
-
-respkg:
-	cd contractor && respkg -b ../mcp_$(VERSION)-1.respkg -n mcp -e $(VERSION) -c "MCP Blueprints for Contractor" -t load_data.sh -d resources -s contractor-os-base
-	touch respkg
-
-respkg-file:
-	echo $(shell ls *.respkg)
-
-.PHONY:: respkg-distros respkg-requires respkg respkg-file
 
 doc-distros:
 	echo ubuntu-bionic

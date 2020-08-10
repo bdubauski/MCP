@@ -9,7 +9,7 @@ from django.conf import settings
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH
+from mcp.fields import MapField, name_regex, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
 from mcp.lib.InternalGit import InternalGit
 from mcp.lib.Git import Git
 from mcp.lib.GitHub import GitHub
@@ -425,15 +425,15 @@ A Single Commit of a Project
   branch = models.CharField( max_length=50 )
   commit = models.CharField( max_length=45 )
   version = models.CharField( max_length=50, blank=True, null=True )
-  lint_results = MapField( blank=True )
-  test_results = MapField( blank=True )
-  build_results = MapField( blank=True )
-  doc_results = MapField( blank=True )
+  lint_results = MapField()
+  test_results = MapField()
+  build_results = MapField()
+  doc_results = MapField()
   test_at = models.DateTimeField( editable=False, blank=True, null=True )
   build_at = models.DateTimeField( editable=False, blank=True, null=True )
   doc_at = models.DateTimeField( editable=False, blank=True, null=True )
   done_at = models.DateTimeField( editable=False, blank=True, null=True )
-  package_file_map = MapField( blank=True )
+  package_file_map = MapField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -773,6 +773,37 @@ A Single Commit of a Project
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
+class PackageFile( models.Model ):  # TODO: move this to Project and tie to the commit instead of the group name
+  filename = models.CharField( max_length=PACKAGE_FILENAME_LENGTH )
+  package = models.ForeignKey( Package, on_delete=models.CASCADE )
+  packrat_id = models.CharField( max_length=100, unique=True )
+  commit = models.ForeignKey( Commit, on_delete=models.CASCADE )
+  created = models.DateTimeField( editable=False, auto_now_add=True )
+  updated = models.DateTimeField( editable=False, auto_now=True )
+
+  @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Package } ] )
+  @staticmethod
+  def filter_package( package ):
+    return PackageFile.objects.filter( package=package ).order_by( '-created' )
+
+  @cinp.list_filter( name='commit', paramater_type_list=[ { 'type': 'Model', 'model': Commit } ] )
+  @staticmethod
+  def filter_commit( commit ):
+    return PackageFile.objects.filter( commit=commit ).order_by( '-created' )
+
+  @cinp.check_auth()
+  @staticmethod
+  def checkAuth( user, verb, id_list, action=None ):
+    return cinp.basic_auth_check( user, verb, PackageFile )
+
+  class Meta:
+    default_permissions = ()
+
+  def __str__( self ):
+    return 'PackageFile "{0}" of "{1}"'.format( self.packrat_id, self.package )
+
+
+@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Build( models.Model ):
   """
 This is a type of Build that can be done
@@ -782,7 +813,7 @@ This is a type of Build that can be done
   project = models.ForeignKey( Project, on_delete=models.CASCADE )
   dependancies = models.ManyToManyField( Package, through='BuildDependancy', help_text='' )
   resources = models.ManyToManyField( Resource, through='BuildResource', help_text='' )
-  network_map = MapField( blank=True )
+  network_map = MapField()
   manual = models.BooleanField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
@@ -852,12 +883,13 @@ class BuildDependancy( models.Model ):
 class BuildResource( models.Model ):
   key = models.CharField( max_length=250, editable=False, primary_key=True )  # until django supports multi filed primary keys
   build = models.ForeignKey( Build, on_delete=models.CASCADE )
+  name = models.CharField( max_length=50 )
   resource = models.ForeignKey( Resource, on_delete=models.PROTECT )
   blueprint = models.ForeignKey( BluePrint, on_delete=models.PROTECT )
-  name = models.CharField( max_length=50 )
+  config_values = MapField()
   quantity = models.IntegerField( default=1 )
   autorun = models.BooleanField( default=False )
-  interface_map = MapField( blank=True )
+  interface_map = MapField()
 
   @cinp.check_auth()
   @staticmethod

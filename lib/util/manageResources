@@ -22,7 +22,7 @@ parser.add_argument( '--dynamic-resource-blueprint', help='blueprint for the res
 
 parser.add_argument( '--blueprint-list', help='List the (Structure) Blueprints', action='store_true' )
 parser.add_argument( '--blueprint-add', help='Add a (Structure) Blueprint, this should be the name on Contractor', metavar='BLUEPRINT NAME' )
-parser.add_argument( '--blueprint-remove', help='Remove a (Structure) Blueprints, this should be the network id in MCP', metavar='BLUEPRINT NAME' )
+parser.add_argument( '--blueprint-remove', help='Remove a (Structure) Blueprints, this should be the blueprint id in MCP', metavar='BLUEPRINT NAME' )
 
 parser.add_argument( '--site-list', help='List the Curent Sites', action='store_true'  )
 parser.add_argument( '--site-add', help='Add a Site, this should be the site name on Contractor', metavar='SITE NAME' )
@@ -35,8 +35,9 @@ parser.add_argument( '--network-add', help='Add a Network, this should be "netwo
 parser.add_argument( '--network-remove', help='Remove a Network, this should be the network id in MCP', metavar='NETWORK NAME' )
 
 parser.add_argument( '--dynamic-resource-list', help='List the Curent Dynamic Resources', action='store_true' )
-parser.add_argument( '--dynamic-resource-add', help='Add a Dynamic Resource, this should be the complex id on Contractor, requires site paramater', metavar='NETWORK NAME' )
-parser.add_argument( '--dynamic-resource-remove', help='Remove a Dynamic Resource, this should be the network id in MCP', metavar='NETWORK NAME' )
+parser.add_argument( '--dynamic-resource-add', help='Add a Dynamic Resource, this should be the complex id on Contractor, requires site paramater', metavar='COMPLEX ID' )
+parser.add_argument( '--dynamic-resource-add-name', help='Name to assign to the dynamic resource, if not specified the name will be the name of the complex (must be unique per site)', metavar='NAME' )
+parser.add_argument( '--dynamic-resource-remove', help='Remove a Dynamic Resource, this should be the resource id in MCP', metavar='RESOURCE NAME' )
 
 # this one is a hack and is temporary until the dynamic/bluprint/stuff mess is figured out
 parser.add_argument( '--update-builtin', help='Update the Builtin project with the curent blueprints', action='store_true' )
@@ -53,10 +54,10 @@ if args.site:
 
 # list operations
 if args.blueprint_list:
-  print( 'Name      Contractor Name' )
+  print( 'Name' )
   print( '-------------------------' )
   for blueprint in BluePrint.objects.all().order_by( 'pk' ):
-    print( '{0}   {1}'.format( blueprint.name, blueprint.contractor_blueprint_id ) )
+    print( '{0}   {1}'.format( blueprint.name ) )
 
   sys.exit( 0 )
 
@@ -98,13 +99,8 @@ if args.blueprint_add:
     print( 'BluePrint "{0}" not found on Contractor'.format( args.blueprint_add ) )
     sys.exit( 1 )
 
-  if not args.blueprint_add.startswith( 'mcp-' ):
-    print( 'Must be a MCP blueprint' )
-    sys.exit( 1 )
-
   blueprint = BluePrint()
-  blueprint.name = args.blueprint_add[ 4: ]  # strip off the 'mcp-'
-  blueprint.contractor_blueprint_id = args.blueprint_add
+  blueprint.name = args.blueprint_add
   blueprint.full_clean()
   blueprint.save()
 
@@ -215,7 +211,7 @@ if args.dynamic_resource_add:
 
   dynamic_resource = DynamicResource()
   dynamic_resource.site = site
-  dynamic_resource.name = contractor_complex[ 'name' ]
+  dynamic_resource.name = args.dynamic_resource_add_name if args.dynamic_resource_add_name else contractor_complex[ 'name' ]
   dynamic_resource.description = '"{0}" complex in "{1}"'.format( contractor_complex[ 'name' ], site.name )
   dynamic_resource.complex_id = args.dynamic_resource_add
   dynamic_resource.full_clean()

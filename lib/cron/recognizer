@@ -206,7 +206,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
 
       packagefile = PackageFile( filename=filename, packrat_id=uri )
       packagefile.package = package
-      packagefile.group = commit.commit
+      packagefile.commit = commit
       packagefile.full_clean()
       packagefile.save()
 

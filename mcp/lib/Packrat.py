@@ -57,8 +57,12 @@ class Packrat():
 
   def tag( self, package_file_id, tag ):
     logging.debug( 'packrat: tagging package file "{0}" with "{1}"'.format( package_file_id, tag ) )
-    return self.cinp.call( '{0}(tag)'.format( package_file_id ), { 'tag': '/api/v2/Attrib/Tag:{0}:'.format( tag ) } )
+    try:
+      self.cinp.call( '{0}(tag)'.format( package_file_id ), { 'tag': '/api/v2/Attrib/Tag:{0}:'.format( tag ) } )
+    except client.DetailedInvalidRequest as e:
+      if e.error != 'ALLREADY_TAGGED':
+        raise e
 
   def fail( self, package_file_id ):
     logging.debug( 'packrat: failing package file "{0}"'.format( package_file_id ) )
-    return self.cinp.call( '{0}(fail)'.format( package_file_id ), {} )
+    self.cinp.call( '{0}(fail)'.format( package_file_id ), {} )

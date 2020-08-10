@@ -7,45 +7,23 @@ from django.core.exceptions import ValidationError
 
 from cinp.orm_django import DjangoCInP as CInP
 
-from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH, PACKAGE_FILENAME_LENGTH
+from mcp.fields import MapField, package_filename_regex, packagefile_regex, TAG_NAME_LENGTH
 
-from mcp.Project.models import Build, Project, Package, Commit
+from mcp.Project.models import Build, Project, Commit
 from mcp.Resource.models import ResourceInstance, Network, BluePrint
 
 
 cinp = CInP( 'Processor', '0.1' )
 
-GROUP_MAX_LENGTH = 45
 BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'released' )
 INSTANCE_STATE_LIST = ( 'new', 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
-class PackageFile( models.Model ):
-  filename = models.CharField( max_length=PACKAGE_FILENAME_LENGTH )
-  package = models.ForeignKey( Package, on_delete=models.CASCADE )
-  packrat_id = models.CharField( max_length=100, unique=True )
-  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )
-  created = models.DateTimeField( editable=False, auto_now_add=True )
-  updated = models.DateTimeField( editable=False, auto_now=True )
-
-  @cinp.check_auth()
-  @staticmethod
-  def checkAuth( user, verb, id_list, action=None ):
-    return cinp.basic_auth_check( user, verb, PackageFile )
-
-  class Meta:
-    default_permissions = ()
-
-  def __str__( self ):
-    return 'PackageFile "{0}" of "{1}"'.format( self.packrat_id, self.package )
-
-
-@cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
-  result_map = MapField( blank=True )
-  group = models.CharField( max_length=GROUP_MAX_LENGTH, db_index=True )  # does this need to be unique?  do we need to worry about the same group id showing up in different groups of package files, replace with ForeigKey to PackageFile?
+  result_map = MapField()
+  commit = models.ForeignKey( Commit, on_delete=models.PROTECT )
   tag = models.CharField( max_length=TAG_NAME_LENGTH )
   done_at = models.DateTimeField( blank=True, null=True )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -80,7 +58,7 @@ class Promotion( models.Model ):
     default_permissions = ()
 
   def __str__( self ):
-    return 'Promotion for package group "{0}" tag "{1}"'.format( self.group, self.tag )
+    return 'Promotion for package commit "{0}" tag "{1}"'.format( self.commit, self.tag )
 
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
@@ -115,7 +93,7 @@ QueueItem
   priority = models.IntegerField( default=50 )  # higher the value, higer the priority
   manual = models.BooleanField()  # if False, will not auto clean up, and will not block the project from updating/re-scaning for new jobs
   user = models.CharField( max_length=150 )
-  resource_status_map = MapField( blank=True )
+  resource_status_map = MapField()
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
   created = models.DateTimeField( editable=False, auto_now_add=True )
@@ -266,7 +244,7 @@ BuildJob
   branch = models.CharField( max_length=50 )
   target = models.CharField( max_length=50 )
   build_name = models.CharField( max_length=50 )
-  value_map = MapField( blank=True )  # for the job to store work values
+  value_map = MapField()  # for the job to store work values
   network_list = models.ManyToManyField( Network )
   resources = models.ManyToManyField( ResourceInstance, through='BuildJobResourceInstance' )
   built_at = models.DateTimeField( editable=False, blank=True, null=True )
@@ -278,7 +256,7 @@ BuildJob
   user = models.CharField( max_length=150 )
   commit = models.ForeignKey( Commit, null=True, blank=True, on_delete=models.SET_NULL )
   promotion = models.ForeignKey( Promotion, null=True, blank=True, on_delete=models.SET_NULL )
-  package_file_map = MapField( blank=True )
+  package_file_map = MapField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -545,6 +523,15 @@ class BuildJobResourceInstance( models.Model ):
   @property
   def config_values( self ):
     result = {
+               '>package_list': [ 'nullunit' ],
+               'packrat_host': 'http://packrat',
+               'packrat_proxy': '',
+               'confluence_host': 'http://confluence',
+               'confluence_proxy': '',
+               'nullunit_packrat_username': 'nullunit',
+               'nullunit_packrat_password': 'nullunit',
+               'nullunit_confluence_username': 'nullunit',
+               'nullunit_confluence_password': 'nullunit',
                'mcp_host': settings.MCP_HOST,
                'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' )
              }

@@ -22,23 +22,26 @@ class Slack():
   def __init__( self, proc, api_token, channel_name, site=None, proxy=None ):
     self.api_token = api_token
     self.channel_name = channel_name
-    self.user_name = 'mcp({0})-{1}'.format( site, proc ) if site else 'mcp-{0}'.format( proc )
+    self.proc = '({0})-{1}'.format( site, proc ) if site else '{0}'.format( proc )
     self.slack_api_base_url = 'https://slack.com/api'
     if proxy:
       self.opener = request.build_opener( request.ProxyHandler( { 'http': proxy, 'https': proxy } ) )
     else:
       self.opener = request.build_opener( request.ProxyHandler( {} ) )
 
-  def post_message( self, message, emoji=NOTSET ):
+  def post_message( self, message, emoji=None ):
     if self.api_token is None:
       return
+
+    if emoji is not None:
+      message = '*{0}* {1} {2}'.format( self.proc, emoji, message )
+    else:
+      message = '*{0}* {1}'.format( self.proc, message )
 
     data = {
         'token': self.api_token,
         'channel': self.channel_name,
-        'username': self.user_name,
-        'text': message,
-        'icon_emoji': emoji
+        'text': message
     }
 
     url = '{0}/{1}'.format( self.slack_api_base_url, 'chat.postMessage' )

@@ -28,7 +28,6 @@ class BluePrint( models.Model ):
 BluePrint
   """
   name = models.CharField( max_length=40, primary_key=True )
-  contractor_blueprint_id = models.CharField( max_length=40 )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -138,44 +137,32 @@ class ResourceInstance( models.Model ):
   @property
   def subclass( self ):
     try:
-      return self.dynamicresource
+      return self.dynamicresourceinstance
     except AttributeError:
       pass
 
     try:
-      return self.staticresource
+      return self.staticresourceinstance
     except AttributeError:
       pass
 
-    return None
+    raise Exception( 'ResourceInstance subclass missing' )
 
   @property
   def resource( self ):
-    subclass = self.subclass
-    if subclass is not None:
-      return subclass.resource()
-
-    return None
+    return self.subclass.resource()
 
   def build( self ):
-    subclass = self.subclass
-    if subclass is not None:
-      subclass.build()
+    self.subclass.build()
 
   def allocate( self, blueprint, config_values, hostname ):
-    subclass = self.subclass
-    if subclass is not None:
-      subclass.allocate( blueprint, config_values, hostname )
+    self.subclass.allocate( blueprint, config_values, hostname )
 
   def release( self ):
-    subclass = self.subclass
-    if subclass is not None:
-      subclass.release()
+    self.subclass.release()
 
   def cleanup( self ):
-    subclass = self.subclass
-    if subclass is not None:
-      subclass.cleanup()
+    self.subclass.cleanup()
 
   def __str__( self ):
     return 'ResourceInstance'
@@ -224,7 +211,7 @@ StaticResourceInstance
 
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()
-    contractor.allocateStaticResource( self.contractor_structure_id, blueprint.contractor_blueprint_id, config_values, hostname )
+    contractor.allocateStaticResource( self.contractor_structure_id, blueprint.name, config_values, hostname )
     contractor.registerWebHook( self.buildjobresourceinstance, True, structure_id=self.contractor_structure_id )
 
   def build( self ):
@@ -390,7 +377,7 @@ DynamicResourceInstance
 
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()
-    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint.contractor_blueprint_id, config_values, self.interface_map, hostname )
+    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint.name, config_values, self.interface_map, hostname )
     self.full_clean()
     self.save()
 

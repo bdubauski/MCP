@@ -152,8 +152,7 @@ def _makeBuild( build_name, project, manual ):
 
       packrat.logout()
       if packrat_package_uri is None:
-        logging.error( 'Package "{0}" for dependancy for build "{1}" not found in Packrat, ignorning build.'.format( package_name, build_name ) )
-        return
+        return 'Package "{0}" for dependancy for build "{1}" not found in Packrat, ignorning build.'.format( package_name, build_name )
 
       package = Package( name=package_name, packrat_id=packrat_package_uri )
       package.full_clean()
@@ -171,23 +170,20 @@ def _makeBuild( build_name, project, manual ):
     try:
        data = json.loads( data )
     except ( ValueError, json.JSONDecodeError ):
-      logging.error( 'Error parsing resource info: "{0}", killing the build'.format( data ) )
       build.delete()
-      return
+      return 'Error parsing resource info: "{0}", killing the build'.format( data )
 
     try:
-      resource = Resource.objects.get( name=data[ 'resource_name' ] )
+      resource = Resource.objects.get( name=data[ 'resource' ] )
     except Resource.DoesNotExist:
-      logging.error( 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'resource_name' ], build_name ) )
       build.delete()
-      return
+      return 'Resource "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'resource' ], build_name )
 
     try:
       blueprint = BluePrint.objects.get( name=data[ 'blueprint' ] )
     except BluePrint.DoesNotExist:
-      logging.error( 'Blueprint "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'blueprint' ], build_name ) )
       build.delete()
-      return
+      return 'Blueprint "{0}" for build "{1}" does not exist, killing the build.'.format( data[ 'blueprint' ], build_name )
 
     buildres = BuildResource()
     buildres.build = build
@@ -196,6 +192,7 @@ def _makeBuild( build_name, project, manual ):
     buildres.name = name
     buildres.quantity = int( data.get( 'quantity', 1 ) )
     buildres.interface_map = _cleanInterfaceMap( data.get( 'interface_map', {} ) )
+    buildres.config_values = data.get( 'config_values', {} )
     buildres.autorun = data.get( 'autorun', False )
     buildres.full_clean()
     buildres.save()
@@ -206,9 +203,8 @@ def _makeBuild( build_name, project, manual ):
     try:
        data = json.loads( data )
     except ( ValueError, json.JSONDecodeError ):
-      logging.error( 'Error parsing network info: "{0}", killing the build'.format( data ) )
       build.delete()
-      return
+      return 'Error parsing network info: "{0}", killing the build'.format( data )
 
     build.network_map[ name ] = {}
     for item, default in ( ( 'dedicated', False ), ):
@@ -219,6 +215,8 @@ def _makeBuild( build_name, project, manual ):
 
   build.full_clean()
   build.save()
+
+  return None
 
 
 def _failCommit( commit, message ):
@@ -406,7 +404,12 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
 
       try:
         for build in build_list:
-          _makeBuild( build, project, False )
+          msg = _makeBuild( build, project, False )
+          if msg is not None:
+            logging.error( msg )
+            _failCommit( commit, msg )
+            continue
+
       except Exception as e:
         logging.error( 'Error making auto build(s) "{0}", ignorning commit.'.format( e ) )
         _failCommit( commit, 'Error making auto build(s), "{0}"'.format( e ) )
@@ -422,7 +425,12 @@ for project in Project.objects.filter( queueitem__isnull=True ).order_by( 'last_
       logging.debug( 'Manual Builds "{0}".'.format( build_list ) )
       try:
         for build in build_list:
-          _makeBuild( build, project, True )
+          msg = _makeBuild( build, project, True )
+          if msg is not None:
+            logging.error( msg )
+            _failCommit( commit, msg )
+            continue
+
       except Exception as e:
         logging.error( 'Error making manual build(s) "{0}", ignorning commit.'.format( e ) )
         _failCommit( commit, 'Error making manual build(s), "{0}"'.format( e ) )

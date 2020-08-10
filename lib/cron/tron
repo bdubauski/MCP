@@ -17,8 +17,8 @@ import cinp
 from logging.handlers import SysLogHandler
 from datetime import datetime, timezone
 
-from mcp.Project.models import Package, BuildDependancy
-from mcp.Processor.models import Promotion, QueueItem, PromotionBuild, PackageFile
+from mcp.Project.models import Package, BuildDependancy, PackageFile
+from mcp.Processor.models import Promotion, QueueItem, PromotionBuild
 from mcp.lib.Packrat import getPackrat
 from mcp.lib.Slack import getSlack
 
@@ -50,39 +50,34 @@ tmp.close()
 slack = getSlack( 'tron' )
 packrat = getPackrat()
 
-tag_requirements_map = dict( [ ( k, set( v ) ) for ( k, v ) in packrat.tag_requirements_map().items() ] )
+tag_requirements_map = dict( [ ( k, set( v ) ) for ( k, v ) in packrat.tag_requirements_map().items() ] )  # this makes sure the requrement values are unique
 available_tag_set = set( tag_requirements_map.keys() )
-tag_name_map = dict( [ ( i, i.split( ':' )[1] ) for i in available_tag_set ] )
 
 
-def _tagGroup( group, tag ):
-  for package_file in PackageFile.objects.filter( group=group ):
-    logging.info( 'Tagging package "{0}" with "{1}".'.format( package_file.filename, tag ) )
+def _tagCommit( commit, tag ):
+  for package_file in PackageFile.objects.filter( commit=commit ):
+    logging.info( 'Tagging package "{0}" with "{1}"...'.format( package_file.filename, tag ) )
     packrat.tag( package_file.packrat_id, tag )
     slack.post_message( 'Tagged package "{0}" with "{1}".'.format( package_file.filename, tag ), slack.SUCCESS )
 
 
-def _failGroup( group ):
-  for package_file in PackageFile.objects.filter( group=group ):
-    logging.info( 'Failing package "{0}".'.format( package_file.filename ) )
+def _failCommit( commit ):
+  for package_file in PackageFile.objects.filter( commit=commit ):
+    logging.info( 'Failing package "{0}"...'.format( package_file.filename ) )
     packrat.fail( package_file.packrat_id )
     slack.post_message( 'Failed package "{0}".'.format( package_file.filename ), slack.ERROR )
 
 
-def _queuePromotion( group, package_list, tag ):
+def _queuePromotion( commit, package_list, tag ):
   dependancy_list = BuildDependancy.objects.filter( package__in=package_list, tag=tag )
-
-  logging.info( 'Tagging group "{0}" with "{1}"'.format( group, tag ) )
-  _tagGroup( group, tag )
-  slack.post_message( 'Group "{0}" tagged with "{1}" '.format( group, tag ), slack.SUCCESS )
-
   if len( dependancy_list ) == 0:
-    logging.info( 'No Dependancies for group "{0}" for tag "{1}"'.format( group, tag ) )
+    logging.info( 'No Dependancies for Commit "{0}" for tag "{1}", setting tags...'.format( commit.commit, tag ) )
+    _tagCommit( commit, tag )
     return
 
-  logging.info( 'Creating Promotion check for group "{0}" for tag "{1}"...'.format( group, tag ) )
+  logging.info( 'Creating Promotion check for Commit "{0}" for tag "{1}"...'.format( commit.commit, tag ) )
   promotion = Promotion()
-  promotion.group = group
+  promotion.commit = commit.commit
   promotion.tag = tag
   promotion.full_clean()
   promotion.save()
@@ -96,10 +91,14 @@ def _queuePromotion( group, package_list, tag ):
     promition_build.save()
     promotion.queueitem_set.add( QueueItem.inQueueBuild( dependancy.build, dependancy.build.project.release_branch, False, QUEUE_PRIORITY, '*AUTO*', promotion=promotion ) )
 
+  logging.info( 'Tagging Commit "{0}" with "{1}"'.format( commit.commit, tag ) )
+  _tagCommit( commit, tag )
+  slack.post_message( 'Commit "{0}" tagged with "{1}" '.format( commit.commit, tag ), slack.SUCCESS )
+
 
 # look for promotion that is done
 for promotion in Promotion.objects.filter( done_at__isnull=True ):
-  logging.debug( 'Checking promtion "{0}"'.format( promotion ) )
+  logging.debug( 'Checking promtion "{0}"...'.format( promotion ) )
   done = True
   success = True
   for promotion_build in promotion.promotionbuild_set.all():
@@ -110,86 +109,60 @@ for promotion in Promotion.objects.filter( done_at__isnull=True ):
     continue
 
   if success:
-    logging.info( 'Group "{0}" for tag "{1}" passed.'.format( promotion.group, promotion.tag ) )
-    slack.post_message( 'Group "{0}" for tag "{1}" passed.'.format( promotion.group, promotion.tag ), slack.SUCCESS )
+    slack.post_message( 'Promotion Job for Commit "{0}" tag "{1}" passed.'.format( promotion.commit.commit, promotion.tag ), slack.SUCCESS )
+    logging.info( 'Promotion Job for Commit "{0}" tag "{1}" passed.'.format( promotion.commit.commit, promotion.tag ) )
 
   else:
-    logging.info( 'Failing group "{0}".'.format( promotion.group ) )
-    _failGroup( promotion.group )
-    slack.post_message( 'Failed group "{0}".'.format( promotion.group ), slack.ERROR )
+    slack.post_message( 'Promotion Job for Commit "{0}" tag "{1}" Failed.'.format( promotion.commit.commit, promotion.tag ), slack.ERROR )
+    logging.info( 'Failing Commit "{0}"...'.format( promotion.commit.commit ) )
+    _failCommit( promotion.commit )
 
   promotion.done_at = datetime.now( timezone.utc )
   promotion.full_clean()
   promotion.save()
 
 
-# go over the package files and see if they still exist
-for package_file in PackageFile.objects.all():
-  # TODO: instead of getting them one at a time from packrat, get them in groups.
-  # TODO: have some kind of detection to see if packrat is broken and 404ing everything,
-  #       mabey when doing groups, ask for groups of 50, and if it comes back empty, bail.
-  try:
-    packrat.cinp.get( package_file.packrat_id )
-  except cinp.client.NotFound:
-    logging.info( 'Package File "{0}", is gone, deleting...'.format( package_file.filename ) )
-    package_file.delete()
-
-
 # look for promotion to cleanup
 for promotion in Promotion.objects.filter( done_at__isnull=False ):
-  if PackageFile.objects.filter( group=promotion.group ).count() == 0:
+  if PackageFile.objects.filter( commit=promotion.commit ).count() == 0:
     promotion.delete()
 
 
-# iterate over the groups of package files
-for group in PackageFile.objects.all().values_list( 'group', flat=True ).distinct():
-  if Promotion.objects.filter( group=group, done_at__isnull=True ).count() > 0:
-    logging.info( 'Group "{0}" allready has promotion(s), skipping...'.format( group ) )
+# iterate over groups of package files
+for commit in PackageFile.objects.all().values_list( 'commit', flat=True ).distinct():
+  if Promotion.objects.filter( commit=commit, done_at__isnull=True ).count() > 0:
+    logging.info( 'Commit "{0}" allready has promotion(s), skipping...'.format( commit.commit ) )
     continue
 
-  id_list = list( PackageFile.objects.filter( group=group ).values_list( 'packrat_id', flat=True ) )
-  # TODO: get the full id_list from packrat in one request instead of asking for them one at a time
-  try:
-    package_file = packrat.cinp.get( id_list.pop() )
-  except cinp.client.NotFound:
-    logging.info( 'Package disapeared, will try group "{0}" next time'.format( group ) )
-    continue
+  id_list = list( PackageFile.objects.filter( commit=commit ).values_list( 'packrat_id', flat=True ) )
+  to_tag_list = []
+  todo_tag_set = set()
 
-  if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
-   logging.info( 'Group "{0}" is deprocated/faield, skipping...'.format( group ) )
-   continue
-
-  clean = True
-  tag_list = package_file[ 'tags' ]
-  while id_list and clean:
+  while id_list:
+    packagefile_id = id_list.pop()
     try:
-      package_file = packrat.cinp.get( id_list.pop() )
+      package_file = packrat.cinp.get( packagefile_id )
     except cinp.client.NotFound:
-      logging.info( 'Package disapeared, will try group "{0}" next time'.format( group ) )
-      clean = False
+      logging.info( 'Package File "{0}" in Commit "{1}" disapeared, deleting..., and skiping Commit.'.format( packagefile_id, commit.commit ) )
+      PackageFile.objects.get( pk=packagefile_id ).delete()
       continue
 
-    if package_file[ 'tags' ] != tag_list:
-      logging.warn( 'tag missmatch in group "{0}", skipping...'.format( group ) )
-      clean = False
-      continue
+    if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:  # we don't care about this file anymore, move along
+     logging.info( 'Package File "{0}" in Commit "{1}" is deprocated/failed, skipping...'.format( packagefile_id, commit.commit ) )
 
-    if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:
-     logging.info( 'deprocated/faield missmatch in group "{0}", skipping...'.format( group ) )
-     clean = False
-     continue
+    to_tag_list.append( packagefile_id )
+    todo_tag_set = todo_tag_set.union( ( available_tag_set - set( package_file[ 'tags' ] ) ) )
 
-  if not clean:
+  if not to_tag_list:  # nothing to do this time, try again next time, the packagefiles are either deleted or deprated/failed
     continue
 
-  # ok, all of the group is consistant and accounted for, let's check the tags
-  package_file_tag_set = set( package_file[ 'raw_tag_list' ] )
-  for tag in available_tag_set - package_file_tag_set:  # Iterate over all the tags not yet set
-    if len( tag_requirements_map[ tag ] - package_file_tag_set ) != 0:  # Not all requiremenets are met
+  min_set_tags = todo_tag_set - available_tag_set
+  for tag in todo_tag_set:  # Iterate over all the tags not yet set
+    if len( tag_requirements_map[ tag ] - min_set_tags ) != 0:  # Not all requiremenets are met
       continue
 
-    package_list = Package.objects.filter( packagefile__group=group )
-    _queuePromotion( group, package_list, tag_name_map[ tag ] )
+    package_list = Package.objects.filter( pk__in=to_tag_list )
+    _queuePromotion( commit, package_list, tag )
 
 packrat.logout()
 
