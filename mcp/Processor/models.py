@@ -19,6 +19,22 @@ BUILDJOB_STATE_LIST = ( 'new', 'build', 'ran', 'reported', 'acknowledged', 'rele
 INSTANCE_STATE_LIST = ( 'new', 'allocated', 'building', 'built', 'ran', 'releasing', 'released' )
 
 
+def base_config_values():
+  return {
+           '>package_list': [ 'nullunit' ],
+           'packrat_host': 'http://packrat',
+           'packrat_proxy': '',
+           'confluence_host': 'http://confluence',
+           'confluence_proxy': '',
+           'nullunit_packrat_username': 'nullunit',
+           'nullunit_packrat_password': 'nullunit',
+           'nullunit_confluence_username': 'nullunit',
+           'nullunit_confluence_password': 'nullunit',
+           'mcp_host': settings.MCP_HOST,
+           'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' )
+         }
+
+
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE', 'CALL' ] )
 class Promotion( models.Model ):
   status = models.ManyToManyField( Build, through='PromotionBuild', help_text='' )
@@ -196,10 +212,13 @@ QueueItem
 
     return item
 
-  @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build }, 'String', 'Boolean', 'Integer' ] )
+  @cinp.action( return_type='Integer', paramater_type_list=[ { 'type': '_USER_' }, { 'type': 'Model', 'model': Build }, 'String', 'Integer' ] )
   @staticmethod
-  def queue( user, build, branch, manual=True, priority=100 ):
-    item = QueueItem.inQueueBuild( build, branch, manual, priority, user.username )
+  def queue( user, build, branch=None, priority=100 ):
+    if branch is None:
+      branch = build.project.release_branch
+
+    item = QueueItem.inQueueBuild( build, branch, True, priority, user.username )
     return item.pk
 
   @cinp.list_filter( name='project', paramater_type_list=[ { 'type': 'Model', 'model': Project } ] )
@@ -497,9 +516,10 @@ def getCookie():
 
 @cinp.model( not_allowed_verb_list=[ 'CREATE', 'DELETE', 'UPDATE' ], property_list=[ 'config_values', 'hostname' ] )
 class BuildJobResourceInstance( models.Model ):
-  buildjob = models.ForeignKey( BuildJob, on_delete=models.PROTECT )  # protected so we don't leave stranded resources
+  buildjob = models.ForeignKey( BuildJob, blank=True, null=True, on_delete=models.PROTECT )  # protected so we don't leave stranded resources
   resource_instance = models.OneToOneField( ResourceInstance, blank=True, null=True, on_delete=models.SET_NULL )
   blueprint = models.CharField( max_length=BLUEPRINT_NAME_LENGTH )
+  _config_values = MapField( blank=True )
   cookie = models.CharField( max_length=36, default=getCookie )
   # build info
   name = models.CharField( max_length=50, blank=True, null=True  )
@@ -512,24 +532,21 @@ class BuildJobResourceInstance( models.Model ):
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   @property
-  def hostname( self ):
-    return 'mcp-auto--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
+  def hostname( self ):  # TODO: make sure does not exceed contractor's locator length, and is locator/hostname safe
+    if self.buildjob is not None:
+      if self.buildjob.manual:
+        return 'mcp-auto--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
+      else:
+        return 'mcp-manual--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
+
+    else:
+      return 'mcp-prealloc--{0}'.format( self.pk )
 
   @property
   def config_values( self ):
-    result = {
-               '>package_list': [ 'nullunit' ],
-               'packrat_host': 'http://packrat',
-               'packrat_proxy': '',
-               'confluence_host': 'http://confluence',
-               'confluence_proxy': '',
-               'nullunit_packrat_username': 'nullunit',
-               'nullunit_packrat_password': 'nullunit',
-               'nullunit_confluence_username': 'nullunit',
-               'nullunit_confluence_password': 'nullunit',
-               'mcp_host': settings.MCP_HOST,
-               'mcp_proxy': ( settings.MCP_PROXY if settings.MCP_PROXY else '' )
-             }
+    result = self._config_values
+
+    result.update( base_config_values() )
 
     if self.buildjob is not None:
       result.update( {
@@ -557,6 +574,10 @@ class BuildJobResourceInstance( models.Model ):
                         } )
 
     return result
+
+  @config_values.setter
+  def config_values( self, value):
+    self._config_values = value
 
   @cinp.action( paramater_type_list=[ 'String' ] )
   def signal_built( self, cookie ):  # called from webhook
@@ -670,8 +691,7 @@ class BuildJobResourceInstance( models.Model ):
   @cinp.action( return_type='Map' )
   def getDetail( self ):  # Only called by ui.js, when nuillunitInterface get detail is working again, unify with this one
     result = {
-               'foundation_id': self.foundation_id,
-               'structure_id': self.structure_id,
+               'structure_id': self.resource_instance.contractor_structure_id,
                'hostname': self.hostname
               }
 
@@ -686,6 +706,12 @@ class BuildJobResourceInstance( models.Model ):
     self.state = 'allocated'
     self.full_clean()
     self.save()
+
+  def updateConfig( self ):
+    if self.state in ( 'releasing', 'released' ):
+      return
+
+    self.resource_instance.updateConfig( self.config_values, self.hostname )
 
   def build( self ):
     if self.state in ( 'building', 'built' ):

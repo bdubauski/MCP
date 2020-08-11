@@ -66,7 +66,7 @@ example::
 examples::
 
   installcheck-resources:
-    echo mcp:{ \"resource_name\": \"ubuntu-bionic-small\" }
+    echo mcp:{ \"resource\": \"vm\", \"blueprint\": \"ubuntu-bionic-small\" }
 
   integrationcheck-resources:
     echo controller:{ \"resource\": \"vm\", "\"blueprint\": \"ubuntu-xenial\", \"config_values\": { \"cpu_count\": 2 }, \"interface_map\": { \"eth0\": {}, \"eth1\": { \"network\": \"vmnet\", \"offset\": 10 } } }

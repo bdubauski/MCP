@@ -29,6 +29,25 @@ then::
   /usr/lib/mcp/util/manage.py migrate
   /usr/lib/mcp/setup/setupWizzard
 
+you will want to setup the starting resources, first add a site, the site name (test1), should match the site id in
+contractor you want to use::
+
+  /usr/lib/mcp/util/manageResources --site-add test1
+
+next add the network, the format is <network id>:<addressblock id>, thoes are the ids of the network and address block
+in contractor you want to use::
+
+  /usr/lib/mcp/util/manageResources --site=sjc4c08v1 --network-add=1:1
+
+now the contractor complex to host the dynamic resources, the id (test1esx) should be the complex id on contractor.  This should be
+a ESX/VCenter, Proxmox or Virtualbox complex.
+
+  /usr/lib/mcp/util/manageResources --site=test1 --dynamic-resource-add=test1esx --dynamic-resource-add-name=vm
+
+and finally, update the built in project (this project is used for the automatic builds triggered by test/lint, package, etc
+builds) with the blueprint id from contractor::
+
+  /usr/lib/mcp/util/manageResources --site=test1 --update-builtin=ubuntu-bionic-base
 
 Now we need to create the MCP user, on the contractor host::
 

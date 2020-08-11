@@ -132,10 +132,47 @@ def _cleanInterfaceMap( interface_map ):
 
 
 def _makeBuild( build_name, project, manual ):
-  dependancy_list = make.depends( build_name )
   resource_list = make.resources( build_name )
   network_list = make.networks( build_name )
-  logging.debug( 'Build: "{0}" depends: "{1}" resources: "{2}" networks: "{3}".'.format( build_name, dependancy_list, resource_list, network_list ) )
+  if manual:
+    logging.debug( 'Build: "{0}" resources: "{1}" networks: "{2}".'.format( build_name, resource_list, network_list ) )
+  else:
+    dependancy_list = make.depends( build_name )
+    logging.debug( 'Build: "{0}" depends: "{1}" resources: "{2}" networks: "{3}".'.format( build_name, dependancy_list, resource_list, network_list ) )
+
+  if not resource_list:
+    return 'Build "{0}" has no resources'.format( build_name )
+
+  package_map = {}
+  if not manual:
+    for dependancy in dependancy_list:
+      ( package_name, tag ) = dependancy.split( ':' )
+      try:
+        Package.objects.get( name=package_name )
+
+      except Package.DoesNotExist:
+        packrat = getPackrat()
+        packrat_package_uri = '/api/v2/Package/Package:{0}:'.format( package_name )
+        try:
+          packrat.cinp.get( packrat_package_uri )
+        except cinp.client.NotFound:
+          packrat_package_uri = None
+
+        packrat.logout()
+
+        if packrat_package_uri is None:
+          logging.warn( 'Package "{0}" for dependancy for build "{1}" not found in Packrat, skipping dependancy.'.format( package_name, build_name ) )
+          continue
+
+        package = Package( name=package_name, packrat_id=packrat_package_uri )
+        package.full_clean()
+        package.save()
+
+      package_map[ package_name ] = tag
+
+    if not package_map:
+      return 'All Packages for Build "{0}" are not found in Packrat, skipping build.'.format( build_name )
+
   try:
     build = project.build_set.get( name=build_name )
     build.manual = manual
@@ -156,33 +193,24 @@ def _makeBuild( build_name, project, manual ):
     build.full_clean()
     build.save()
 
-  for dependancy in dependancy_list:
-    ( package_name, tag ) = dependancy.split( ':' )
+  build.network_map = {}
+  for network in network_list:
+    ( name, data ) = network.split( ':', 1 )
     try:
-      package = Package.objects.get( name=package_name )
+       data = json.loads( data )
+    except ( ValueError, json.JSONDecodeError ):
+      build.delete()
+      return 'Error parsing network info: "{0}", killing the build'.format( data )
 
-    except Package.DoesNotExist:
-      packrat = getPackrat()
-      packrat_package_uri = '/api/v2/Package/Package:{0}:'.format( package_name )
-      try:
-        packrat.cinp.get( packrat_package_uri )
-      except cinp.client.NotFound:
-        packrat_package_uri = None
+    build.network_map[ name ] = {}
+    for item, default in ( ( 'dedicated', False ), ):
+      build.network_map[ name ][ item ] = bool( data.get( item, default ) )
 
-      packrat.logout()
-      if packrat_package_uri is None:
-        return 'Package "{0}" for dependancy for build "{1}" not found in Packrat, ignorning build.'.format( package_name, build_name )
+    for item, default in ( ( 'min_addresses', 6 ), ):
+      build.network_map[ name ][ item ] = int( data.get( item, default ) )
 
-      package = Package( name=package_name, packrat_id=packrat_package_uri )
-      package.full_clean()
-      package.save()
-
-    builddep = BuildDependancy()
-    builddep.build = build
-    builddep.package = package
-    builddep.tag = tag
-    builddep.full_clean()
-    builddep.save()
+  build.full_clean()
+  build.save()
 
   for resource in resource_list:
     ( name, data ) = resource.split( ':', 1 )
@@ -191,6 +219,9 @@ def _makeBuild( build_name, project, manual ):
     except ( ValueError, json.JSONDecodeError ):
       build.delete()
       return 'Error parsing resource info: "{0}", killing the build'.format( data )
+
+    if 'resource' not in data or 'blueprint' not in data:
+      return '"resource" and/or "blueprint" is missing from resource "{0}"'.format( name )
 
     try:
       resource = Resource.objects.get( name=data[ 'resource' ] )
@@ -213,24 +244,15 @@ def _makeBuild( build_name, project, manual ):
     buildres.full_clean()
     buildres.save()
 
-  build.network_map = {}
-  for network in network_list:
-    ( name, data ) = network.split( ':', 1 )
-    try:
-       data = json.loads( data )
-    except ( ValueError, json.JSONDecodeError ):
-      build.delete()
-      return 'Error parsing network info: "{0}", killing the build'.format( data )
+  for package_name, tag in package_map.items():
+    package = Package.objects.get( name=package_name )
 
-    build.network_map[ name ] = {}
-    for item, default in ( ( 'dedicated', False ), ):
-      build.network_map[ name ][ item ] = bool( data.get( item, default ) )
-
-    for item, default in ( ( 'min_addresses', 6 ), ):
-      build.network_map[ name ][ item ] = int( data.get( item, default ) )
-
-  build.full_clean()
-  build.save()
+    builddep = BuildDependancy()
+    builddep.build = build
+    builddep.package = package
+    builddep.tag = tag
+    builddep.full_clean()
+    builddep.save()
 
   return None
 
@@ -252,6 +274,10 @@ for project in Project.objects.all().order_by( 'last_checked' ):
   # skip any busy projects
   if project.busy:
     continue
+
+  if project.commit_set.all().count() > project.max_commit_count:
+    # just delete the last one, this get's called enough it will eventually get the list trimmed down
+    project.commit_set.all().order_by( 'created' )[0].delete()
 
   url = project.clone_git_url
 
@@ -387,47 +413,41 @@ for project in Project.objects.all().order_by( 'last_checked' ):
     if branch == project.release_branch:
       logging.info( 'Updating Builds info...' )
       try:
-        build_list = make.autoBuilds()
+        auto_build_list = make.autoBuilds()
       except MakeException as e:
         logging.error( 'Error Retreiving Auto Builds from Makefile "{0}", ignorning commit.'.format( e ) )
         _failCommit( commit, 'Error Retreiving Auto Builds from Makefile' )
         continue
 
-      logging.debug( 'Auto Builds "{0}".'.format( build_list ) )
+      try:
+        manual_build_list = make.manualBuilds()
+      except MakeException as e:
+        logging.error( 'Error Retreiving Manual Builds from Makefile "{0}", ignorning commit.'.format( e ) )
+        _failCommit( commit, 'Error Retreiving Manual Builds from Makefile' )
+        continue
+
+      logging.debug( 'Auto Builds "{0}".'.format( auto_build_list ) )
+      logging.debug( 'Manual Builds "{0}".'.format( manual_build_list ) )
 
       existing_builds = [ i.name for i in project.build_set.all() ]
-
-      for build_name in set( existing_builds ) - set( build_list ):
+      for build_name in set( existing_builds ) - set( auto_build_list + manual_build_list ):
         build = project.build_set.get( name=build_name )
         try:
           build.delete()  # this could cause an error if there is a build curently operating, if so, punt to later
         except ProtectedError:
-          logging.warning( 'Build "{0}" is not longer defined, however it is still in use, will try to delete again next time.'.format( build_name ) )
+          logging.warning( 'Build "{0}" is no longer defined, however it is still in use, will try to delete again next time.'.format( build_name ) )
           pass  # can't delete now, will try on next update
 
       try:
-        for build in build_list:
+        build = None
+        for build in auto_build_list:
           msg = _makeBuild( build, project, False )
           if msg is not None:
             logging.error( msg )
             _failCommit( commit, msg )
             continue
 
-      except Exception as e:
-        logging.error( 'Error making auto build(s) "{0}", ignorning commit.'.format( e ) )
-        _failCommit( commit, 'Error making auto build(s), "{0}"'.format( e ) )
-        continue
-
-      try:
-        build_list = make.manualBuilds()
-      except MakeException as e:
-        logging.error( 'Error Retreiving Manual Builds from Makefile "{0}", ignorning commit.'.format( e ) )
-        _failCommit( commit, 'Error Retreiving Manual Builds from Makefile' )
-        continue
-
-      logging.debug( 'Manual Builds "{0}".'.format( build_list ) )
-      try:
-        for build in build_list:
+        for build in manual_build_list:
           msg = _makeBuild( build, project, True )
           if msg is not None:
             logging.error( msg )
@@ -435,8 +455,8 @@ for project in Project.objects.all().order_by( 'last_checked' ):
             continue
 
       except Exception as e:
-        logging.error( 'Error making manual build(s) "{0}", ignorning commit.'.format( e ) )
-        _failCommit( commit, 'Error making manual build(s), "{0}"'.format( e ) )
+        logging.exception( 'Error making build "{0}": "{1}", ignorning commit.'.format( build, e ) )
+        _failCommit( commit, 'Error making build "{0}": "{1}", ignorning commit.'.format( build, e )  )
         continue
 
     logging.debug( 'Cleaning up work dir.' )

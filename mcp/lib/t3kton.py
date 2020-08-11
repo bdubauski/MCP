@@ -89,7 +89,7 @@ class Contractor():
     except client.NotFound:
       pass
 
-  def updateDynamicResource( self, structure_id, config_values, hostname ):
+  def updateConfig( self, structure_id, config_values, hostname ):
     data = {}
     data[ 'config_values' ] = config_values
     data[ 'hostname' ] = hostname

@@ -25,7 +25,7 @@ parser.add_argument( '--site-remove', help='Remove a Site, this should be the si
 parser.add_argument( '--site', help='Site for required operations', metavar='SITE NAME' )
 
 parser.add_argument( '--network-list', help='List the Curent Networks in specified Site', action='store_true' )
-parser.add_argument( '--network-add', help='Add a Network, this should be "network id:addressblock id" on Contractor, requires site paramater', metavar='NETWORK NAME' )
+parser.add_argument( '--network-add', help='Add a Network, this should be "network id:addressblock id" on Contractor, requires site paramater', metavar='ID:ID' )
 parser.add_argument( '--network-remove', help='Remove a Network, this should be the network id in MCP', metavar='NETWORK NAME' )
 
 parser.add_argument( '--dynamic-resource-list', help='List the Curent Dynamic Resources', action='store_true' )

@@ -7,23 +7,21 @@ import django
 django.setup()
 
 import time
-from mcp.lib.t3kton import getContractor
-from mcp.Processor.models import Instance
+from mcp.Resource.models import DynamicResourceInstance
 
-for instance in Instance.objects.filter( buildjob__isnull=True, state='built' ):
+
+for instance in DynamicResourceInstance.objects.filter( buildjob__isnull=True, buildjobresourceinstance__state='built' ):
   print( 'Telling contractor to release "{0}"'.format( instance ) )
-  contractor = getContractor()
-  contractor.registerWebHook( instance, False )
-  contractor.destroyStructure( instance.structure_id )
-  contractor.destroyFoundation( instance.foundation_id )
+  instance.release()
+
 
 while True:
-  print( '{0} Instances remaning'.format( Instance.objects.filter( buildjob__isnull=True, state='released' ).count() ) )
-  for instance in Instance.objects.filter( buildjob__isnull=True, state='released' ):
+  print( '{0} Instances remaning'.format( DynamicResourceInstance.objects.filter( buildjob__isnull=True ).count() ) )
+  for instance in DynamicResourceInstance.objects.filter( buildjob__isnull=True, state='released' ):
     print( 'Deleting Instance "{0}"'.format( instance ) )
     instance.delete()
 
-  if Instance.objects.filter( buildjob__isnull=True, state='released' ).count() == 0:
+  if DynamicResourceInstance.objects.filter( buildjob__isnull=True, state='releasing' ).count() == 0:
     break
 
   time.sleep( 30 )

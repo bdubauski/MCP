@@ -279,11 +279,11 @@ function hashChange( event )
                       }
                     }
                   }
+
                 }
                 commitEntry += '</ol></div></div></ul></div>'
                 commitEntries.html(commitEntry)
                 $("#project-commit-list").sortDivs();
-                latestCommitEntry.html($('.panel:first').clone().attr('id', 'latest'))
               }
               $('#latest').each(function() {
                 $( this ).find('.panel-body').attr( 'id', $( this ).find('.panel-body').attr( 'id' ) + '-latest' );
@@ -291,7 +291,7 @@ function hashChange( event )
                 $( this ).find('a').attr( 'data-target', $( this ).find('a').attr( 'data-target' ) + '-latest' );
                 $( this ).find('.sublinks').attr( 'id', $( this ).find('.sublinks').attr( 'id' ) + '-latest' );
               });
-
+              latestCommitEntry.html($("#project-commit-list div:first").clone())
             }
           ).fail(
             function( reason )
@@ -322,7 +322,7 @@ function hashChange( event )
                 {
                   var targetIcon = '<i class="fa fa-cogs fa-lg fa-fw"></i>'
                 } else {
-                  var targetIcon = '<i class="fa fa-dot-circle-o fa-lg fa-fw"></i>'
+                  var targetIcon = '<i class="fa fa-dot-circle fa-lg fa-fw"></i>'
                 }
                 var distro = item.build.split(':')[2]
                 jobEntry += '<div class="panel panel-default"><div class="panel-body" id="build-id-' + buildID + '"><ul class="list-inline"><li>' + targetIcon + '&nbsp;' + item.target + '</li><li>build #' + buildID + '<li>state: ' + item.state + '</li><li>suceded: ' + item.suceeded + '</li><li>score: ' + item.score + '</li><li>' + buttons + '</li></ul></div><ul class="list-group">'
@@ -622,8 +622,7 @@ function loadProjects()
         if( item.status.test == "Success" && item.status.build == "Success" )
         {
           projList += '<div class="project passed" timestamp="' + timestamp + '">'
-        } else if( ( item.status.test == "Success" && item.status.build != "Success" ) || ( item.status.test != "Success" && item.status.build == "Success" ) )
-        {
+        } else if( ( item.status.test == "Success" && item.status.build != "Success" ) || ( item.status.test != "Success" && item.status.build == "Success" ) ) {
           busy = '<i class="fa fa-exclamation fa-lg fa-fw"></i>'
           projList += '<div class="project warn" timestamp="' + timestamp + '">'
         } else {

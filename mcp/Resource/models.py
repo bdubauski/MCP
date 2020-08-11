@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.apps import apps
+from django.conf import settings
 
 from cinp.orm_django import DjangoCInP as CInP
 
@@ -124,11 +125,15 @@ class ResourceInstance( models.Model ):
   def resource( self ):
     return self.subclass.resource()
 
-  def build( self ):
-    self.subclass.build()
-
   def allocate( self, blueprint, config_values, hostname ):
     self.subclass.allocate( blueprint, config_values, hostname )
+
+  def updateConfig( self, config_values, hostname ):
+    contractor = getContractor()
+    contractor.updateConfig( self.contractor_structure_id, config_values, hostname )
+
+  def build( self ):
+    self.subclass.build()
 
   def release( self ):
     self.subclass.release()
@@ -216,50 +221,57 @@ DynamicResource
   # build_ahead_count = models.IntegerField( default=0 )
   complex_id = models.CharField( max_length=40 )  # should match contractor complex name/pk
 
-  # def _takeOver( self, instance, buildjob, name, index ):
-  #   instance.buildjob = buildjob
-  #   instance.name = name
-  #   instance.index = index
-  #   instance.hostname = 'mcp-auto--{0}-{1}-{2}'.format( buildjob.pk, name, index )
-  #   instance.full_clean()
-  #   instance.save()
-  #
-  #   contractor = getContractor()
-  #   contractor.updateConfig( instance.structure_id, instance.config_values, instance.hostname )
-  #
-  # def _createNew( self, interface_map, buildjob, name, index ):
-  #   Instance = apps.get_model( 'Processor', 'Instance' )
-  #
-  #   instance = Instance( resource=self )
-  #   instance.interface_map = interface_map
-  #   instance.buildjob = buildjob
-  #   instance.name = name
-  #   instance.index = index
-  #   instance.hostname = 'mcp-auto--{0}-{1}-{2}'.format( buildjob.pk, name, index )
-  #   instance.full_clean()
-  #   instance.save()
-  #
-  #   instance.allocate()
-  #
-  # def _replentishPreAllocate( self ):
-  #   quantity = self.build_ahead_count - self.buildjobresourceinstance_set.filter( buildjob__isnull=True ).count()
-  #   if quantity < 1:
-  #     return
-  #
-  #   network_id = _getAvailibleNetwork( self.site, quantity )
-  #   if network_id is None:
-  #     return
-  #
-  #   Instance = apps.get_model( 'Processor', 'Instance' )
-  #   for _ in range( 0, quantity ):
-  #     instance = Instance( resource=self )
-  #     instance.interface_map = { 'eth0': { 'network': network_id, 'is_primary': True } }
-  #     instance.hostname = 'mcp-preallocate--{0}-{1}'.format( self.name, instance.pk )
-  #     instance.full_clean()
-  #     instance.save()
-  #
-  #     instance.allocate()
-  #     instance.build()
+  def _takeOver( self, dynamic_resource_instance, buildjob, buildresource, index ):
+    buildjob_resource = dynamic_resource_instance.buildjobresourceinstance
+    buildjob_resource.buildjob = buildjob
+    buildjob_resource.name = buildresource.name
+    buildjob_resource.index = index
+    buildjob_resource.config_values = buildresource.config_values
+    buildjob_resource.full_clean()
+    buildjob_resource.save()
+
+    buildjob_resource.updateConfig()
+
+  def _createNew( self, interface_map, buildjob, buildresource, index ):
+    BuildJobResourceInstance = apps.get_model( 'Processor', 'BuildJobResourceInstance' )
+
+    resource_instance = DynamicResourceInstance( dynamic_resource=self )
+    resource_instance.interface_map = interface_map
+    resource_instance.full_clean()
+    resource_instance.save()
+
+    buildjob_resource = BuildJobResourceInstance( buildjob=buildjob, resource_instance=resource_instance )
+    buildjob_resource.name = buildresource.name
+    buildjob_resource.index = index
+    buildjob_resource.blueprint = buildresource.blueprint
+    buildjob_resource.config_values = buildresource.config_values
+    buildjob_resource.full_clean()
+    buildjob_resource.save()
+
+    buildjob_resource.allocate()
+
+  def _replenish( self, interface_map, blueprint, build_ahead_count ):
+    BuildJobResourceInstance = apps.get_model( 'Processor', 'BuildJobResourceInstance' )
+
+    quantity = build_ahead_count - DynamicResourceInstance.objects.filter( buildjobresourceinstance__buildjob__isnull=True, buildjobresourceinstance__blueprint=blueprint, dynamic_resource=self ).count()
+    if quantity < 1:
+      return
+
+    for _ in range( 0, quantity ):
+      resource_instance = DynamicResourceInstance( dynamic_resource=self )
+      resource_instance.interface_map = interface_map
+      resource_instance.full_clean()
+      resource_instance.save()
+
+      buildjob_resource = BuildJobResourceInstance( resource_instance=resource_instance )
+      buildjob_resource.name = 'prallocate'
+      buildjob_resource.index = 0
+      buildjob_resource.blueprint = blueprint
+      buildjob_resource.full_clean()
+      buildjob_resource.save()
+
+      buildjob_resource.allocate()
+      buildjob_resource.build()
 
   def available( self, quantity, interface_map ):
     if not interface_map:  # for now is {} when empty would be nice if it was also None, this will cover both
@@ -267,49 +279,26 @@ DynamicResource
 
     return True
 
-  # def allocate( self, job, name, quantity, interface_map ):
-  #   if not interface_map:  # for now is {} when empty would be nice if it was also None, this will cover both
-  #     interface_map = { 'eth0': { 'network': _getAvailibleNetwork( self.site, quantity ), 'is_primary': True } }
-  #
-  #     instance_list = self.buildjobresourceinstance_set.filter( buildjob__isnull=True ).order_by( 'pk' ).iterator()
-  #
-  #     for index in range( 0, quantity ):
-  #       instance = next( instance_list, None )
-  #       while instance is not None and instance.interface_map != interface_map:  # dicts don't allways sort the same way, so trying to query by interface_map will not work very well
-  #         instance = next( instance_list, None )
-  #
-  #       if instance is not None:
-  #         self._takeOver( instance, job, name, index )
-  #       else:
-  #         self._createNew( interface_map, job, name, index )
-  #
-  #       self._replentishPreAllocate()
-  #
-  #   else:
-  #     for index in range( 0, quantity ):
-  #       self._createNew( interface_map, job, name, index )
-
   def allocate( self, buildjob, buildresource, interface_map ):
-    BuildJobResourceInstance = apps.get_model( 'Processor', 'BuildJobResourceInstance' )
+    if interface_map or buildresource.config_values:  # no preallocation for non-default networks, and custom config might have values to tweek the build ie: cpu count
+      for index in range( 0, buildresource.quantity ):
+        self._createNew( interface_map, buildjob, buildresource, index )
 
-    if not interface_map:  # for now is {} when empty would be nice if it was also None, this will cover both
-      network = _getAvailibleNetwork( self.site, buildresource.quantity )
-      interface_map = { 'eth0': { 'network_id': network.contractor_network_id, 'address_block_id': network.contractor_addressblock_id, 'is_primary': True } }
+      return
+
+    network = _getAvailibleNetwork( self.site, buildresource.quantity )  # yes, if we are getting only pre-allocated stuff, we are double counting the network ips, however we need ips for the new resources that are going to backfill
+    interface_map = { 'eth0': { 'network_id': network.contractor_network_id, 'address_block_id': network.contractor_addressblock_id, 'is_primary': True } }
+
+    dynamic_resource_instance_list = DynamicResourceInstance.objects.filter( buildjobresourceinstance__buildjob__isnull=True, buildjobresourceinstance__blueprint=buildresource.blueprint, dynamic_resource=self ).order_by( 'pk' ).iterator()
 
     for index in range( 0, buildresource.quantity ):
-      resource_instance = DynamicResourceInstance( dynamic_resource=self )
-      resource_instance.interface_map = interface_map
-      resource_instance.full_clean()
-      resource_instance.save()
+      dynamic_resource_instance = next( dynamic_resource_instance_list, None )
+      if dynamic_resource_instance is not None:
+        self._takeOver( dynamic_resource_instance, buildjob, buildresource, index )
+      else:
+        self._createNew( interface_map, buildjob, buildresource, index )
 
-      buildjob_resource = BuildJobResourceInstance( buildjob=buildjob, resource_instance=resource_instance )
-      buildjob_resource.name = buildresource.name
-      buildjob_resource.index = index
-      buildjob_resource.blueprint = buildresource.blueprint
-      buildjob_resource.full_clean()
-      buildjob_resource.save()
-
-      buildjob_resource.allocate()
+    self._replenish( interface_map, buildresource.blueprint, settings.BUILD_AHEAD_COUNT.get( buildresource.blueprint, 0 ) )
 
   @cinp.check_auth()
   @staticmethod
@@ -342,10 +331,6 @@ DynamicResourceInstance
   @property
   def resource( self ):
     return self.dynamic_resource
-
-  # def takeOver( self, config_values, hostname ):
-  #   contractor = getContractor()
-  #   contractor.updateDynamicResource( self.contractor_structure_id, config_values, hostname )
 
   def allocate( self, blueprint, config_values, hostname ):
     contractor = getContractor()

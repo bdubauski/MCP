@@ -152,6 +152,7 @@ This is a Generic Project
   local_path = models.CharField( max_length=150, null=True, blank=True, editable=False )
   build_counter = models.IntegerField( default=0 )
   last_checked = models.DateTimeField( default=datetime.min )
+  max_commit_count = models.IntegerField( default=50 )
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
@@ -271,7 +272,12 @@ This is a Generic Project
 
     summary = commit.summary
 
-    return { 'test': summary[ 'test' ][ 'status' ], 'build': summary[ 'build' ][ 'status' ], 'doc': summary[ 'doc' ][ 'status' ], 'at': commit.created.isoformat() }
+    return {
+             'test': 'Success' if summary[ 'status' ] == 'Success' and summary[ 'test' ][ 'status' ] == 'Success' and summary[ 'lint' ][ 'status' ] == 'Success' else 'Failed',
+             'build': summary[ 'build' ][ 'status' ],
+             'doc': summary[ 'doc' ][ 'status' ],
+             'at': commit.created.isoformat()
+            }
 
   @cinp.list_filter( name='my_projects' )
   @staticmethod

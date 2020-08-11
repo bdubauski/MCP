@@ -29,6 +29,10 @@ SLACK_API_TOKEN = None
 SLACK_CHANNEL = '#mcp'
 SLACK_PROXY = None
 
+# number of generic dynamic resource to build ahead, this can speed up job processing by not forcing new jobs to wait
+# for the full build.  NOTE: the resources are repleneshed when the blueprint is asked for.
+BUILD_AHEAD_COUNT = { 'ubuntu-bionic-base': 10, 'centos-7': 2 }
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = '@(a3yjcc-d3rtt)q7n(tvdfhe4$%uasdfkd9^cg26+4wmih7l7'
 

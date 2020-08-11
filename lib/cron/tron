@@ -18,7 +18,7 @@ from logging.handlers import SysLogHandler
 from datetime import datetime, timezone
 
 from mcp.Project.models import Package, BuildDependancy, PackageFile
-from mcp.Processor.models import Promotion, QueueItem, PromotionBuild
+from mcp.Processor.models import Commit, Promotion, QueueItem, PromotionBuild
 from mcp.lib.Packrat import getPackrat
 from mcp.lib.Slack import getSlack
 
@@ -50,7 +50,7 @@ tmp.close()
 slack = getSlack( 'tron' )
 packrat = getPackrat()
 
-tag_requirements_map = dict( [ ( k, set( v ) ) for ( k, v ) in packrat.tag_requirements_map().items() ] )  # this makes sure the requrement values are unique
+tag_requirements_map = dict( [ ( k, set( [ i.split( ':' )[1] for i in v ] ) ) for ( k, v ) in packrat.tag_requirements_map().items() ] )  # this makes sure the requrement values are unique
 available_tag_set = set( tag_requirements_map.keys() )
 
 
@@ -129,11 +129,7 @@ for promotion in Promotion.objects.filter( done_at__isnull=False ):
 
 
 # iterate over groups of package files
-for commit in PackageFile.objects.all().values_list( 'commit', flat=True ).distinct():
-  if Promotion.objects.filter( commit=commit, done_at__isnull=True ).count() > 0:
-    logging.info( 'Commit "{0}" allready has promotion(s), skipping...'.format( commit.commit ) )
-    continue
-
+for commit in Commit.objects.filter( done_at__isnull=False, promotion=None).exclude( packagefile=None ):
   id_list = list( PackageFile.objects.filter( commit=commit ).values_list( 'packrat_id', flat=True ) )
   to_tag_list = []
   todo_tag_set = set()
@@ -156,7 +152,7 @@ for commit in PackageFile.objects.all().values_list( 'commit', flat=True ).disti
   if not to_tag_list:  # nothing to do this time, try again next time, the packagefiles are either deleted or deprated/failed
     continue
 
-  min_set_tags = todo_tag_set - available_tag_set
+  min_set_tags = available_tag_set - todo_tag_set
   for tag in todo_tag_set:  # Iterate over all the tags not yet set
     if len( tag_requirements_map[ tag ] - min_set_tags ) != 0:  # Not all requiremenets are met
       continue
