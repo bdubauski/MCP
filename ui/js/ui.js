@@ -194,7 +194,7 @@ function hashChange( event )
                   var panelStatus = 'panel-danger'
                   var textStatus = 'text-danger'
                 }
-                commitEntry += '<div class="panel ' + panelStatus + '" timestamp="' + timestamp + '"><div class="panel-body" id="commit-' + commit + '"><ul class="list-inline"><li class="' + textStatus + '"><strong><i class="fa fa-code-fork fa-fw"></i> ' + commit + '</strong></li></ul></div><ul class="list-group"><a class="list-group-item" data-toggle="collapse" data-target="#build-' + commit + key + subkey + '" data-parent="#commit-' + commit + '"><ul class="list-inline text-muted"><li>branch: ' + item.branch + '</li>'
+                commitEntry += '<div class="panel ' + panelStatus + '" timestamp="' + timestamp + '"><div class="panel-body" id="commit-' + commit + '"><ul class="list-inline"><li class="' + textStatus + '"><strong><i class="fa fa-code-branch fa-fw"></i> ' + commit + '</strong></li></ul></div><ul class="list-group"><a class="list-group-item" data-toggle="collapse" data-target="#build-' + commit + key + subkey + '" data-parent="#commit-' + commit + '"><ul class="list-inline text-muted"><li>branch: ' + item.branch + '</li>'
                 if( item.passed)
                 {
                   commitEntry += '<li class="text-success">test passed</li>'
