@@ -455,7 +455,7 @@ A Single Commit of a Project
 
   @property
   def state( self ):
-    if self.done_at and self.doc_at and self.build_at and self.test_at:
+    if self.done_at:  # sometimes the rest of the steps are skipped
       return 'done'
 
     if self.doc_at and self.build_at and self.test_at:

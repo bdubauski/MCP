@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Network',
             fields=[
-                ('name', models.CharField(max_length=50, primary_key=True, serialize=False)),
+                ('name', models.CharField(max_length=82, primary_key=True, serialize=False)),
                 ('contractor_addressblock_id', models.IntegerField(unique=True)),
                 ('contractor_network_id', models.IntegerField()),
                 ('monalythic', models.BooleanField(default=True)),

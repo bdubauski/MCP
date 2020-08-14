@@ -52,6 +52,7 @@ slack = getSlack( 'sark' )
 
 # Iterate over the Queued Items
 for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the biggest number first
+  job = None
   try:
     # see if we can get the resources
     ( missing_list, buildresource_list, network_map ) = item.allocateResources()
@@ -99,7 +100,8 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
   except Exception as e:
     logging.exception( 'Exception "{0}" creating job for queue item "{1}", skiping...'.format( e, item.pk ) )
     try:
-      job.releaseResources()
+      if job is not None:
+        job.releaseResources()
     except Exception as e2:
       logging.exception( 'Exception "{0}" releaseing while skipping, probably creating a big mess...'.format( e2, item.pk ) )
       slack.post_message( '!!! Error releasing when there was an Exception allocating, I am probably making a mess !!!', slack.CRITICAL )

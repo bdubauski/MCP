@@ -52,6 +52,7 @@ class Migration(migrations.Migration):
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('blueprint', models.CharField(max_length=40)),
                 ('_config_values', mcp.fields.MapField(blank=True, default=mcp.fields.defaultdict, editable=True)),
+                ('autorun', models.BooleanField(default=False)),
                 ('cookie', models.CharField(default=mcp.Processor.models.getCookie, max_length=36)),
                 ('name', models.CharField(blank=True, max_length=50, null=True)),
                 ('index', models.IntegerField(blank=True, null=True)),

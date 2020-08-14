@@ -121,7 +121,26 @@ QueueItem
     network_map = {}
     other_ip_count = 0
 
-    # first allocate the resource(s)
+    # first allocate the network(s)
+    for name, item in self.build.network_map.items():
+      if item[ 'dedicated' ]:
+        try:
+          network_map[ name ] = Network.objects.filter( monalythic=True, size__gte=item[ 'min_addresses' ], build__isnull=True )[ 0 ].name
+        except IndexError:
+          missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
+
+      else:
+        for network in Network.objects.filter( monalythic=False, size__gte=item[ 'min_addresses' ] ):
+          if network.available( item[ 'min_addresses' ] ):
+             network_map[ name ] = network.name
+             break
+
+        try:
+          network[ name ]
+        except KeyError:
+          missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
+
+    # second allocate the resource(s)
     for buildresource in self.build.buildresource_set.all():
       quantity = buildresource.quantity
       resource = buildresource.resource.subclass
@@ -131,42 +150,29 @@ QueueItem
       buildresource_list.append( buildresource )
 
       for item in buildresource.interface_map.values():
-        if 'network' not in item:
+        if 'network' in item:
+          try:
+            network_map[ item[ 'network' ] ]
+          except KeyError:
+            missing_list.append( 'Network "{0}" Not Defined'.format( item[ 'network' ] ) )
+
+        else:
           other_ip_count += quantity
-
-    # second allocate the network(s)
-    for name, item in self.build.network_map.items():
-      if item[ 'dedicated' ]:
-        try:
-          network_map[ name ] = Network.objects.filter( monalythic=True, size__gte=item[ 'size' ], build__isnull=True )[ 0 ].name
-        except IndexError:
-          missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
-
-      else:
-        for network in Network.objects.filter( monalythic=False, size__gte=item[ 'size' ] ):
-          if network.available( item[ 'size' ] ):
-             network_map[ name ] = network.name
-             break
-
-        try:
-          network[ name ]
-        except KeyError:
-          missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
 
     # lastly make sure we have the IPs
     if other_ip_count:
-      for network in Network.objects.filter( monalythic=False, size__gte=other_ip_count, pk__notin=network_map.items() ):
+      for network in Network.objects.filter( monalythic=False, size__gte=other_ip_count ).exclude( pk__in=network_map.items() ):
         if network.available( other_ip_count ):
            network_map[ '_OTHER_' ] = network.name
            break
 
       try:
-        network[ '_OTHER_' ]
+        network_map[ '_OTHER_' ]
       except KeyError:
         missing_list.append( 'Other Network Not Available' )
 
     if missing_list:
-      return ( missing_list, None, None )
+      return ( list( set( missing_list ) ), None, None )
 
     return ( None, buildresource_list, network_map )
 
@@ -520,6 +526,7 @@ class BuildJobResourceInstance( models.Model ):
   resource_instance = models.OneToOneField( ResourceInstance, blank=True, null=True, on_delete=models.SET_NULL )
   blueprint = models.CharField( max_length=BLUEPRINT_NAME_LENGTH )
   _config_values = MapField( blank=True )
+  autorun = models.BooleanField( default=False )
   cookie = models.CharField( max_length=36, default=getCookie )
   # build info
   name = models.CharField( max_length=50, blank=True, null=True  )
@@ -535,9 +542,9 @@ class BuildJobResourceInstance( models.Model ):
   def hostname( self ):  # TODO: make sure does not exceed contractor's locator length, and is locator/hostname safe
     if self.buildjob is not None:
       if self.buildjob.manual:
-        return 'mcp-auto--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
-      else:
         return 'mcp-manual--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
+      else:
+        return 'mcp-auto--{0}-{1}-{2}'.format( self.buildjob_id, self.name, self.index )
 
     else:
       return 'mcp-prealloc--{0}'.format( self.pk )
@@ -587,7 +594,7 @@ class BuildJobResourceInstance( models.Model ):
     if self.state not in ( 'new', 'allocated', 'building' ):  # allready moved on, don't touch
       return
 
-    if self.resource.buildresource_set.get( name=self.name, build=self.buildjob ).autorun:
+    if self.autorun:
       self.state = 'ran'
       self.success = True
 

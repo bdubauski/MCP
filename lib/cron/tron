@@ -77,7 +77,7 @@ def _queuePromotion( commit, package_list, tag ):
 
   logging.info( 'Creating Promotion check for Commit "{0}" for tag "{1}"...'.format( commit.commit, tag ) )
   promotion = Promotion()
-  promotion.commit = commit.commit
+  promotion.commit = commit
   promotion.tag = tag
   promotion.full_clean()
   promotion.save()
@@ -129,7 +129,11 @@ for promotion in Promotion.objects.filter( done_at__isnull=False ):
 
 
 # iterate over groups of package files
-for commit in Commit.objects.filter( done_at__isnull=False, promotion=None).exclude( packagefile=None ):
+for commit in Commit.objects.filter( done_at__isnull=False ).exclude( packagefile=None ):
+  if None in [ i.done_at for i in commit.promotion_set.all() ]:
+    logging.info( 'Commit "{1}" has on going promotions, skipping...'.format( commit.commit ) )
+    continue
+
   id_list = list( PackageFile.objects.filter( commit=commit ).values_list( 'packrat_id', flat=True ) )
   to_tag_list = []
   todo_tag_set = set()
@@ -139,12 +143,13 @@ for commit in Commit.objects.filter( done_at__isnull=False, promotion=None).excl
     try:
       package_file = packrat.cinp.get( packagefile_id )
     except cinp.client.NotFound:
-      logging.info( 'Package File "{0}" in Commit "{1}" disapeared, deleting..., and skiping Commit.'.format( packagefile_id, commit.commit ) )
-      PackageFile.objects.get( pk=packagefile_id ).delete()
+      logging.info( 'Package File "{0}" in Commit "{1}" disapeared, deleting...'.format( packagefile_id, commit.commit ) )
+      PackageFile.objects.get( packrat_id=packagefile_id ).delete()
       continue
 
     if package_file[ 'deprocated_at' ] or package_file[ 'failed_at' ]:  # we don't care about this file anymore, move along
-     logging.info( 'Package File "{0}" in Commit "{1}" is deprocated/failed, skipping...'.format( packagefile_id, commit.commit ) )
+      logging.info( 'Package File "{0}" in Commit "{1}" is deprocated/failed, skipping...'.format( packagefile_id, commit.commit ) )
+      continue
 
     to_tag_list.append( packagefile_id )
     todo_tag_set = todo_tag_set.union( ( available_tag_set - set( package_file[ 'tags' ] ) ) )
@@ -157,7 +162,7 @@ for commit in Commit.objects.filter( done_at__isnull=False, promotion=None).excl
     if len( tag_requirements_map[ tag ] - min_set_tags ) != 0:  # Not all requiremenets are met
       continue
 
-    package_list = Package.objects.filter( pk__in=to_tag_list )
+    package_list = Package.objects.filter( packagefile__packrat_id__in=to_tag_list )
     _queuePromotion( commit, package_list, tag )
 
 packrat.logout()

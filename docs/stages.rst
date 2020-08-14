@@ -77,7 +77,7 @@ examples::
 
 example::
   integrationcheck-networks:
-    echo vmnet:{ \"min_size\": 128, \"dedicated\": true }
+    echo vmnet:{ \"min_addresses\": 128, \"dedicated\": true }
 
 - <build>-depends: echo a list of packages and tags this auto build is triggered by.  NOTE: the build is triggered when
   the package is being tagged with the specified tag.  If the build fails, the package is tagged as failed.

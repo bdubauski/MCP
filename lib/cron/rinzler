@@ -206,7 +206,7 @@ def _makeBuild( build_name, project, manual ):
     for item, default in ( ( 'dedicated', False ), ):
       build.network_map[ name ][ item ] = bool( data.get( item, default ) )
 
-    for item, default in ( ( 'min_addresses', 6 ), ):
+    for item, default in ( ( 'min_addresses', 14 ), ):  # a /28
       build.network_map[ name ][ item ] = int( data.get( item, default ) )
 
   build.full_clean()

@@ -227,10 +227,14 @@ DynamicResource
     buildjob_resource.name = buildresource.name
     buildjob_resource.index = index
     buildjob_resource.config_values = buildresource.config_values
+    buildjob_resource.autorun = buildresource.autorun
     buildjob_resource.full_clean()
     buildjob_resource.save()
 
     buildjob_resource.updateConfig()
+
+    if buildjob_resource.state == 'built':  # there may be some triggers(autorun) that would of happened if this was built normally, do that now
+      buildjob_resource.signal_built( buildjob_resource.cookie )
 
   def _createNew( self, interface_map, buildjob, buildresource, index ):
     BuildJobResourceInstance = apps.get_model( 'Processor', 'BuildJobResourceInstance' )
@@ -245,6 +249,7 @@ DynamicResource
     buildjob_resource.index = index
     buildjob_resource.blueprint = buildresource.blueprint
     buildjob_resource.config_values = buildresource.config_values
+    buildjob_resource.autorun = buildresource.autorun
     buildjob_resource.full_clean()
     buildjob_resource.save()
 
@@ -280,14 +285,17 @@ DynamicResource
     return True
 
   def allocate( self, buildjob, buildresource, interface_map ):
-    if interface_map or buildresource.config_values:  # no preallocation for non-default networks, and custom config might have values to tweek the build ie: cpu count
+    use_prealloc = interface_map or buildresource.config_values  # no preallocation for non-default networks, and custom config might have values to tweek the build ie: cpu count
+
+    if not interface_map:
+      network = _getAvailibleNetwork( self.site, buildresource.quantity )  # yes, if we are getting only pre-allocated stuff, we are double counting the network ips, however we need ips for the new resources that are going to backfill
+      interface_map = { 'eth0': { 'network_id': network.contractor_network_id, 'address_block_id': network.contractor_addressblock_id, 'is_primary': True } }
+
+    if use_prealloc:
       for index in range( 0, buildresource.quantity ):
         self._createNew( interface_map, buildjob, buildresource, index )
 
       return
-
-    network = _getAvailibleNetwork( self.site, buildresource.quantity )  # yes, if we are getting only pre-allocated stuff, we are double counting the network ips, however we need ips for the new resources that are going to backfill
-    interface_map = { 'eth0': { 'network_id': network.contractor_network_id, 'address_block_id': network.contractor_addressblock_id, 'is_primary': True } }
 
     dynamic_resource_instance_list = DynamicResourceInstance.objects.filter( buildjobresourceinstance__buildjob__isnull=True, buildjobresourceinstance__blueprint=buildresource.blueprint, dynamic_resource=self ).order_by( 'pk' ).iterator()
 
@@ -367,7 +375,7 @@ class Network( models.Model ):
   """
 Network, name is the name of the SubNet/AddressBlock.
   """
-  name = models.CharField( max_length=50, primary_key=True )
+  name = models.CharField( max_length=82, primary_key=True )  # both addressblock and network names are 40, plus a little to spare
   site = models.ForeignKey( Site, on_delete=models.CASCADE )
   contractor_addressblock_id = models.IntegerField( unique=True )  # unique b/c we don't have anything to check for overlap between networks, thus avoiding over subscription of the ip addresses
   contractor_network_id = models.IntegerField()

@@ -25,7 +25,10 @@ parser.add_argument( '--site-remove', help='Remove a Site, this should be the si
 parser.add_argument( '--site', help='Site for required operations', metavar='SITE NAME' )
 
 parser.add_argument( '--network-list', help='List the Curent Networks in specified Site', action='store_true' )
-parser.add_argument( '--network-add', help='Add a Network, this should be "network id:addressblock id" on Contractor, requires site paramater', metavar='ID:ID' )
+parser.add_argument( '--network-add-network', help='Add a Network, this should be the network id on Contractor, requires site paramater, and network-add-addressblock', metavar='NETWORK ID' )
+parser.add_argument( '--network-add-addressblock', help='Add a Network, this should be the address block id on Contractor, goes with network-add-network', metavar='ADDRESSBLOCK ID' )
+parser.add_argument( '--network-add-monalythic', help='Add a Network, this flags a network as monalythic, ie: can only be used for one build at a time.', action='store_true' )
+
 parser.add_argument( '--network-remove', help='Remove a Network, this should be the network id in MCP', metavar='NETWORK NAME' )
 
 parser.add_argument( '--dynamic-resource-list', help='List the Curent Dynamic Resources', action='store_true' )
@@ -105,48 +108,46 @@ if args.site_remove:
   sys.exit( 0 )
 
 # network operations
-if args.network_add:
-  try:
-    network_id, address_block_id = args.network_add.split( ':' )
-  except ValueError:
-    print( 'network add value should be "<network id>:<address block id>"')
-    sys.exit( 1 )
+if args.network_add_network:
+  if not args.network_add_addressblock:
+    print( '--network-add-addressblock required to add new network' )
+    sys.exit( 0 )
 
   try:
-    contractor_network = contractor.getNetwork( network_id )
+    contractor_network = contractor.getNetwork( args.network_add_network )
   except cinp.client.NotFound:
-    print( 'Network "{0}" not found on Contractor'.format( network_id ) )
+    print( 'Network "{0}" not found on Contractor'.format( args.network_add_network ) )
     sys.exit( 1 )
 
   if contractor_network[ 'site' ].split( ':' )[1] != site.name:
-    print( 'Network "{0}" does not belong to site'.format( network_id ) )
+    print( 'Network "{0}" does not belong to site'.format( args.network_add_network ) )
     sys.exit( 1 )
 
   try:
-    contractor_addressblock = contractor.getAddressBlock( address_block_id )
+    contractor_addressblock = contractor.getAddressBlock( args.network_add_addressblock )
   except cinp.client.NotFound:
-    print( 'AddressBlock "{0}" not found on Contractor'.format( address_block_id ) )
+    print( 'AddressBlock "{0}" not found on Contractor'.format( args.network_add_addressblock ) )
     sys.exit( 1 )
 
   for item in contractor_network[ 'address_block_list' ]:
     nab = contractor.cinp.get( item )
-    if nab[ 'address_block' ] == '/api/v1/Utilities/AddressBlock:{0}:'.format( address_block_id ):
+    if nab[ 'address_block' ] == '/api/v1/Utilities/AddressBlock:{0}:'.format( args.network_add_addressblock ):
       break
   else:
-    print( 'No Linkage between AddressBlock "{0}" and Network "{1}"'.format( address_block_id, network_id ) )
+    print( 'No Linkage between AddressBlock "{0}" and Network "{1}"'.format( args.network_add_addressblock, args.network_add_network ) )
     sys.exit( 1 )
 
   network = Network()
   network.site = site
-  network.name = contractor_network[ 'name' ]
-  network.contractor_network_id = network_id
-  network.contractor_addressblock_id = address_block_id
-  network.monalythic = False
+  network.name = '{0}-{1}'.format( contractor_network[ 'name' ], contractor_addressblock[ 'name' ] )
+  network.contractor_network_id = args.network_add_network
+  network.contractor_addressblock_id = args.network_add_addressblock
+  network.monalythic = args.network_add_monalythic
   network.size = contractor_addressblock[ 'size' ]
   network.full_clean()
   network.save()
 
-  print( 'Network for Network "{0}" and Addressblock "{1}" Created.'.format( network_id, address_block_id ) )
+  print( 'Network for Network "{0}" and Addressblock "{1}" Created.'.format( args.network_add_network, args.network_add_addressblock ) )
   sys.exit( 0 )
 
 if args.network_remove:
