@@ -7,7 +7,7 @@ import django
 django.setup()
 
 import time
-from mcp.Project.models import BuildJobResourceInstance
+from mcp.Processor.models import BuildJobResourceInstance
 
 
 for instance in BuildJobResourceInstance.objects.filter( buildjob__isnull=True, state='built' ):
@@ -19,7 +19,6 @@ while True:
   print( '{0} Instances remaning'.format( BuildJobResourceInstance.objects.filter( buildjob__isnull=True ).count() ) )
   for instance in BuildJobResourceInstance.objects.filter( buildjob__isnull=True, state='released' ):
     print( 'Deleting Instance "{0}"'.format( instance ) )
-    instance.resource_instance.delete()
     instance.delete()
 
   if BuildJobResourceInstance.objects.filter( buildjob__isnull=True, state='releasing' ).count() == 0:

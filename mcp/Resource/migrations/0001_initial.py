@@ -21,7 +21,7 @@ class Migration(migrations.Migration):
                 ('name', models.CharField(max_length=82, primary_key=True, serialize=False)),
                 ('contractor_addressblock_id', models.IntegerField(unique=True)),
                 ('contractor_network_id', models.IntegerField()),
-                ('monalythic', models.BooleanField(default=True)),
+                ('monolithic', models.BooleanField(default=True)),
                 ('size', models.IntegerField()),
                 ('created', models.DateTimeField(auto_now_add=True)),
                 ('updated', models.DateTimeField(auto_now=True)),

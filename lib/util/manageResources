@@ -27,7 +27,7 @@ parser.add_argument( '--site', help='Site for required operations', metavar='SIT
 parser.add_argument( '--network-list', help='List the Curent Networks in specified Site', action='store_true' )
 parser.add_argument( '--network-add-network', help='Add a Network, this should be the network id on Contractor, requires site paramater, and network-add-addressblock', metavar='NETWORK ID' )
 parser.add_argument( '--network-add-addressblock', help='Add a Network, this should be the address block id on Contractor, goes with network-add-network', metavar='ADDRESSBLOCK ID' )
-parser.add_argument( '--network-add-monalythic', help='Add a Network, this flags a network as monalythic, ie: can only be used for one build at a time.', action='store_true' )
+parser.add_argument( '--network-add-monolithic', help='Add a Network, this flags a network as monolithic, ie: can only be used for one build at a time.', action='store_true' )
 
 parser.add_argument( '--network-remove', help='Remove a Network, this should be the network id in MCP', metavar='NETWORK NAME' )
 
@@ -63,10 +63,10 @@ if ( args.network_list or args.dynamic_resource_list ) and site is None:
   sys.exit( 1 )
 
 if args.network_list:
-  print( 'Name     Size  Monolythic  Contractor Address Block  Contractor Network' )
+  print( 'Name     Size  Monolithic  Contractor Address Block  Contractor Network' )
   print( '-----------------------------------------------------------------------' )
   for network in Network.objects.filter( site=site ):
-    print( '{0}  {1}  {2}  {3}  {4}'.format( network.name, network.site, network.monalythic, network.contractor_addressblock_id, network.contractor_network_id ) )
+    print( '{0}  {1}  {2}  {3}  {4}'.format( network.name, network.site, network.monolithic, network.contractor_addressblock_id, network.contractor_network_id ) )
 
   sys.exit( 0 )
 
@@ -142,7 +142,7 @@ if args.network_add_network:
   network.name = '{0}-{1}'.format( contractor_network[ 'name' ], contractor_addressblock[ 'name' ] )
   network.contractor_network_id = args.network_add_network
   network.contractor_addressblock_id = args.network_add_addressblock
-  network.monalythic = args.network_add_monalythic
+  network.monolithic = args.network_add_monolithic
   network.size = contractor_addressblock[ 'size' ]
   network.full_clean()
   network.save()

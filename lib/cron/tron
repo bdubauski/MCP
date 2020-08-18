@@ -131,7 +131,7 @@ for promotion in Promotion.objects.filter( done_at__isnull=False ):
 # iterate over groups of package files
 for commit in Commit.objects.filter( done_at__isnull=False ).exclude( packagefile=None ):
   if None in [ i.done_at for i in commit.promotion_set.all() ]:
-    logging.info( 'Commit "{1}" has on going promotions, skipping...'.format( commit.commit ) )
+    logging.info( 'Commit "{0}" has on going promotions, skipping...'.format( commit.commit ) )
     continue
 
   id_list = list( PackageFile.objects.filter( commit=commit ).values_list( 'packrat_id', flat=True ) )

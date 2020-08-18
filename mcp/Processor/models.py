@@ -125,12 +125,12 @@ QueueItem
     for name, item in self.build.network_map.items():
       if item[ 'dedicated' ]:
         try:
-          network_map[ name ] = Network.objects.filter( monalythic=True, size__gte=item[ 'min_addresses' ], build__isnull=True )[ 0 ].name
+          network_map[ name ] = Network.objects.filter( monolithic=True, size__gte=item[ 'min_addresses' ], buildjob__isnull=True )[ 0 ].name
         except IndexError:
           missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
 
       else:
-        for network in Network.objects.filter( monalythic=False, size__gte=item[ 'min_addresses' ] ):
+        for network in Network.objects.filter( monolithic=False, size__gte=item[ 'min_addresses' ] ):
           if network.available( item[ 'min_addresses' ] ):
              network_map[ name ] = network.name
              break
@@ -161,7 +161,7 @@ QueueItem
 
     # lastly make sure we have the IPs
     if other_ip_count:
-      for network in Network.objects.filter( monalythic=False, size__gte=other_ip_count ).exclude( pk__in=network_map.items() ):
+      for network in Network.objects.filter( monolithic=False, size__gte=other_ip_count ).exclude( pk__in=network_map.items() ):
         if network.available( other_ip_count ):
            network_map[ '_OTHER_' ] = network.name
            break
@@ -435,7 +435,7 @@ BuildJob
   @property
   def instances_built( self ):
     for instance in self.buildjobresourceinstance_set.all():
-      if instance.state not in ( 'built', 'ran' ):
+      if instance.state not in ( 'built', 'ran', 'releasing', 'released' ):
         return False
 
     return True
@@ -443,7 +443,7 @@ BuildJob
   @property
   def instances_ran( self ):
     for instance in self.buildjobresourceinstance_set.all():
-      if instance.state != 'ran':
+      if instance.state not in ( 'ran', 'releasing', 'released' ):
         return False
 
     return True

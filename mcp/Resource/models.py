@@ -16,7 +16,7 @@ cinp = CInP( 'Resource', '0.1' )
 
 
 def _getAvailibleNetwork( site, quantity ):
-  for network in site.network_set.filter( monalythic=False ):
+  for network in site.network_set.filter( monolithic=False ):
     if network.available( quantity ):
       return network
 
@@ -341,8 +341,15 @@ DynamicResourceInstance
     return self.dynamic_resource
 
   def allocate( self, blueprint, config_values, hostname ):
+    interface_map = self.interface_map
+    for interface in interface_map.keys():
+      if 'network_id' not in interface_map[ interface ]:
+        network = Network.objects.get( name=interface_map[ interface ][ 'network'] )
+        interface_map[ interface ][ 'network_id' ] = network.contractor_network_id
+        interface_map[ interface ][ 'address_block_id' ] = network.contractor_addressblock_id
+
     contractor = getContractor()
-    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint, config_values, self.interface_map, hostname )
+    self.contractor_foundation_id, self.contractor_structure_id = contractor.allocateDynamicResource( self.dynamic_resource.site.name, self.dynamic_resource.complex_id, blueprint, config_values, interface_map, hostname )
     self.full_clean()
     self.save()
 
@@ -379,13 +386,13 @@ Network, name is the name of the SubNet/AddressBlock.
   site = models.ForeignKey( Site, on_delete=models.CASCADE )
   contractor_addressblock_id = models.IntegerField( unique=True )  # unique b/c we don't have anything to check for overlap between networks, thus avoiding over subscription of the ip addresses
   contractor_network_id = models.IntegerField()
-  monalythic = models.BooleanField( default=True )  # only use for one build at a time, also use for sub-let builds, ie: we are not going to ask contractor about it.
+  monolithic = models.BooleanField( default=True )  # only use for one build at a time, also use for sub-let builds, ie: we are not going to ask contractor about it.
   size = models.IntegerField()
   created = models.DateTimeField( editable=False, auto_now_add=True )
   updated = models.DateTimeField( editable=False, auto_now=True )
 
   def available( self, quantity ):  # TODO: rethink, mabey it should be a class method, and probably should return the resources, merge with allocate?
-    if self.monalythic:
+    if self.monolithic:
       return self.build_set.all().count() == 0
 
     contractor = getContractor()
