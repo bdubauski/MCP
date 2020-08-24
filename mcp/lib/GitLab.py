@@ -10,7 +10,7 @@ class GitLabException( Exception ):
 
 
 class GitLab():
-  def __init__( self, host, proxy, private_token, group=None, project=None ):
+  def __init__( self, host, proxy, private_token, project ):
     if proxy is not None:
       proxy_save = (  os.getenv( 'http_proxy' ), os.getenv( 'https_proxy' ) )
       os.environ[ 'http_proxy' ] = proxy
@@ -31,7 +31,6 @@ class GitLab():
       os.environ[ 'http_proxy' ] = proxy_save[0]
       os.environ[ 'https_proxy' ] = proxy_save[1]
 
-    self.group = group
     self.project = project
     self._glProject = None
 
@@ -40,8 +39,17 @@ class GitLab():
     if self._glProject is not None:
       return self._glProject
 
-    self._glProject = self.conn.projects.get( self.project_id )  # raises GitlabGetError
+    try:
+      self._glProject = self.conn.projects.get( self.project )  # raises GitlabGetError
+    except GitlabGetError:
+      return None
     return self._glProject
+
+  def _getCommit( self, commit_hash ):
+    try:
+      return self._project.commits.get( commit_hash )
+    except GitlabGetError:
+      return None
 
   def _getMergeRequest( self, id ):
     try:
@@ -50,14 +58,41 @@ class GitLab():
       return None
 
   def postCommitComment( self, commit_hash, comment ):
-    logging.warning( 'Unable get Commit "{0}" of "{1}" in "{2}"'.format( commit_hash, self.repo, self.org ) )
-    return
+    commit = self._getCommit( commit_hash )
+    if commit is None:
+      logging.warning( 'Unable get Commit "{0}" of project "{1}"'.format( commit_hash, self.project ) )
+      return
+
+    data = {}
+    data[ 'note' ] = comment
+    commit.notes.create( data )
 
   def postCommitStatus( self, commit_hash, state ):
-    return
+    if state not in ( 'pending', 'running', 'success', 'failed', 'canceled' ):
+      raise GitLabException( 'Invalid state' )
+
+    commit = self._getCommit( commit_hash )
+    if commit is None:
+      logging.warning( 'Unable get Commit "{0}" of project "{1}"'.format( commit_hash, self.project ) )
+
+    data = {}
+    data[ 'state' ] = state
+    data[ 'context' ] = 'MCP Tests'
+    # target_url
+    # description
+    # data[ 'coverage' ] = coverage
+
+    commit.statuses.create( data )
 
   def postMergeComment( self, id, comment ):
-    return
+    mr = self._getMergeRequest( id )
+    if mr is None:
+      logging.warning( 'Unable get MR "{0}" of group "{1}"'.format( id, self.project ) )
+      return
+
+    data = {}
+    data[ 'body' ] = comment
+    mr.notes.create( data )
 
   def getMergeList( self ):
     return [ i.get_id() for i in self._project.mergerequests.list() ]

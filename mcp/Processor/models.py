@@ -140,6 +140,9 @@ QueueItem
         except KeyError:
           missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
 
+    if missing_list:
+      return ( list( set( missing_list ) ), None, None )
+
     # second allocate the resource(s)
     for buildresource in self.build.buildresource_set.all():
       quantity = buildresource.quantity

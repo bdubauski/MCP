@@ -9,7 +9,7 @@ class GitHubException( Exception ):
 
 
 class GitHub():
-  def __init__( self, host, proxy, user, password, org=None, repo=None ):
+  def __init__( self, host, proxy, user, password, org, repo ):
     if proxy is not None:
       proxy_save = (  os.getenv( 'http_proxy' ), os.getenv( 'https_proxy' ) )
       os.environ[ 'http_proxy' ] = proxy
@@ -38,9 +38,6 @@ class GitHub():
 
   @property
   def _repo( self ):
-    if self.org is None or self.repo is None:
-      raise Exception( 'repo and org must be set' )
-
     if self._ghRepo is not None:
       return self._ghRepo
 
@@ -81,7 +78,7 @@ class GitHub():
       return
 
     try:
-      commit.create_status( state, GithubObject.NotSet, GithubObject.NotSet, 'MCP Tests' )
+      commit.create_status( state, GithubObject.NotSet, GithubObject.NotSet, 'MCP Tests' )  # state, target_url, description, context
     except UnknownObjectException:
       logging.warning( 'Unable to set status on commit "{0}" of "{1}" in "{2}", check permissions'.format( commit_hash, self.repo, self.org ) )
 

@@ -291,8 +291,8 @@ for project in Project.objects.all().order_by( 'last_checked' ):
     project.local_path = '{0}/{1}'.format( project.pk, os.path.basename( url ) )
     logging.debug( 'Creating "{0}" in "{1}"...'.format( project.name, project.local_path ) )
 
-    git = project.internal_git  # can't get internal_git untill after local_path is set
-    git.setup( url )  # make sure we can check things out before saving the path
+    git = project.internal_git  # can't get internal_git until after local_path is set
+    git.setup( url )  # TODO: make sure we can check things out before saving the path
     project.full_clean()
     project.save()
 

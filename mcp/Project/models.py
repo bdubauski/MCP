@@ -233,7 +233,7 @@ This is a Generic Project
       return '{0}/{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.github_org, self.githubproject.github_repo )
 
     elif self.type == 'GitLabProject':
-      return '{0}/{1}/{2}.git'.format( settings.GITLAB_HOST, self.gitlabproject.gitlab_group_id, self.gitlabproject.gitlab_project_id )
+      return '{0}/{1}.git'.format( settings.GITLAB_HOST, self.gitlabproject.gitlab_project_path )
 
     elif self.type == 'GitProject':
       return self.gitproject.git_repo
@@ -243,20 +243,20 @@ This is a Generic Project
   @property
   def clone_git_url( self ):  # url used by rinzler to clone the repo
     if self.type == 'GitHubProject':
-      if settings.GITHUB_PASS is not None:
+      if settings.GITHUB_PASS is not None:  # TODO: don't store the auth stuff in the cloned repo!!!
         auth = '{0}:{1}'.format( settings.GITHUB_USER, settings.GITHUB_PASS )
       else:
         auth = settings.GITHUB_USER
 
       return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.github_org, self.githubproject.github_repo ) ).replace( '://', '://{0}@'.format( auth ) )
 
-    elif self.type == 'GitLabProject':
+    elif self.type == 'GitLabProject':  # TODO: don't store the auth stuff in the cloned repo!!!
       if settings.GITLAB_PASS is not None:
         auth = '{0}:{1}'.format( settings.GITLAB_USER, settings.GITLAB_PASS )
       else:
         auth = settings.GITLAB_USER
 
-      return ( '{0}{1}/{2}.git'.format( settings.GITLAB_HOST, self.githubproject.gitlab_group_id, self.githubproject.gitlab_project_id ) ).replace( '://', '://{0}@'.format( auth ) )
+      return ( '{0}{1}.git'.format( settings.GITLAB_HOST, self.githubproject.gitlab_project_path ) ).replace( '://', '://{0}@'.format( auth ) )
 
     elif self.type == 'GitProject':
       return self.gitproject.git_repo
@@ -376,8 +376,8 @@ class GitLabProject( Project ):
   """
 This is a GitLab Project
   """
-  gitlab_group_id = models.IntegerField()
-  gitlab_project_id = models.IntegerField()
+  gitlab_project_path = models.CharField( max_length=200 )
+  gitlab_project_id = models.IntegerField()  # TODO: caculate this from the project path when rinzler does 'git.setup( url )'
 
   @property
   def type( self ):
@@ -391,7 +391,7 @@ This is a GitLab Project
     except AttributeError:
       pass
 
-    self._gitlab = GitLab( settings.GITLAB_API_HOST, settings.GITLAB_PROXY, settings.GITLAB_USER, settings.GITLAB_PASS, self.group_id, self.project_id )
+    self._gitlab = GitLab( settings.GITLAB_HOST, settings.GITLAB_PROXY, settings.GITLAB_PRIVATE_TOKEN, self.gitlab_project_id )
     return self._gitlab
 
   @cinp.check_auth()
