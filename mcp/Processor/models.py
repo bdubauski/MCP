@@ -125,7 +125,7 @@ QueueItem
     for name, item in self.build.network_map.items():
       if item[ 'dedicated' ]:
         try:
-          network_map[ name ] = Network.objects.filter( monolithic=True, size__gte=item[ 'min_addresses' ], buildjob__isnull=True )[ 0 ].name
+          network_map[ name ] = Network.objects.filter( monolithic=True, size__gte=item[ 'min_addresses' ], buildjob=None )[ 0 ].name
         except IndexError:
           missing_list.append( 'Network for "{0}" Not Available'.format( name ) )
 
@@ -614,7 +614,7 @@ class BuildJobResourceInstance( models.Model ):
 
     self.resource_instance.cleanup()
 
-    self.resource_instance = None  # techinically this is done for us
+    self.resource_instance = None  # cleanup will delete the resource_instance
     self.state = 'released'
     self.full_clean()
     self.save()
@@ -749,6 +749,7 @@ class BuildJobResourceInstance( models.Model ):
     elif self.state == 'allocated':
       if self.resource_instance is not None:
         self.resource_instance.cleanup()
+        self.resource_instance = None  # cleanup will delete the resource_instance
 
       self.state = 'released'
       self.full_clean()

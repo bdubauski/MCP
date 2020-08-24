@@ -65,9 +65,9 @@ class GitLab():
 
     data = {}
     data[ 'note' ] = comment
-    commit.notes.create( data )
+    commit.comments.create( data )
 
-  def postCommitStatus( self, commit_hash, state ):
+  def postCommitStatus( self, commit_hash, branch, state, description=None ):
     if state not in ( 'pending', 'running', 'success', 'failed', 'canceled' ):
       raise GitLabException( 'Invalid state' )
 
@@ -75,11 +75,23 @@ class GitLab():
     if commit is None:
       logging.warning( 'Unable get Commit "{0}" of project "{1}"'.format( commit_hash, self.project ) )
 
+    # work arround for bug
+    # https://gitlab.com/gitlab-org/gitlab/-/issues/16491
+
+    mr = self._getMergeRequest( self.branchToMerge( branch ) )
+    commit = self.conn.projects.get( mr.attributes[ 'source_project_id' ] ).commits.get( commit_hash )
+
+    # end work arround
+    #   the "normal" commit sould be the one above
+    #   and remove branch from the paramater list
+
     data = {}
     data[ 'state' ] = state
     data[ 'context' ] = 'MCP Tests'
+    if description is not None:
+      data[ 'description' ] = description
+
     # target_url
-    # description
     # data[ 'coverage' ] = coverage
 
     commit.statuses.create( data )
@@ -95,11 +107,11 @@ class GitLab():
     mr.notes.create( data )
 
   def getMergeList( self ):
-    return [ i.get_id() for i in self._project.mergerequests.list() ]
+    return [ i.get_id() for i in self._project.mergerequests.list( state='opened' ) if not i.attributes[ 'work_in_progress' ] ]
 
   def branchToMerge( self, branch_name ):
     if branch_name.startswith( '_MR' ):
-      return int( branch_name[3:] )
+      return int( branch_name[ 3: ] )
 
     return None
 

@@ -649,19 +649,15 @@ function loadProjects()
         }
 
         var gitIcon
-        var name
         if( item.type === 'GitHubProject' )
         {
-          gitIcon = '<i class="fab fa-github fa-lg fa-fw"></i>&nbsp; ' + item.github_org
-          name = item.github_repo
+          gitIcon = '<i class="fab fa-github fa-lg fa-fw"></i>'
         } else if ( item.type === 'GitLabProject' ) {
-          gitIcon = '<i class="fab fa-gitlab fa-lg fa-fw"></i>&nbsp; ' + item.gitlab_group_id
-          name = item.gitlab_project_id
+          gitIcon = '<i class="fab fa-gitlab fa-lg fa-fw"></i>'
         } else {
           gitIcon = '<i class="fab fa-git fa-lg fa-fw"></i>'
-          name = item.name
         }
-        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;<span class="project-name">' + name + '</span></dt><dd>' + gitIcon + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
+        projList += '<dl><dt id="project-entry" uri="' + uri + '">' + busy + '&nbsp;<span class="project-name">' + item.name + '</span></dt><dd>' + gitIcon + '</dd><dd><i class="fa fa-calendar-o fa-lg fa-fw"/>&nbsp; ' + projUpdated + '</dd><!--<dd><i class="fa fa-calendar-o fa-fw"/>&nbsp; Created: ' + projCreated + '</dd>--></dl></div>'
         projectList.append(projList);
         $('#project-list').sortDivs();
       }

@@ -210,6 +210,7 @@ for commit in Commit.objects.filter( done_at__isnull=True, test_at__isnull=False
       packagefile.full_clean()
       packagefile.save()
 
+    slack.post_message( 'Tagging "{0}" with tag "{1}".'.format( commit.project.name, commit.version ), slack.INFO )
     commit.tagVersion()
 
   slack.post_message( 'Commit "{0}" of "{1}", branch "{2}" Finished.'.format( commit.commit, commit.project.name, commit.branch ), slack.DONE )

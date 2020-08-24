@@ -68,7 +68,7 @@ class GitHub():
 
     commit.create_comment( comment, GithubObject.NotSet, GithubObject.NotSet, GithubObject.NotSet )
 
-  def postCommitStatus( self, commit_hash, state ):
+  def postCommitStatus( self, commit_hash, branch, state, description=None ):
     if state not in ( 'pending', 'success', 'error', 'failure' ):
       raise GitHubException( 'Invalid state' )
 
@@ -77,8 +77,11 @@ class GitHub():
       logging.warning( 'Unable get Commit "{0}" of "{1}" in "{2}"'.format( commit_hash, self.repo, self.org ) )
       return
 
+    if description is None:
+      description = GithubObject.NotSet
+
     try:
-      commit.create_status( state, GithubObject.NotSet, GithubObject.NotSet, 'MCP Tests' )  # state, target_url, description, context
+      commit.create_status( state, GithubObject.NotSet, description, 'MCP Tests' )  # state, target_url, description, context
     except UnknownObjectException:
       logging.warning( 'Unable to set status on commit "{0}" of "{1}" in "{2}", check permissions'.format( commit_hash, self.repo, self.org ) )
 

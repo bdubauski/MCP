@@ -244,6 +244,10 @@ def _makeBuild( build_name, project, manual ):
     buildres.full_clean()
     buildres.save()
 
+  # TODO: go over the build resources and make sure any named network was defined
+  # TODO: go over the buildresource and make sure any ip address offsets are a part of a dedicated network
+  # TODO: any other saninity checks?
+
   for package_name, tag in package_map.items():
     package = Package.objects.get( name=package_name )
 
@@ -444,14 +448,14 @@ for project in Project.objects.all().order_by( 'last_checked' ):
           msg = _makeBuild( build, project, False )
           if msg is not None:
             logging.error( msg )
-            _failCommit( commit, msg )
+            _failCommit( commit, msg )  # Yes, this should kill the commit, auto builds need to be fixed, don't want something getting auto promoted acidentally
             continue
 
         for build in manual_build_list:
           msg = _makeBuild( build, project, True )
           if msg is not None:
             logging.error( msg )
-            _failCommit( commit, msg )
+            _failCommit( commit, msg )  # TODO: should manual builds fail the commit?
             continue
 
       except Exception as e:

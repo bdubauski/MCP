@@ -251,12 +251,12 @@ This is a Generic Project
       return ( '{0}{1}/{2}.git'.format( settings.GITHUB_HOST, self.githubproject.github_org, self.githubproject.github_repo ) ).replace( '://', '://{0}@'.format( auth ) )
 
     elif self.type == 'GitLabProject':  # TODO: don't store the auth stuff in the cloned repo!!!
-      if settings.GITLAB_PASS is not None:
-        auth = '{0}:{1}'.format( settings.GITLAB_USER, settings.GITLAB_PASS )
+      if settings.GITLAB_PRIVATE_TOKEN is not None:
+        auth = '{0}:{1}'.format( settings.GITLAB_USERNAME, settings.GITLAB_PRIVATE_TOKEN )
       else:
-        auth = settings.GITLAB_USER
+        auth = settings.GITLAB_USERNAME
 
-      return ( '{0}{1}.git'.format( settings.GITLAB_HOST, self.githubproject.gitlab_project_path ) ).replace( '://', '://{0}@'.format( auth ) )
+      return ( '{0}{1}.git'.format( settings.GITLAB_HOST, self.gitlabproject.gitlab_project_path ) ).replace( '://', '://{0}@'.format( auth ) )
 
     elif self.type == 'GitProject':
       return self.gitproject.git_repo
@@ -701,23 +701,20 @@ A Single Commit of a Project
     self.save()
 
   def postInProcess( self ):
-    if self.project.type != 'GitHubProject':
+    if self.project.type == 'GitProject':
       return
 
-    if not self.branch.startswith( '_PR' ):
+    if not self.branch.startswith( '_PR' ) and not self.branch.startswith( '_MR' ):  # TODO: there should be a better way to do this, apears one more time
       return
 
-    gh = self.project.githubproject.github
-    gh.postCommitStatus( self.commit, 'pending' )
+    self.project.scm.postCommitStatus( self.commit, self.branch, 'pending' )
 
   def postResults( self ):
-    if self.project.type != 'GitHubProject':
+    if self.project.type == 'GitProject':
       return
 
-    gh = self.project.githubproject.github
-
     comment = self.results
-
+    scm = self.project.scm
     try:
       prev_comment = Commit.objects.filter( project=self.project, branch=self.branch, done_at__lt=self.done_at ).order_by( '-done_at' )[0].results
     except ( Commit.DoesNotExist, IndexError ):
@@ -730,22 +727,22 @@ A Single Commit of a Project
     else:
       comment = _markdownResults( comment, prev_comment )
 
-    gh.postCommitComment( self.commit, comment )
+    scm.postCommitComment( self.commit, comment )
 
-    if self.branch.startswith( '_PR' ):
+    if self.branch.startswith( '_PR' ) or self.branch.startswith( '_MR' ):
       summary = self.summary
 
       if summary[ 'status' ] == 'Success':
-        gh.postCommitStatus( self.commit, 'success', description='Passed' )
+        scm.postCommitStatus( self.commit, self.branch, 'success', 'Passed' )
       elif summary[ 'status' ] == 'Failed':
-        gh.postCommitStatus( self.commit, 'failure', description='Failure' )
+        scm.postCommitStatus( self.commit, self.branch, 'failure', 'Failure' )
       else:
-        gh.postCommitStatus( self.commit, 'error', description='Bad State "{0}"'.format( summary[ 'status' ] ) )
+        scm.postCommitStatus( self.commit, self.branch, 'error', 'Bad State "{0}"'.format( summary[ 'status' ] ) )
 
       # gh.setOwner()
 
       number = int( self.branch[3:] )
-      gh.postPRComment( number, _commitSumary2Str( self.summary ) )
+      scm.postMergeComment( number, _commitSumary2Str( self.summary ) )
 
   def tagVersion( self ):
     if self.version is None:

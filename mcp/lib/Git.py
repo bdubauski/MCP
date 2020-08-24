@@ -7,7 +7,7 @@ class Git():
   def postCommitComment( self, commit_hash, comment, line=None, path=None, position=None ):
     pass
 
-  def postCommitStatus( self, commit_hash, state, target_url=None, description=None ):
+  def postCommitStatus( self, commit_hash, branch, state, description=None ):
     pass
 
   def postMergeComment( self, id, comment ):

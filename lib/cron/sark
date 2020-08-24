@@ -80,7 +80,7 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     job.full_clean()
     job.save()
 
-    job.network_list = Network.objects.filter( name__in=network_map.keys() )
+    job.network_list.set( Network.objects.filter( name__in=network_map.values() ) )
 
     for buildresource in buildresource_list:
       resource = buildresource.resource.subclass
@@ -102,6 +102,8 @@ for item in QueueItem.objects.all().order_by( '-priority' ):  # start with the b
     try:
       if job is not None:
         job.releaseResources()
+
+      job.delete()  # TODO: wrap in a try, but only ignore when a job is not saved
     except Exception as e2:
       logging.exception( 'Exception "{0}" releaseing while skipping, probably creating a big mess...'.format( e2, item.pk ) )
       slack.post_message( '!!! Error releasing when there was an Exception allocating, I am probably making a mess !!!', slack.CRITICAL )
