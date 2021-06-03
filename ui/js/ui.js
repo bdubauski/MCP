@@ -194,7 +194,11 @@ function hashChange( event )
                   var panelStatus = 'panel-danger'
                   var textStatus = 'text-danger'
                 }
-                commitEntry += '<div class="panel ' + panelStatus + '" timestamp="' + timestamp + '"><div class="panel-body" id="commit-' + commit + '"><ul class="list-inline"><li class="' + textStatus + '"><strong><i class="fa fa-code-branch fa-fw"></i> ' + commit + '</strong></li></ul></div><ul class="list-group"><a class="list-group-item" data-toggle="collapse" data-target="#build-' + commit + key + subkey + '" data-parent="#commit-' + commit + '"><ul class="list-inline text-muted"><li>branch: ' + item.branch + '</li>'
+                commitEntry += '<div class="panel ' + panelStatus + '" timestamp="' + timestamp + '"><div class="panel-body" id="commit-' + commit + '">' +
+                  '<ul class="list-inline"><li class="' + textStatus + '"><strong><i class="fa fa-code-branch fa-fw"></i> ' + commit + '</strong></li></ul>' +
+                  '</div><ul class="list-group">' +
+                  '<a class="list-group-item" aria-expanded="false" data-toggle="collapse" data-target="#build-' + commit + key + subkey + '" data-parent="#commit-' + commit + '">' +
+                  '<ul class="list-inline text-muted"><li>branch: ' + item.branch + '</li>'
                 if( item.passed)
                 {
                   commitEntry += '<li class="text-success">test passed</li>'
@@ -209,7 +213,10 @@ function hashChange( event )
                   commitEntry += '<li>project build failed</li>'
                 }
 
-                commitEntry += '</ul></a><div id="build-' + commit + key + subkey + '" class="sublinks collapse"><div class="list-group-item"><ol class="small">'
+                // added to support more intuitive decoration for collapsible sections
+                commitEntry += '<i class="fa fa-chevron-right pull-left" style="font-size:16px"></i><i class="fa fa-chevron-down pull-left" style="font-size:16px"></i>'
+                commitEntry += '</ul>'
+                commitEntry +='</a><div id="build-' + commit + key + subkey + '" class="sublinks collapse"><div class="list-group-item"><ol class="small">'
                 var lintResults = ( item.lint_results )
                 if( !jQuery.isEmptyObject( lintResults ) )
                 {

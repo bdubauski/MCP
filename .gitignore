@@ -15,3 +15,4 @@ www/static/*
 
 
 mcp/settings.py
+.DS_Store

@@ -325,3 +325,12 @@ ol li:hover {
     background-color:transparent;
     border: none
 }
+
+a[aria-expanded=true] .fa-chevron-right {
+    display: none;
+}
+
+a[aria-expanded=false] .fa-chevron-down {
+    display: none;
+}
+
