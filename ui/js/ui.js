@@ -298,7 +298,19 @@ function hashChange( event )
                 $( this ).find('a').attr( 'data-target', $( this ).find('a').attr( 'data-target' ) + '-latest' );
                 $( this ).find('.sublinks').attr( 'id', $( this ).find('.sublinks').attr( 'id' ) + '-latest' );
               });
-              latestCommitEntry.html($("#project-commit-list div:first").clone())
+
+              // Need to clone first div from commitEntries to latestCommitEntry element.
+              // Plain clone won't work since all of the event handlers would only work on the first added div
+              // thus original div will not collapse independently. Therefore we are updating the data target value
+              // of the collapsible section (<a>) and the id of the element providing data (<div> using 'sublinks' class)
+              var firstCommitClone = $("#project-commit-list div:first").clone();
+              var cloneCollapsible = firstCommitClone.find('a'); // found collapsible section element
+              cloneCollapsible.attr('data-target', cloneCollapsible.attr('data-target') + 1);
+              var cloneTarget = firstCommitClone.find('.sublinks'); // found section contents element
+              cloneTarget.attr('id', cloneTarget.attr('id') + 1);
+
+              // add latest commit contents to the document
+              firstCommitClone.appendTo(latestCommitEntry);
             }
           ).fail(
             function( reason )
