@@ -186,30 +186,35 @@ function hashChange( event )
                 var commit = item.commit
                 var timestamp = new Date(item.updated).getTime()
                 var buildResult = ''
-                if( ( item.passed && ( item.built || item.built == null )) || item.built && ( item.passed || item.passed == null ) )
+                if (item.summary.status == 'Success')
                 {
                   var panelStatus = 'panel-success'
                   var textStatus = 'text-success'
-                } else {
+                } else if (item.summary.status == 'Failed') {
                   var panelStatus = 'panel-danger'
                   var textStatus = 'text-danger'
+                } else {
+                  // in progress
+                  var panelStatus = 'panel-warning'
+                  var textStatus = 'text-warning'
                 }
+
                 commitEntry += '<div class="panel ' + panelStatus + '" timestamp="' + timestamp + '"><div class="panel-body" id="commit-' + commit + '">' +
                   '<ul class="list-inline"><li class="' + textStatus + '"><strong><i class="fa fa-code-branch fa-fw"></i> ' + commit + '</strong></li></ul>' +
                   '</div><ul class="list-group">' +
                   '<a class="list-group-item" aria-expanded="false" data-toggle="collapse" data-target="#build-' + commit + key + subkey + '" data-parent="#commit-' + commit + '">' +
                   '<ul class="list-inline text-muted"><li>branch: ' + item.branch + '</li>'
-                if( item.passed)
+                if( item.summary.status == 'Success')
                 {
                   commitEntry += '<li class="text-success">test passed</li>'
-                } else if( !item.passed && item.passed != null ) {
+                } else if( !item.summary && item.summary.status == 'Failed') {
                   commitEntry += '<li class="text-danger">test failed</li>'
                 }
 
-                if( item.built )
+                if (item.summary.build.status == 'Success')
                 {
                   commitEntry += '<li>' + subkey + '&nbsp;' + key + ' build succeeded</li>'
-                } else if( !item.built && item.built != null ) {
+                } else if( !item.summary.build && item.summary.build.status == 'Failed') {
                   commitEntry += '<li>project build failed</li>'
                 }
 
@@ -310,7 +315,7 @@ function hashChange( event )
               cloneTarget.attr('id', cloneTarget.attr('id') + 1);
 
               // add latest commit contents to the document
-              firstCommitClone.appendTo(latestCommitEntry);
+              latestCommitEntry.html(firstCommitClone);
             }
           ).fail(
             function( reason )
@@ -573,7 +578,7 @@ function hashChange( event )
         for( var uri in data )
         {
           var item = data[ uri ];
-          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + JSON.stringify( item.lint_results ) + '</td><td>' + item.test_at + '</td><td>' + JSON.stringify( item.test_results ) + '</td><td>' + item.passed + '</td><td>' + item.build_at + '</td><td>' + JSON.stringify( item.build_results ) + '</td><td>' + JSON.stringify( item.package_file_map ) + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
+          commitEntries.append( '<tr><td>' + item.project + '</td><td>' + item.branch + '</td><td>' + item.commit + '</td><td>' + item.lint_at + '</td><td>' + JSON.stringify( item.lint_results ) + '</td><td>' + item.test_at + '</td><td>' + JSON.stringify( item.test_results ) + '</td><td>' + item.summary.status + '</td><td>' + item.build_at + '</td><td>' + JSON.stringify( item.build_results ) + '</td><td>' + JSON.stringify( item.package_file_map ) + '</td><td>' + item.created + '</td><td>' + item.updated + '</td></tr>' );
         }
       }
     ).fail(
