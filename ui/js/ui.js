@@ -310,7 +310,7 @@ function hashChange( event )
               cloneTarget.attr('id', cloneTarget.attr('id') + 1);
 
               // add latest commit contents to the document
-              firstCommitClone.appendTo(latestCommitEntry);
+              latestCommitEntry.html(firstCommitClone);
             }
           ).fail(
             function( reason )
